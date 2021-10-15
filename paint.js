@@ -106,6 +106,8 @@ var start = function() {
     nextPoint = computeNextPoint(i, nextPoint.x, nextPoint.y);
     //points.push(nextPoint);
   }
+  // add the last point
+  points.push(nextPoint);
 
   setDScaleVars(dContext);
 

@@ -6,6 +6,9 @@ var direction = 'R';
 const dCanvas = document.getElementById('dc');
 const dContext = dCanvas.getContext('2d');
 
+var historyParams = {};
+var historyTimeout = null;
+
 function isPrime(n) {
   if (n < 1) {
     return false;
@@ -49,7 +52,7 @@ function computeNextPoint(n, x, y) {
   return getPoint(x, y + amountToAdd);
 }
 
-var start = function() {
+function parseUrlParams() {
   // for whatever reason, using the URL hash parameters doesn't cause
   //   the page to reload and re-draw the visualization, so we will
   //   use the URL search parameters instead (and use history.pushState
@@ -91,6 +94,15 @@ var start = function() {
     }
   }
   console.log(params);
+
+  historyParams = params;
+}
+
+function start() {
+  totalLength = 0;
+  // thanks to https://stackoverflow.com/a/1232046/259456
+  points.length = 0;
+  const params = historyParams;
 
   var nextPoint = getPoint(0.0, 0.0);
   direction = "U"; // start with 'U'p
@@ -136,9 +148,19 @@ function setDScaleVars(dCtx) {
   }
 }
 
+var pushToHistory = function() {
+  history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
+  console.log("just pushed to history");
+};
 
 function drawPoints(params) {
-  history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(params).toString());
+  history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(params).toString());
+  historyParams = params;
+  if (historyTimeout !== null) {
+    window.clearTimeout(historyTimeout);
+  }
+  historyTimeout = window.setTimeout(pushToHistory, 2000);
+
   const canvas = dContext.canvas;
   const lineWidth = params.lineWidth;
   const scale = params.scale;
@@ -191,4 +213,80 @@ function drawPoints(params) {
   }
 }
 
+// apparently using float math to add 0.01 to 0.06 doesn't result in 0.07
+//   so instead we will multiply by 100, use integer math, then divide by 100
+function addParamPercentAndRound(fieldName, nPercent) {
+  if (! fieldName in historyParams) {
+    console.log("unknown params field [" + fieldName + "]");
+    return;
+  }
+  // use Math.round() instead of parseInt() because, for example:
+  //   parseInt(0.29 * 100.0)   --> 28
+  //   Math.round(0.29 * 100.0) --> 29
+  var val = Math.round(historyParams[fieldName] * 100.0);
+  val += nPercent;
+  historyParams[fieldName] = parseFloat(val / 100.0);
+}
+
+// thanks to https://stackoverflow.com/a/3396805/259456
+window.addEventListener("keydown", function(e) {
+  console.log(e.type + " - " + e.keyCode);
+
+  // for keys that change the number of points or the position of points, use
+  //start();
+  // otherwise, use
+  //drawPoints(historyParams);
+
+  if (e.keyCode == 39 /* right arrow */) {
+    addParamPercentAndRound("offsetX", -1)
+    drawPoints(historyParams);
+  } else if (e.keyCode == 68 /* a */) {
+    addParamPercentAndRound("offsetX", -10);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 76 /* l */) {
+    addParamPercentAndRound("offsetX", -50);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 37 /* left arrow */) {
+    addParamPercentAndRound("offsetX", 1);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 65 /* a */) {
+    addParamPercentAndRound("offsetX", 10);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 74 /* j */) {
+    addParamPercentAndRound("offsetX", 50);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 38 /* up arrow */) {
+    addParamPercentAndRound("offsetY", 1);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 87 /* w */) {
+    addParamPercentAndRound("offsetY", 10);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 73 /* i */) {
+    addParamPercentAndRound("offsetY", 50);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 40 /* down arrow */) {
+    addParamPercentAndRound("offsetY", -1);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 83 /* s */) {
+    addParamPercentAndRound("offsetY", -10);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 75 /* k */) {
+    addParamPercentAndRound("offsetY", -50);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 61 || e.keyCode == 107 /* plus */) {
+    addParamPercentAndRound("scale", 1);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 173 || e.keyCode == 109 /* minus */) {
+    addParamPercentAndRound("scale", -1);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 69 /* e */) {
+    addParamPercentAndRound("scale", 50);
+    drawPoints(historyParams);
+  } else if (e.keyCode == 81 /* q */) {
+    addParamPercentAndRound("scale", -50);
+    drawPoints(historyParams);
+  }
+});
+
+parseUrlParams();
 start();

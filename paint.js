@@ -8,8 +8,9 @@ const dContext = dCanvas.getContext('2d');
 
 var historyParams = {};
 var historyTimeout = null;
-
 var resizeTimeout = null;
+var helpTimeout = null;
+var helpVisible = false;
 
 function isPrime(n) {
   if (n < 1) {
@@ -213,7 +214,55 @@ function drawPoints(params) {
     lastX = x;
     lastY = y;
   }
+
+  if (helpVisible) {
+    drawHelp();
+  } else {
+    console.log("help is not visible");
+  }
 }
+
+function drawHelp() {
+  const canvas = dContext.canvas;
+  const textSize = Math.max(Math.min(canvas.width, canvas.height) / 30, 8);
+  const lines = [
+    "help   center start",
+    "H⃣            C⃣",
+    "",
+    "move        move more      move less",
+    "  W⃣             I⃣              ↑⃣",
+    "A⃣ S⃣ D⃣         J⃣ K⃣ L⃣          ←⃣ ↓⃣ →⃣",
+    "",
+    "zoom      zoom less",
+    "Q⃣   E⃣        −⃣ +⃣ "
+  ];
+
+  var helpMaxY = textSize + 10 + (lines.length * 1.25 * textSize);
+  dContext.fillStyle = "rgba(20,20,20,0.6)";
+  dContext.fillRect(0,0,canvas.width, helpMaxY);
+
+  dContext.font = textSize + 'px Monospace';
+  dContext.fillStyle = "#777777";
+  for (var i = 0; i < lines.length; i++) {
+    const lineY = textSize + 10 + (i * 1.25 * textSize);
+    dContext.fillText(lines[i], 24, lineY);
+  }
+}
+
+// enable help, draw, then re-draw without help after 10 seconds
+function activateHelp() {
+  helpVisible = true;
+  if (helpTimeout !== null) {
+    window.clearTimeout(helpTimeout);
+  }
+
+  drawPoints(historyParams);
+
+  helpTimeout = window.setTimeout(function() {
+    helpVisible = false;
+    drawPoints(historyParams);
+  }, 10000);
+};
 
 // apparently using float math to add 0.01 to 0.06 doesn't result in 0.07
 //   so instead we will multiply by 100, use integer math, then divide by 100
@@ -287,6 +336,12 @@ window.addEventListener("keydown", function(e) {
   } else if (e.keyCode == 81 /* q */) {
     addParamPercentAndRound("scale", -50);
     drawPoints(historyParams);
+  } else if (e.keyCode == 67 /* c */) {
+    historyParams.offsetX = 0.0;
+    historyParams.offsetY = 0.0;
+    drawPoints(historyParams);
+  } else if (e.keyCode == 72 /* h */) {
+    activateHelp();
   }
 });
 
@@ -303,3 +358,4 @@ window.addEventListener("resize", function() {
 
 parseUrlParams();
 start();
+activateHelp();

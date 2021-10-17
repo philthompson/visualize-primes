@@ -1,7 +1,5 @@
 const points = [];
 var totalLength = 0;
-// 'R'ight, 'L'eft, 'U'p, 'D'own
-var direction = 'R';
 
 const dCanvas = document.getElementById('dc');
 const dContext = dCanvas.getContext('2d');
@@ -11,6 +9,70 @@ var historyTimeout = null;
 var resizeTimeout = null;
 var helpTimeout = null;
 var helpVisible = false;
+
+// each "sequence" has its own "privContext" that can contain whatever data/functions
+//   it needs to compute points
+const sequences = [{
+  "name": "Prime Numbers: 1 step forward per integer, but for primes, turn 90 degrees clockwise before stepping",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+
+    // a million points takes a while to compute, at least with this
+    //   initial/naive method of computing/storing points
+    if (historyParams.n > 1000000) {
+      historyParams.n = 1000000;
+    }
+    const params = historyParams;
+
+    var nextPoint = getPoint(0.0, 0.0);
+    privContext.direction = "U"; // start with 'U'p
+
+    for (var i = 1.0; i < params.n; i+=1.0) {
+      if (isPrime(i)) {
+        //console.log(i + " is prime");
+        // only add points right before we change direction, and once at the end
+        resultPoints.push(nextPoint);
+        privContext.direction = privContext.changeDirection(privContext.direction);
+      }
+      // find the next point according to direction and current location
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      resultLength += 1;
+    }
+    // add the last point
+    resultPoints.push(nextPoint);
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  "privContext": {
+    // 'R'ight, 'L'eft, 'U'p, 'D'own
+    "direction": 'R',
+    // turn "right"
+    "changeDirection": function(dir) {
+      if (dir == "R") {
+        return "D";
+      } else if (dir == "D") {
+        return "L";
+      } else if (dir == "L") {
+        return "U";
+      } else {
+        return "R";
+      }
+    },
+    "computeNextPoint": function(dir, n, x, y) {
+      if (dir == "R") {
+        return getPoint(x + 1, y);
+      } else if (dir == "D") {
+        return getPoint(x, y - 1);
+      } else if (dir == "L") {
+        return getPoint(x - 1, y);
+      }
+      return getPoint(x, y + 1);
+    }
+  },
+}];
 
 function isPrime(n) {
   if (n < 1) {
@@ -24,35 +86,8 @@ function isPrime(n) {
   return true;
 }
 
-// turn "right"
-function changeDirection() {
-  if (direction == "R") {
-    direction = "D";
-  } else if (direction == "D") {
-    direction = "L";
-  } else if (direction == "L") {
-    direction = "U";
-  } else {
-    direction = "R";
-  }
-}
-
 function getPoint(x, y) {
   return {"x": x, "y": y};
-}
-
-function computeNextPoint(n, x, y) {
-  //var amountToAdd = n;
-  var amountToAdd = 1;
-  totalLength += amountToAdd;
-  if (direction == "R") {
-    return {"x": (x+amountToAdd), "y": y};
-  } else if (direction == "D") {
-    return {"x": x, "y": (y-amountToAdd)};
-  } else if (direction == "L") {
-    return {"x": (x-amountToAdd), "y": y};
-  }
-  return getPoint(x, y + amountToAdd);
 }
 
 function parseUrlParams() {
@@ -65,6 +100,7 @@ function parseUrlParams() {
 
   // default settings that work on my monitor
   var params = {
+    "sequence": 1,
     "v": 1,
     "n": 60000,
     "lineWidth": 1.0,
@@ -82,6 +118,9 @@ function parseUrlParams() {
 
   // only change default settings if a known version of settings is given
   if (urlParams.has('v') && urlParams.get('v') == 1) {
+    if (urlParams.has('sequence')) {
+      params.sequence = parseInt(urlParams.get('sequence'));
+    }
     if (urlParams.has('n')) {
       params.n = 1.0 * parseInt(urlParams.get('n'));
     }
@@ -110,35 +149,28 @@ function parseUrlParams() {
 }
 
 function start() {
-  totalLength = 0;
   // thanks to https://stackoverflow.com/a/1232046/259456
   points.length = 0;
-  // a million points takes a while to compute, at least with this
-  //   initial/naive method of computing/storing points
-  if (historyParams.n > 1000000) {
-    historyParams.n = 1000000;
-  }
+
   const params = historyParams;
 
-  var nextPoint = getPoint(0.0, 0.0);
-  direction = "U"; // start with 'U'p
-
-  for (var i = 1.0; i < params.n; i+=1.0) {
-    if (isPrime(i)) {
-      //console.log(i + " is prime");
-      // only add points right before we change direction, and once at the end
-      points.push(nextPoint);
-      changeDirection();
-    }
-    // find the next point according to direction and current location
-    nextPoint = computeNextPoint(i, nextPoint.x, nextPoint.y);
-    //points.push(nextPoint);
+  if (params.sequence <= 0 || params.sequence > sequences.length) {
+    console.log("invalid sequence setting.  expected integer between 1 and " + sequences.length);
+    return;
   }
-  // add the last point
-  points.push(nextPoint);
 
+  // run the selected sequence
+  const sequence = sequences[params.sequence - 1];
+  const out = sequence.computePointsAndLength(sequence.privContext);
+
+  // copy the results
+  totalLength = out.length;
+  for (var i = 0; i < out.points.length; i++) {
+    points.push(out.points[i]);
+  }
+
+  // draw the results
   setDScaleVars(dContext);
-
   drawPoints(params);
 };
 

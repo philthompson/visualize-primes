@@ -70,7 +70,9 @@ function parseUrlParams() {
     "lineWidth": 1.0,
     "scale": 1.5,
     "offsetX": 0.3,
-    "offsetY": 0.37
+    "offsetY": 0.37,
+    "lineColor": 1,
+    "bgColor": 1
   };
 
   // on my monitor, good test settings for 60,000 points
@@ -94,6 +96,12 @@ function parseUrlParams() {
     }
     if (urlParams.has('offsetY')) {
       params.offsetY = parseFloat(urlParams.get('offsetY'));
+    }
+    if (urlParams.has('lineColor')) {
+      params.lineColor = parseInt(urlParams.get('lineColor'));
+    }
+    if (urlParams.has('bgColor')) {
+      params.bgColor = parseInt(urlParams.get('bgColor'));
     }
   }
   console.log(params);
@@ -141,9 +149,15 @@ var pixelColor = function(imgData, x, y) {
   return [red, green, blue];
 }
 
-function fillBlack(ctx) {
+function fillBg(ctx) {
   var canvas = ctx.canvas;
-  ctx.fillStyle = "#000000";
+  if (historyParams.bgColor == 2) {
+    ctx.fillStyle = "#FFFFFF";
+  } else if (historyParams.bgColor == 3) {
+    ctx.fillStyle = "#777777";
+  } else {
+    ctx.fillStyle = "#000000";
+  }
   ctx.fillRect(0,0,canvas.width, canvas.height);
 }
 
@@ -152,7 +166,7 @@ function setDScaleVars(dCtx) {
   if (canvas.width != canvas.offsetWidth || canvas.height != canvas.offsetHeight) {
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
-    fillBlack(dCtx);
+    fillBg(dCtx);
   }
 }
 
@@ -160,6 +174,55 @@ var pushToHistory = function() {
   history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
   console.log("just pushed to history");
 };
+
+function getLineColor(startPercentage, colorScheme) {
+  if (colorScheme == 1) { // red -> blue -> yellow
+    if (startPercentage < 0.5) {
+      const blue = parseInt(startPercentage * 2 * 240);
+      return "rgba(" + (240 - blue) + ",0," + blue + ",1.0)";
+    } else {
+      const blue = parseInt((startPercentage - 0.5) * 2 * 240);
+      return "rgba(" + (240 - blue) + "," + (240 - blue) + "," + blue + ",1.0)";
+    }
+  } else if (colorScheme == 2) { // blue -> red
+    const red = parseInt(startPercentage * 240);
+    return "rgba(" + red + ",0," + (240 - red) + ",1.0)";
+  } else if (colorScheme == 3) { // blue -> yellow
+    const red = parseInt(startPercentage * 240);
+    return "rgba(" + red + "," + red + "," + (240 - red) + ",1.0)";
+  } else if (colorScheme == 4) { // orange -> purple
+    const blue = parseInt(startPercentage * 240);
+    return "rgba(240," + (120 - (blue/2)) + "," + blue + ",1.0)";
+  } else if (colorScheme == 5) { // light gray -> dark gray
+    const c = parseInt(startPercentage * 150);
+    return "rgba(" + (200 - c) + "," + (200 - c) + "," + (200 - c) + ",1.0)";
+  } else if (colorScheme == 6) { // red
+    const red = 200 - parseInt(startPercentage * 30);
+    return "rgba(" + red + "," + (red * 0.2) + "," + (red * 0.2) + ",1.0)";
+  } else if (colorScheme == 7) { // orange
+    const red = 200 - parseInt(startPercentage * 40);
+    return "rgba(" + red + "," + (red * 0.5) + ",0,1.0)";
+  } else if (colorScheme == 8) { // yellow
+    const red = 200 - parseInt(startPercentage * 40);
+    return "rgba(" + red + "," + red + ",0,1.0)";
+  } else if (colorScheme == 9) { // green
+    const green = 200 - parseInt(startPercentage * 40);
+    return "rgba(" + (green * 0.1) + "," + green + "," + (green * 0.1) + ",1.0)";
+  } else if (colorScheme == 10) { // blue
+    const blue = 200 - parseInt(startPercentage * 40);
+    return "rgba(" + (blue * 0.1) + "," + (blue * 0.1) + "," + blue + ",1.0)";
+  } else if (colorScheme == 11) { // purple
+    const blue = 200 - parseInt(startPercentage * 40);
+    return "rgba(" + blue + "," + (blue * 0.1) + "," + blue + ",1.0)";
+  } else if (colorScheme == 12) { // dark gray
+    const c = 60 - parseInt(startPercentage * 20);
+    return "rgba(" + c + "," + c + "," + c + ",1.0)";
+  } else if (colorScheme == 13) { // light gray
+    const c = 200 - parseInt(startPercentage * 40);
+    return "rgba(" + c + "," + c + "," + c + ",1.0)";
+  }
+  return "rgba(200,200,200,1.0)";
+}
 
 function drawPoints(params) {
   history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(params).toString());
@@ -175,7 +238,7 @@ function drawPoints(params) {
   const offsetX = canvas.width * (0.5 + params.offsetX);
   const offsetY = canvas.height * (0.5 + params.offsetY);
 
-  fillBlack(dContext);
+  fillBg(dContext);
   console.log("drawing [" + points.length + "] points with a total length of [" + totalLength + "]");
 
   var drawnLength = 0.0;
@@ -184,7 +247,6 @@ function drawPoints(params) {
   var lastY = 1.0 * offsetY;
   var segmentX = 0.0;
   var segmentY = 0.0;
-  var lineColor = "rgba(255,0,0,1.0)";
   dContext.lineWidth = lineWidth;
   dContext.lineCap = "round";
   dContext.lineJoin = "round";
@@ -193,11 +255,9 @@ function drawPoints(params) {
   for (var i = 0; i < points.length; i++) {
     var x = (points[i].x * scale) + offsetX;
     var y = (points[i].y * scale) + offsetY;
-    var redStart = parseInt((drawnLength / totalLengthScaled) * 240);
-    var blueStart = 240 - redStart;
-    // use previous point to determine how long this line segment is
-    //   and therefore how much of the overall line gradient this segment
-    //   should contain
+    // use previous point to determine how much of the overall length
+    //   we have drawn and therefore which part much of the overall
+    //   line gradient this segment should be drawn with
     if (i > 0) {
       segmentX = Math.abs(x - lastX);
       segmentY = Math.abs(y - lastY);
@@ -207,12 +267,9 @@ function drawPoints(params) {
         drawnLength += segmentX;
       }
     }
-    lineColor = "rgba(" + redStart + ",0," + blueStart + ",1.0)";
-    //console.log("line color [" + lineColor + "]");
     dContext.beginPath();
     dContext.moveTo(lastX, lastY);
-    dContext.strokeStyle = lineColor;
-    //console.log("line to (" + x + ", " + y + ")");
+    dContext.strokeStyle = getLineColor(drawnLength / totalLengthScaled, params.lineColor);
     dContext.lineTo(x, y);
     // stroke every line individually in order to do gradual color gradient
     dContext.stroke();
@@ -231,8 +288,8 @@ function drawHelp() {
   const canvas = dContext.canvas;
   const textSize = Math.max(Math.min(canvas.width, canvas.height) / 30, 8);
   const lines = [
-    "help   center start",
-    "H⃣            C⃣",
+    "help   center start    line color    bg color",
+    "H⃣            C⃣              V⃣           B⃣",
     "",
     "move        move more      move less",
     "  W⃣             I⃣              ↑⃣",
@@ -243,11 +300,11 @@ function drawHelp() {
   ];
 
   var helpMaxY = textSize + 10 + (lines.length * 1.25 * textSize);
-  dContext.fillStyle = "rgba(20,20,20,0.6)";
+  dContext.fillStyle = "rgba(40,40,40,0.6)";
   dContext.fillRect(0,0,canvas.width, helpMaxY);
 
   dContext.font = textSize + 'px Monospace';
-  dContext.fillStyle = "#777777";
+  dContext.fillStyle = "#999999";
   for (var i = 0; i < lines.length; i++) {
     const lineY = textSize + 10 + (i * 1.25 * textSize);
     dContext.fillText(lines[i], 24, lineY);
@@ -354,6 +411,18 @@ window.addEventListener("keydown", function(e) {
       historyParams.n -= 100
     }
     start();
+    drawPoints(historyParams);
+  } else if (e.keyCode == 86 /* v */) {
+    historyParams.lineColor += 1;
+    if (historyParams.lineColor > 13) {
+      historyParams.lineColor = 1;
+    }
+    drawPoints(historyParams);
+  } else if (e.keyCode == 66 /* b */) {
+    historyParams.bgColor += 1;
+    if (historyParams.bgColor > 3) {
+      historyParams.bgColor = 1;
+    }
     drawPoints(historyParams);
   } else if (e.keyCode == 72 /* h */) {
     activateHelp();

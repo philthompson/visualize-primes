@@ -105,6 +105,11 @@ function start() {
   totalLength = 0;
   // thanks to https://stackoverflow.com/a/1232046/259456
   points.length = 0;
+  // a million points takes a while to compute, at least with this
+  //   initial/naive method of computing/storing points
+  if (historyParams.n > 1000000) {
+    historyParams.n = 1000000;
+  }
   const params = historyParams;
 
   var nextPoint = getPoint(0.0, 0.0);
@@ -233,8 +238,8 @@ function drawHelp() {
     "  W⃣             I⃣              ↑⃣",
     "A⃣ S⃣ D⃣         J⃣ K⃣ L⃣          ←⃣ ↓⃣ →⃣",
     "",
-    "zoom      zoom less",
-    "Q⃣   E⃣        −⃣ +⃣ "
+    "zoom      zoom less     fewer/more points",
+    "Q⃣   E⃣        −⃣ +⃣            N⃣ M⃣ "
   ];
 
   var helpMaxY = textSize + 10 + (lines.length * 1.25 * textSize);
@@ -339,6 +344,16 @@ window.addEventListener("keydown", function(e) {
   } else if (e.keyCode == 67 /* c */) {
     historyParams.offsetX = 0.0;
     historyParams.offsetY = 0.0;
+    drawPoints(historyParams);
+  } else if (e.keyCode == 77 /* m */) {
+    historyParams.n += 500;
+    start();
+    drawPoints(historyParams);
+  } else if (e.keyCode == 78 /* n */) {
+    if (historyParams.n > 100) {
+      historyParams.n -= 100
+    }
+    start();
     drawPoints(historyParams);
   } else if (e.keyCode == 72 /* h */) {
     activateHelp();

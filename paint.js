@@ -9,6 +9,8 @@ const dContext = dCanvas.getContext('2d');
 var historyParams = {};
 var historyTimeout = null;
 
+var resizeTimeout = null;
+
 function isPrime(n) {
   if (n < 1) {
     return false;
@@ -286,6 +288,17 @@ window.addEventListener("keydown", function(e) {
     addParamPercentAndRound("scale", -50);
     drawPoints(historyParams);
   }
+});
+
+// re-draw if there's been a window resize and more than 500ms has elapsed
+window.addEventListener("resize", function() {
+  if (resizeTimeout !== null) {
+    window.clearTimeout(resizeTimeout);
+  }
+  resizeTimeout = window.setTimeout(function() {
+    setDScaleVars(dContext);
+    drawPoints(historyParams);
+  }, 500);
 });
 
 parseUrlParams();

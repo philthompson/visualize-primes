@@ -204,7 +204,7 @@ function setDScaleVars(dCtx) {
 
 var pushToHistory = function() {
   history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
-  console.log("just pushed to history");
+  //console.log("just pushed to history");
 };
 
 function getLineColor(startPercentage, colorScheme) {
@@ -311,8 +311,6 @@ function drawPoints(params) {
 
   if (helpVisible) {
     drawHelp();
-  } else {
-    console.log("help is not visible");
   }
 }
 

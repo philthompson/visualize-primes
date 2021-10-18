@@ -511,6 +511,8 @@ function drawHelp() {
   const canvas = dContext.canvas;
   const textSize = Math.max(Math.min(canvas.width, canvas.height) / 40, 8);
   const lines = [
+    "drag mouse to move, and scroll mouse wheel to zoom",
+    "",
     "help   center start    line color    bg color",
     "  H⃣          C⃣              V⃣           B⃣",
     "",
@@ -565,6 +567,11 @@ function addParamPercentAndRound(fieldName, nPercent) {
   var val = Math.round(historyParams[fieldName] * 100.0);
   val += nPercent;
   historyParams[fieldName] = parseFloat(val / 100.0);
+}
+
+function roundTo2Decimals(f) {
+  var val = Math.round(f * 100.0);
+  return parseFloat(val / 100.0);
 }
 
 function roundTo5Decimals(f) {
@@ -664,7 +671,7 @@ window.addEventListener("keydown", function(e) {
     drawPoints(historyParams);
   } else if (e.keyCode == 90 /* z */) {
     addParamPercentAndRound("lineWidth", 50);
-    if (historyParams.lineWidth > 8.0) {
+    if (historyParams.lineWidth > 20.0) {
       historyParams.lineWidth = 0.5;
     }
     drawPoints(historyParams);
@@ -707,6 +714,19 @@ dCanvas.addEventListener("mousemove", function(e) {
 });
 dCanvas.addEventListener("mouseup", function(e) {
   mouseDrag = false;
+});
+dCanvas.addEventListener("wheel", function(e) {
+  // set 48 wheelDeltaY units as 5% zoom (in or out)
+  // so -48 is 95% zoom, and +96 is 110% zoom
+  const newScale = roundTo2Decimals(historyParams.scale * (1.0 + ((e.wheelDeltaY / 48) * 0.05)));
+  if (newScale < 0.25) {
+    historyParams.scale = 0.25;
+  } else if (newScale > 500) {
+    historyParams.scale = 500.0;
+  } else {
+    historyParams.scale = newScale;
+  }
+  drawPoints(historyParams);
 });
 
 parseUrlParams();

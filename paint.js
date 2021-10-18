@@ -65,11 +65,109 @@ const sequences = [{
       if (dir == "R") {
         return getPoint(x + 1, y);
       } else if (dir == "D") {
-        return getPoint(x, y - 1);
+        return getPoint(x, y + 1);
       } else if (dir == "L") {
         return getPoint(x - 1, y);
       }
-      return getPoint(x, y + 1);
+      return getPoint(x, y - 1);
+    }
+  },
+},{
+  "name": "Prime Numbers: 1 step forward per integer, but for primes, turn 45 degrees clockwise before stepping",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+
+    // a million points takes a while to compute, at least with this
+    //   initial/naive method of computing/storing points
+    if (historyParams.n > 1000000) {
+      historyParams.n = 1000000;
+    }
+    const params = historyParams;
+
+    var nextPoint = getPoint(0.0, 0.0);
+    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
+
+    for (var i = 1.0; i < params.n; i+=1.0) {
+      if (isPrime(i)) {
+        //console.log(i + " is prime");
+        // only add points right before we change direction, and once at the end
+        resultPoints.push(nextPoint);
+        privContext.direction = privContext.changeDirection(privContext.direction);
+      }
+      // find the next point according to direction and current location
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      resultLength += 1;
+    }
+    // add the last point
+    resultPoints.push(nextPoint);
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  "privContext": {
+    // degrees clockwise, 0 is right (3 o'clock)
+    "direction": 0,
+    // turn "right"
+    "changeDirection": function(dir) {
+      var newDir = dir + 45;
+      if (newDir >= 360) {
+        return 0;
+      }
+      return newDir;
+    },
+    "computeNextPoint": function(dir, n, x, y) {
+      if (dir == 0) {
+        return getPoint(x + 1, y);
+      } else if (dir == 45) {
+        return getPoint(x + 1, y + 1);
+      } else if (dir == 90) {
+        return getPoint(x, y + 1);
+      } else if (dir == 135) {
+        return getPoint(x - 1, y + 1);
+      } else if (dir == 180) {
+        return getPoint(x - 1, y);
+      } else if (dir == 225) {
+        return getPoint(x - 1, y - 1);
+      } else if (dir == 270) {
+        return getPoint(x, y - 1);
+      }
+      return getPoint(x + 1, y - 1); // 315
+    }
+  }
+},{
+  "name": "Straight line: 1 step forward per integer",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+
+    // a million points takes a while to compute, at least with this
+    //   initial/naive method of computing/storing points
+    if (historyParams.n > 100000) {
+      historyParams.n = 100000;
+    }
+    const params = historyParams;
+
+    var nextPoint = getPoint(0.0, 0.0);
+
+    for (var i = 1.0; i < params.n; i+=1.0) {
+      resultPoints.push(nextPoint);
+      // find the next point according to direction and current location
+      nextPoint = privContext.computeNextPoint(nextPoint.x, nextPoint.y);
+      resultLength += 1;
+    }
+    // add the last point
+    resultPoints.push(nextPoint);
+
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  "privContext": {
+    "computeNextPoint": function(x, y) {
+      return getPoint(x + 1, y - 1);
     }
   },
 }];
@@ -316,7 +414,7 @@ function drawPoints(params) {
 
 function drawHelp() {
   const canvas = dContext.canvas;
-  const textSize = Math.max(Math.min(canvas.width, canvas.height) / 30, 8);
+  const textSize = Math.max(Math.min(canvas.width, canvas.height) / 40, 8);
   const lines = [
     "help   center start    line color    bg color",
     "H⃣            C⃣              V⃣           B⃣",
@@ -325,8 +423,11 @@ function drawHelp() {
     "  W⃣             I⃣              ↑⃣",
     "A⃣ S⃣ D⃣         J⃣ K⃣ L⃣          ←⃣ ↓⃣ →⃣",
     "",
-    "zoom      zoom less     fewer/more points",
-    "Q⃣   E⃣        −⃣ +⃣            N⃣ M⃣ "
+    "zoom      zoom less     ",
+    "Q⃣   E⃣        −⃣ +⃣            ",
+    "",
+    "sequence    fewer/more points",
+    "   X⃣           N⃣ M⃣ "
   ];
 
   var helpMaxY = textSize + 10 + (lines.length * 1.25 * textSize);
@@ -453,6 +554,13 @@ window.addEventListener("keydown", function(e) {
     if (historyParams.bgColor > 3) {
       historyParams.bgColor = 1;
     }
+    drawPoints(historyParams);
+  } else if (e.keyCode == 88 /* x */) {
+    historyParams.sequence += 1;
+    if (historyParams.sequence > sequences.length) {
+      historyParams.sequence = 1;
+    }
+    start();
     drawPoints(historyParams);
   } else if (e.keyCode == 72 /* h */) {
     activateHelp();

@@ -3,8 +3,12 @@ var totalLength = 0;
 
 const dCanvas = document.getElementById('dc');
 const dContext = dCanvas.getContext('2d');
+var mouseDrag = false;
+var mouseDragX = 0;
+var mouseDragY = 0;
 
 var historyParams = {};
+var replaceStateTimeout = null;
 var historyTimeout = null;
 var resizeTimeout = null;
 var helpTimeout = null;
@@ -370,8 +374,21 @@ function setDScaleVars(dCtx) {
   }
 }
 
+var replaceHistory = function() {
+  // no need to replaceState() here -- we'll replaceState() on param
+  //   changes except for mouse dragging, which happen too fast
+  history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
+  replaceStateTimeout = null;
+  //history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
+  //console.log("just pushed to history");
+};
+
 var pushToHistory = function() {
+  // no need to replaceState() here -- we'll replaceState() on param
+  //   changes except for mouse dragging, which happen too fast
+  //history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
   history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
+  historyTimeout = null;
   //console.log("just pushed to history");
 };
 
@@ -425,12 +442,20 @@ function getLineColor(startPercentage, colorScheme) {
 }
 
 function drawPoints(params) {
-  history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(params).toString());
-  historyParams = params;
-  if (historyTimeout !== null) {
-    window.clearTimeout(historyTimeout);
+  // change URL bar to reflect current params, only if no params change
+  //   for 1/4 second
+  if (replaceStateTimeout != null) {
+    window.clearTimeout(replaceStateTimeout);
   }
-  historyTimeout = window.setTimeout(pushToHistory, 2000);
+  replaceStateTimeout = window.setTimeout(replaceHistory, 250);
+
+  // add entry to browser history only if no params change for 2 seconds
+  // since the back button doesn't work with this, i'm just removing this
+  //   for now
+  //if (historyTimeout !== null) {
+  //  window.clearTimeout(historyTimeout);
+  //}
+  //historyTimeout = window.setTimeout(pushToHistory, 2000);
 
   const canvas = dContext.canvas;
   const lineWidth = params.lineWidth;
@@ -540,6 +565,11 @@ function addParamPercentAndRound(fieldName, nPercent) {
   var val = Math.round(historyParams[fieldName] * 100.0);
   val += nPercent;
   historyParams[fieldName] = parseFloat(val / 100.0);
+}
+
+function roundTo5Decimals(f) {
+  var val = Math.round(f * 100000.0);
+  return parseFloat(val / 100000.0);
 }
 
 // thanks to https://stackoverflow.com/a/3396805/259456
@@ -654,6 +684,29 @@ window.addEventListener("resize", function() {
     setDScaleVars(dContext);
     drawPoints(historyParams);
   }, 500);
+});
+
+dCanvas.addEventListener("mousedown", function(e) {
+  mouseDrag = true;
+  mouseDragX = e.pageX;
+  mouseDragY = e.pageY;
+});
+dCanvas.addEventListener("mousemove", function(e) {
+  if (!mouseDrag) {
+    return;
+  }
+  const newX = e.pageX;
+  const newY = e.pageY;
+  const diffX = (mouseDragX - newX) / dCanvas.width;
+  const diffY = (mouseDragY - newY) / dCanvas.height;
+  historyParams.offsetX = roundTo5Decimals(historyParams.offsetX - diffX);
+  historyParams.offsetY = roundTo5Decimals(historyParams.offsetY - diffY);
+  mouseDragX = newX;
+  mouseDragY = newY;
+  drawPoints(historyParams);
+});
+dCanvas.addEventListener("mouseup", function(e) {
+  mouseDrag = false;
 });
 
 parseUrlParams();

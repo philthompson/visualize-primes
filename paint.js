@@ -206,7 +206,8 @@ function parseUrlParams() {
     "offsetX": 0.3,
     "offsetY": 0.37,
     "lineColor": 1,
-    "bgColor": 1
+    "bgColor": 1,
+    "lineWidth": 1.0
   };
 
   // on my monitor, good test settings for 60,000 points
@@ -239,6 +240,9 @@ function parseUrlParams() {
     }
     if (urlParams.has('bgColor')) {
       params.bgColor = parseInt(urlParams.get('bgColor'));
+    }
+    if (urlParams.has('lineWidth')) {
+      params.lineWidth = parseFloat(urlParams.get('lineWidth'));
     }
   }
   console.log(params);
@@ -423,8 +427,8 @@ function drawHelp() {
     "  W⃣             I⃣              ↑⃣",
     "A⃣ S⃣ D⃣         J⃣ K⃣ L⃣          ←⃣ ↓⃣ →⃣",
     "",
-    "zoom      zoom less     ",
-    "Q⃣   E⃣        −⃣ +⃣            ",
+    "zoom      zoom less    line width",
+    "Q⃣   E⃣        −⃣ +⃣           Z⃣ ",
     "",
     "sequence    fewer/more points",
     "   X⃣           N⃣ M⃣ "
@@ -474,7 +478,7 @@ function addParamPercentAndRound(fieldName, nPercent) {
 
 // thanks to https://stackoverflow.com/a/3396805/259456
 window.addEventListener("keydown", function(e) {
-  console.log(e.type + " - " + e.keyCode);
+  //console.log(e.type + " - " + e.keyCode);
 
   // for keys that change the number of points or the position of points, use
   //start();
@@ -561,6 +565,12 @@ window.addEventListener("keydown", function(e) {
       historyParams.sequence = 1;
     }
     start();
+    drawPoints(historyParams);
+  } else if (e.keyCode == 90 /* z */) {
+    addParamPercentAndRound("lineWidth", 50);
+    if (historyParams.lineWidth > 8.0) {
+      historyParams.lineWidth = 0.5;
+    }
     drawPoints(historyParams);
   } else if (e.keyCode == 72 /* h */) {
     activateHelp();

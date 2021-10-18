@@ -137,37 +137,66 @@ const sequences = [{
     }
   }
 },{
-  "name": "Straight line: 1 step forward per integer",
+  "name": "Perfect Squares: 1 step forward per integer, but for squares, turn 90 degrees clockwise before stepping",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
 
     // a million points takes a while to compute, at least with this
     //   initial/naive method of computing/storing points
-    if (historyParams.n > 100000) {
-      historyParams.n = 100000;
+    if (historyParams.n > 1000000) {
+      historyParams.n = 1000000;
     }
     const params = historyParams;
 
     var nextPoint = getPoint(0.0, 0.0);
+    privContext.direction = "U"; // start with 'U'p
 
     for (var i = 1.0; i < params.n; i+=1.0) {
-      resultPoints.push(nextPoint);
+      if (privContext.isSquare(i)) {
+        // only add points right before we change direction, and once at the end
+        resultPoints.push(nextPoint);
+        privContext.direction = privContext.changeDirection(privContext.direction);
+      }
       // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(nextPoint.x, nextPoint.y);
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
       resultLength += 1;
     }
     // add the last point
     resultPoints.push(nextPoint);
-
     return {
       "points": resultPoints,
       "length": resultLength
     };
   },
   "privContext": {
-    "computeNextPoint": function(x, y) {
-      return getPoint(x + 1, y - 1);
+    // 'R'ight, 'L'eft, 'U'p, 'D'own
+    "direction": 'R',
+    // turn "right"
+    "changeDirection": function(dir) {
+      if (dir == "R") {
+        return "D";
+      } else if (dir == "D") {
+        return "L";
+      } else if (dir == "L") {
+        return "U";
+      } else {
+        return "R";
+      }
+    },
+    "computeNextPoint": function(dir, n, x, y) {
+      if (dir == "R") {
+        return getPoint(x + 1, y);
+      } else if (dir == "D") {
+        return getPoint(x, y + 1);
+      } else if (dir == "L") {
+        return getPoint(x - 1, y);
+      }
+      return getPoint(x, y - 1);
+    },
+    "isSquare": function(n) {
+      const sqrt = Math.sqrt(n);
+      return sqrt == Math.round(sqrt);
     }
   },
 }];
@@ -421,7 +450,7 @@ function drawHelp() {
   const textSize = Math.max(Math.min(canvas.width, canvas.height) / 40, 8);
   const lines = [
     "help   center start    line color    bg color",
-    "H⃣            C⃣              V⃣           B⃣",
+    "  H⃣          C⃣              V⃣           B⃣",
     "",
     "move        move more      move less",
     "  W⃣             I⃣              ↑⃣",

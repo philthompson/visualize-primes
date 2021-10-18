@@ -306,6 +306,16 @@ function parseUrlParams() {
   historyParams = params;
 }
 
+function showParameters() {
+  alert(
+    "displayed sequence:\n" +
+    sequences[historyParams.sequence-1].name + "\n" +
+    "\n" +
+    "number of displayed integers:\n" +
+    Number(historyParams.n).toLocaleString()
+  );
+}
+
 function start() {
   // thanks to https://stackoverflow.com/a/1232046/259456
   points.length = 0;
@@ -486,8 +496,8 @@ function drawHelp() {
     "zoom      zoom less    line width",
     "Q⃣   E⃣        −⃣ +⃣           Z⃣ ",
     "",
-    "sequence    fewer/more points",
-    "   X⃣           N⃣ M⃣ "
+    "show params   sequence    fewer/more points",
+    "     P⃣            X⃣           N⃣ M⃣ "
   ];
 
   var helpMaxY = textSize + 10 + (lines.length * 1.25 * textSize);
@@ -630,6 +640,8 @@ window.addEventListener("keydown", function(e) {
     drawPoints(historyParams);
   } else if (e.keyCode == 72 /* h */) {
     activateHelp();
+  } else if (e.keyCode == 80 /* p */) {
+    showParameters();
   }
 });
 

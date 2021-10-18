@@ -26,7 +26,7 @@ const sequences = [{
     const params = historyParams;
 
     var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = "U"; // start with 'U'p
+    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
 
     for (var i = 1.0; i < params.n; i+=1.0) {
       if (isPrime(i)) {
@@ -47,29 +47,14 @@ const sequences = [{
     };
   },
   "privContext": {
-    // 'R'ight, 'L'eft, 'U'p, 'D'own
-    "direction": 'R',
+    // degrees clockwise, 0 is right (3 o'clock)
+    "direction": 0,
     // turn "right"
     "changeDirection": function(dir) {
-      if (dir == "R") {
-        return "D";
-      } else if (dir == "D") {
-        return "L";
-      } else if (dir == "L") {
-        return "U";
-      } else {
-        return "R";
-      }
+      return changeDirectionDegrees(dir, 90);
     },
     "computeNextPoint": function(dir, n, x, y) {
-      if (dir == "R") {
-        return getPoint(x + 1, y);
-      } else if (dir == "D") {
-        return getPoint(x, y + 1);
-      } else if (dir == "L") {
-        return getPoint(x - 1, y);
-      }
-      return getPoint(x, y - 1);
+      return computeNextPointDegrees(dir, x, y);
     }
   },
 },{
@@ -111,29 +96,10 @@ const sequences = [{
     "direction": 0,
     // turn "right"
     "changeDirection": function(dir) {
-      var newDir = dir + 45;
-      if (newDir >= 360) {
-        return 0;
-      }
-      return newDir;
+      return changeDirectionDegrees(dir, 45);
     },
     "computeNextPoint": function(dir, n, x, y) {
-      if (dir == 0) {
-        return getPoint(x + 1, y);
-      } else if (dir == 45) {
-        return getPoint(x + 1, y + 1);
-      } else if (dir == 90) {
-        return getPoint(x, y + 1);
-      } else if (dir == 135) {
-        return getPoint(x - 1, y + 1);
-      } else if (dir == 180) {
-        return getPoint(x - 1, y);
-      } else if (dir == 225) {
-        return getPoint(x - 1, y - 1);
-      } else if (dir == 270) {
-        return getPoint(x, y - 1);
-      }
-      return getPoint(x + 1, y - 1); // 315
+      return computeNextPointDegrees(dir, x, y);
     }
   }
 },{
@@ -150,7 +116,7 @@ const sequences = [{
     const params = historyParams;
 
     var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = "U"; // start with 'U'p
+    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
 
     for (var i = 1.0; i < params.n; i+=1.0) {
       if (privContext.isSquare(i)) {
@@ -170,29 +136,14 @@ const sequences = [{
     };
   },
   "privContext": {
-    // 'R'ight, 'L'eft, 'U'p, 'D'own
-    "direction": 'R',
+    // degrees clockwise, 0 is right (3 o'clock)
+    "direction": 0,
     // turn "right"
     "changeDirection": function(dir) {
-      if (dir == "R") {
-        return "D";
-      } else if (dir == "D") {
-        return "L";
-      } else if (dir == "L") {
-        return "U";
-      } else {
-        return "R";
-      }
+      return changeDirectionDegrees(dir, 90);
     },
     "computeNextPoint": function(dir, n, x, y) {
-      if (dir == "R") {
-        return getPoint(x + 1, y);
-      } else if (dir == "D") {
-        return getPoint(x, y + 1);
-      } else if (dir == "L") {
-        return getPoint(x - 1, y);
-      }
-      return getPoint(x, y - 1);
+      return computeNextPointDegrees(dir, x, y);
     },
     "isSquare": function(n) {
       const sqrt = Math.sqrt(n);
@@ -237,29 +188,10 @@ const sequences = [{
     "direction": 0,
     // turn "right"
     "changeDirection": function(dir) {
-      var newDir = dir + 45;
-      if (newDir >= 360) {
-        return 0;
-      }
-      return newDir;
+      return changeDirectionDegrees(dir, 45);
     },
     "computeNextPoint": function(dir, n, x, y) {
-      if (dir == 0) {
-        return getPoint(x + 1, y);
-      } else if (dir == 45) {
-        return getPoint(x + 1, y + 1);
-      } else if (dir == 90) {
-        return getPoint(x, y + 1);
-      } else if (dir == 135) {
-        return getPoint(x - 1, y + 1);
-      } else if (dir == 180) {
-        return getPoint(x - 1, y);
-      } else if (dir == 225) {
-        return getPoint(x - 1, y - 1);
-      } else if (dir == 270) {
-        return getPoint(x, y - 1);
-      }
-      return getPoint(x + 1, y - 1); // 315
+      return computeNextPointDegrees(dir, x, y);
     },
     "isSquare": function(n) {
       const sqrt = Math.sqrt(n);
@@ -267,6 +199,34 @@ const sequences = [{
     }
   },
 }];
+
+function changeDirectionDegrees(dir, degrees) {
+  var newDir = dir + degrees;
+  while (newDir >= 360) {
+    newDir -= 360;
+  }
+  return newDir;
+}
+
+// 0 degrees is 3 o'clock
+function computeNextPointDegrees(dir, x, y) {
+  if (dir == 0) {
+    return getPoint(x + 1, y);
+  } else if (dir == 45) {
+    return getPoint(x + 1, y + 1);
+  } else if (dir == 90) {
+    return getPoint(x, y + 1);
+  } else if (dir == 135) {
+    return getPoint(x - 1, y + 1);
+  } else if (dir == 180) {
+    return getPoint(x - 1, y);
+  } else if (dir == 225) {
+    return getPoint(x - 1, y - 1);
+  } else if (dir == 270) {
+    return getPoint(x, y - 1);
+  }
+  return getPoint(x + 1, y - 1); // 315
+}
 
 function isPrime(n) {
   if (n < 1) {

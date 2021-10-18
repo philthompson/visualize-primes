@@ -199,6 +199,73 @@ const sequences = [{
       return sqrt == Math.round(sqrt);
     }
   },
+},{
+  "name": "Perfect Squares: 1 step forward per integer, but for squares, turn 45 degrees clockwise before stepping",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+
+    // a million points takes a while to compute, at least with this
+    //   initial/naive method of computing/storing points
+    if (historyParams.n > 1000000) {
+      historyParams.n = 1000000;
+    }
+    const params = historyParams;
+
+    var nextPoint = getPoint(0.0, 0.0);
+    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
+
+    for (var i = 1.0; i < params.n; i+=1.0) {
+      if (privContext.isSquare(i)) {
+        // only add points right before we change direction, and once at the end
+        resultPoints.push(nextPoint);
+        privContext.direction = privContext.changeDirection(privContext.direction);
+      }
+      // find the next point according to direction and current location
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      resultLength += 1;
+    }
+    // add the last point
+    resultPoints.push(nextPoint);
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  "privContext": {
+    // degrees clockwise, 0 is right (3 o'clock)
+    "direction": 0,
+    // turn "right"
+    "changeDirection": function(dir) {
+      var newDir = dir + 45;
+      if (newDir >= 360) {
+        return 0;
+      }
+      return newDir;
+    },
+    "computeNextPoint": function(dir, n, x, y) {
+      if (dir == 0) {
+        return getPoint(x + 1, y);
+      } else if (dir == 45) {
+        return getPoint(x + 1, y + 1);
+      } else if (dir == 90) {
+        return getPoint(x, y + 1);
+      } else if (dir == 135) {
+        return getPoint(x - 1, y + 1);
+      } else if (dir == 180) {
+        return getPoint(x - 1, y);
+      } else if (dir == 225) {
+        return getPoint(x - 1, y - 1);
+      } else if (dir == 270) {
+        return getPoint(x, y - 1);
+      }
+      return getPoint(x + 1, y - 1); // 315
+    },
+    "isSquare": function(n) {
+      const sqrt = Math.sqrt(n);
+      return sqrt == Math.round(sqrt);
+    }
+  },
 }];
 
 function isPrime(n) {

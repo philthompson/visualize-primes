@@ -288,7 +288,7 @@ function fillBg(ctx) {
   if (historyParams.bgColor == 2) {
     ctx.fillStyle = "#FFFFFF";
   } else if (historyParams.bgColor == 3) {
-    ctx.fillStyle = "#777777";
+    ctx.fillStyle = "#333333";
   } else {
     ctx.fillStyle = "#000000";
   }

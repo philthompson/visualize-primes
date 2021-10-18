@@ -311,7 +311,7 @@ function getLineColor(startPercentage, colorScheme) {
       const blue = parseInt(startPercentage * 2 * 240);
       return "rgba(" + (240 - blue) + ",0," + blue + ",1.0)";
     } else {
-      const blue = parseInt((startPercentage - 0.5) * 2 * 240);
+      const blue = 240 - parseInt((startPercentage - 0.5) * 2 * 240);
       return "rgba(" + (240 - blue) + "," + (240 - blue) + "," + blue + ",1.0)";
     }
   } else if (colorScheme == 2) { // blue -> red

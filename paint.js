@@ -718,6 +718,7 @@ dCanvas.addEventListener("mouseup", function(e) {
 dCanvas.addEventListener("wheel", function(e) {
   // set 48 wheelDeltaY units as 5% zoom (in or out)
   // so -48 is 95% zoom, and +96 is 110% zoom
+  const oldScale = historyParams.scale;
   const newScale = roundTo2Decimals(historyParams.scale * (1.0 + ((e.wheelDeltaY / 48) * 0.05)));
   if (newScale < 0.25) {
     historyParams.scale = 0.25;
@@ -726,6 +727,35 @@ dCanvas.addEventListener("wheel", function(e) {
   } else {
     historyParams.scale = newScale;
   }
+
+  // use mouse position when scrolling to effecively zoom in/out directly on the spot where the mouse is
+  //
+  // points are placed with:
+  //
+  // (points[i].x * scale) + (canvas.width * (0.5 + params.offsetX))
+  // any point directly under cursor, after zooming in/out, should remain exactly in place
+  //
+  // also, if the offsets are 0 and cursor is exactly over the (0,0) point, the new offsets should remain at 0
+  //
+  // algebra...
+  // (points[i].x * newScale) + (canvas.width * (0.5 + params.newOffsetX)) = (points[i].x * oldScale) + (canvas.width * (0.5 + params.oldOffsetX))
+  // (points[i].x * newScale) + (0.5*canvas.width) + (canvas.width*params.newOffsetX) = (points[i].x * oldScale) + (0.5*canvas.width) + (canvas.width*params.oldOffsetX)
+  // (points[i].x * newScale) + (canvas.width*params.newOffsetX) = (points[i].x * oldScale) + (canvas.width*params.oldOffsetX)
+  // canvas.width*params.newOffsetX = (points[i].x * oldScale) - (points[i].x * newScale) + (canvas.width*params.oldOffsetX)
+  // canvas.width*params.newOffsetX = points[i].x * (oldScale - newScale) + (canvas.width*params.oldOffsetX)
+  // params.newOffsetX = points[i].x * ((oldScale - newScale)/canvas.width) + params.oldOffsetX
+  //
+  // algebra to find the point in terms of scale, offset, and mouse position (e.g. e.pageX)
+  // (pt_x * scale) + (canvas.width * (0.5 + params.offsetX)) = mouse_x
+  // pt_x = (mouse_x - (canvas.width * (0.5 + params.offsetX)))/scale
+
+  // this is a mess, but it works
+  // this might be able to be simplified...
+  const newOffsetX = ((e.pageX-(dCanvas.width  * (0.5 + historyParams.offsetX)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.width)  + historyParams.offsetX;
+  const newOffsetY = ((e.pageY-(dCanvas.height * (0.5 + historyParams.offsetY)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.height) + historyParams.offsetY;
+  historyParams.offsetX = roundTo5Decimals(newOffsetX);
+  historyParams.offsetY = roundTo5Decimals(newOffsetY);
+
   drawPoints(historyParams);
 });
 

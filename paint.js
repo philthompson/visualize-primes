@@ -206,6 +206,234 @@ const sequences = [{
       return sqrt == Math.trunc(sqrt);
     }
   }
+},{
+  "name": "Primes-X-Y-neg-mod-3",
+  "desc": "Prime Numbers: (x,y) where Nth prime is X and (N+1)th prime is Y, and where X is negated if sum of digits of X and Y mod 3 is 1, Y is negated if mod 3 is 2",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+
+    // a million points takes a while to compute, at least with this
+    //   initial/naive method of computing/storing points
+    if (historyParams.n > 1000000) {
+      historyParams.n = 1000000;
+    }
+    const params = historyParams;
+
+    var lastX = -1;
+    var lastPoint = getPoint(0.0, 0.0);
+    resultPoints.push(lastPoint);
+
+    for (var i = 1; i < params.n; i+=1) {
+      if (!isPrime(i)) {
+        continue;
+      }
+      if (lastX == -1) {
+        lastX = i;
+      } else {
+        var thisY = i;
+        const digits = (lastX.toString() + thisY.toString()).split("");
+        var digitsSum = 0;
+        for (var j = 0; j < digits.length; j++) {
+          digitsSum += digits[j];
+        }
+        // makes a pyramid
+        // const digitsSumMod4 = digitsSum % 4;
+        // if (digitsSumMod4 == 1) {
+        //   lastX = lastX * -1;
+        // } else if (digitsSumMod4 == 2) {
+        //   thisY = thisY * -1;
+        // } else if (digitsSumMod4 == 3) {
+        //   lastX = lastX * -1;
+        //   thisY = thisY * -1;
+        // }
+        const digitsSumMod4 = digitsSum % 3;
+        if (digitsSumMod4 == 1) {
+          lastX = lastX * -1;
+        } else if (digitsSumMod4 == 2) {
+          thisY = thisY * -1;
+        }
+        const nextPoint = getPoint(parseFloat(lastX), parseFloat(thisY));
+        const diffX = nextPoint.x - lastPoint.x;
+        const diffY = nextPoint.y - lastPoint.y;
+        resultLength += Math.sqrt((diffX*diffX)+(diffY*diffY));
+        resultPoints.push(nextPoint);
+        //console.log("point [" + i + "]: (" + nextPoint.x + ", " + nextPoint.y + ")");
+        lastX = -1;
+        lastPoint = nextPoint;
+      }
+    }
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  "privContext": {
+  }
+},{
+  "name": "Primes-N-Step-90-turn",
+  "desc": "Prime Numbers: n steps forward per integer, but for primes, turn 90 degrees clockwise before stepping",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+
+    // a million points takes a while to compute, at least with this
+    //   initial/naive method of computing/storing points
+    if (historyParams.n > 1000000) {
+      historyParams.n = 1000000;
+    }
+    const params = historyParams;
+
+    var nextPoint = getPoint(0.0, 0.0);
+    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
+
+    for (var i = 1; i < params.n; i+=1) {
+      if (isPrime(i)) {
+        //console.log(i + " is prime");
+        // only add points right before we change direction, and once at the end
+        resultPoints.push(nextPoint);
+        privContext.direction = privContext.changeDirection(privContext.direction);
+      }
+      // find the next point according to direction and current location
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      resultLength += i;
+    }
+    // add the last point
+    resultPoints.push(nextPoint);
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  "privContext": {
+    // degrees clockwise, 0 is right (3 o'clock)
+    "direction": 0,
+    // turn "right"
+    "changeDirection": function(dir) {
+      return changeDirectionDegrees(dir, 90);
+    },
+    "computeNextPoint": function(dir, n, x, y) {
+      return computeNextPointDegrees(dir, n, x, y);
+    }
+  }
+},{
+  "name": "Trapped-Knight",
+  "desc": "Numbered squares on a chessboard that a knight can jump to in sequence where the smallest-numbered square must be taken.  Credit to The Online Encyclopedia of Integer Sequences: https://oeis.org/A316667",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+    privContext.visitedSquares = {};
+
+    const params = historyParams;
+
+    var nextPoint = getPoint(0.0, 0.0);
+    if (!privContext.isNumberedSquare(privContext, nextPoint)) {
+      var testPoint = nextPoint;
+      privContext.trackNumberedSquare(privContext, 0, nextPoint);
+
+      var testDirection = 0;
+      var direction = 90;
+
+      // spiral out from starting square, finding coordinates of all numbered squares
+      // used trial and error to figure out how many numbered squares are needed
+      for (var i = 1; i < 3562; i+=1) {
+        testDirection = privContext.changeDirection(direction);
+        testPoint = privContext.computeNextPoint(testDirection, 1, nextPoint.x, nextPoint.y);
+        if (!privContext.isNumberedSquare(privContext, testPoint)) {
+          direction = testDirection;
+          nextPoint = testPoint;
+        } else {
+          nextPoint = privContext.computeNextPoint(direction, 1, nextPoint.x, nextPoint.y);
+        }
+        privContext.trackNumberedSquare(privContext, i, nextPoint);
+      }
+    }
+
+    var lastPoint = getPoint(0.0, 0.0);
+    resultPoints.push(lastPoint);
+    privContext.visitSquare(privContext, 0, lastPoint);
+
+    var reachable = [];
+    var lowestReachableN = -1;
+    var lowestReachableP = null;
+
+    for (var i = 0; i < params.n; i+=1) {
+      reachable = privContext.reachableSquares(lastPoint);
+      for (var j = 0; j < reachable.length; j++) {
+        if (lowestReachableN == -1 || privContext.getSquareNumber(privContext, reachable[j]) < lowestReachableN) {
+          if (!privContext.isVisited(privContext, reachable[j])) {
+            lowestReachableP = reachable[j];
+            lowestReachableN = privContext.getSquareNumber(privContext, lowestReachableP);
+          }
+        }
+      }
+      if (lowestReachableN == -1) {
+        break;
+      }
+      const diffX = lowestReachableP.x - lastPoint.x;
+      const diffY = lowestReachableP.y - lastPoint.y;
+      resultLength += Math.sqrt((diffX*diffX)+(diffY*diffY));
+
+      lastPoint = lowestReachableP;
+      resultPoints.push(lastPoint);
+      privContext.visitSquare(privContext, lowestReachableN, lastPoint);
+      lowestReachableN = -1;
+    }
+
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  "privContext": {
+    // by "x-y" coordinates, store chessboard square numbers, starting with center square at "0-0"
+    "boardPoints": {},
+    "visitedSquares": {},
+    "trackNumberedSquare": function(privContext, n, point) {
+      privContext.boardPoints[point.x + "-" + point.y] = n;
+    },
+    "isNumberedSquare": function(privContext, point) {
+      return (point.x + "-" + point.y) in privContext.boardPoints;
+    },
+    "getSquareNumber": function(privContext, point) {
+      const id = point.x + "-" + point.y;
+      if (! id in privContext.boardPoints) {
+        console.log("MISSING SQUARE - " + id);
+      }
+      return privContext.boardPoints[id];
+    },
+    "visitSquare": function(privContext, n, point) {
+      privContext.visitedSquares[point.x + "-" + point.y] = n;
+    },
+    "isVisited": function(privContext, point) {
+      return (point.x + "-" + point.y) in privContext.visitedSquares;
+    },
+    // turn "left"
+    "changeDirection": function(dir) {
+      return changeDirectionDegrees(dir, -90);
+    },
+    "computeNextPoint": function(dir, n, x, y) {
+      return computeNextPointDegrees(dir, n, x, y);
+    },
+    // from a square at point s, return the 8 squares that
+    //   a knight could jump to
+    "reachableSquares": function(s) {
+      return [
+        getPoint(s.x + 1, s.y - 2),
+        getPoint(s.x + 2, s.y - 1),
+        getPoint(s.x + 2, s.y + 1),
+        getPoint(s.x + 1, s.y + 2),
+        getPoint(s.x - 1, s.y - 2),
+        getPoint(s.x - 2, s.y - 1),
+        getPoint(s.x - 2, s.y + 1),
+        getPoint(s.x - 1, s.y + 2)
+      ];
+    },
+    "isSquare": function(n) {
+      const sqrt = Math.sqrt(n);
+      return sqrt == Math.trunc(sqrt);
+    }
+  }
 }];
 
 function changeDirectionDegrees(dir, degrees) {

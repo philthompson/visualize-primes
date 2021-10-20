@@ -436,6 +436,11 @@ const sequences = [{
   }
 }];
 
+const sequencesByName = {};
+for (var i = 0; i < sequences.length; i++) {
+  sequencesByName[sequences[i].name] = sequences[i];
+}
+
 function changeDirectionDegrees(dir, degrees) {
   var newDir = dir + degrees;
   while (newDir < 0) {
@@ -493,7 +498,7 @@ function parseUrlParams() {
 
   // default settings that work on my monitor
   var params = {
-    "sequence": 1,
+    "seq": "Primes-1-Step-90-turn",
     "v": 1,
     "n": 60000,
     "lineWidth": 1.0,
@@ -512,8 +517,13 @@ function parseUrlParams() {
 
   // only change default settings if a known version of settings is given
   if (urlParams.has('v') && urlParams.get('v') == 1) {
-    if (urlParams.has('sequence')) {
-      params.sequence = parseInt(urlParams.get('sequence'));
+    if (urlParams.has('seq')) {
+      const seq = urlParams.get('seq');
+      if (seq in sequencesByName) {
+        params.seq = seq;
+      } else {
+        alert("no such sequence [" + seq + "]");
+      }
     }
     if (urlParams.has('n')) {
       params.n = 1.0 * parseInt(urlParams.get('n'));
@@ -557,8 +567,8 @@ function parseUrlParams() {
 function showParameters() {
   alert(
     "displayed sequence:\n" +
-    sequences[historyParams.sequence-1].name + "\n" +
-    "    " + sequences[historyParams.sequence-1].desc + "\n" +
+    sequencesByName[historyParams.seq].name + "\n" +
+    "    " + sequencesByName[historyParams.seq].desc + "\n" +
     "\n" +
     "number of displayed integers:\n" +
     Number(historyParams.n).toLocaleString()
@@ -571,13 +581,13 @@ function start() {
 
   const params = historyParams;
 
-  if (params.sequence <= 0 || params.sequence > sequences.length) {
-    console.log("invalid sequence setting.  expected integer between 1 and " + sequences.length);
+  if (! params.seq in sequencesByName) {
+    console.log("invalid seq parameter: no such sequence [" + params.seq + "]");
     return;
   }
 
   // run the selected sequence
-  const sequence = sequences[params.sequence - 1];
+  const sequence = sequencesByName[params.seq];
   const out = sequence.computePointsAndLength(sequence.privContext);
 
   // copy the results
@@ -928,10 +938,18 @@ window.addEventListener("keydown", function(e) {
     }
     drawPoints(historyParams);
   } else if (e.keyCode == 88 /* x */) {
-    historyParams.sequence += 1;
-    if (historyParams.sequence > sequences.length) {
-      historyParams.sequence = 1;
+    var seqNum = -1;
+    for (var i = 0; i < sequences.length; i++) {
+      if (sequences[i].name == historyParams.seq) {
+        seqNum = i;
+        break;
+      }
     }
+    seqNum += 1;
+    if (seqNum >= sequences.length) {
+      seqNum = 0;
+    }
+    historyParams.seq = sequences[seqNum].name;
     start();
     drawPoints(historyParams);
   } else if (e.keyCode == 90 /* z */) {

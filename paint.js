@@ -670,6 +670,21 @@ const lineColorSchemes = {
       return "rgba(" + (240 - blue) + "," + (240 - blue) + "," + blue + ",1.0)";
     }
   },
+  "rbgyo": function c(startPercentage) { // red -> blue -> green -> yellow -> orange
+    if (startPercentage < 0.25) {
+      const blue = parseInt(startPercentage * 4 * 240);
+      return "rgba(" + (240 - blue) + ",0," + blue + ",1.0)";
+    } else if (startPercentage < 0.5) {
+      const green = parseInt((startPercentage - 0.25) * 4 * 240);
+      return "rgba(0," + green + "," + (240 - green) + ",1.0)";
+    } else if (startPercentage < 0.75) {
+      const red = 240 - parseInt((startPercentage - 0.5) * 4 * 240);
+      return "rgba(" + (240 - red) + "," + 240 + ",0,1.0)";
+    } else {
+      const blue = parseInt((startPercentage - 0.75) * 4 * 240);
+      return "rgba(240," + (240 - (blue/2)) + ",0,1.0)";
+    }
+  },
   "br": function c(startPercentage) { // blue -> red
     const red = parseInt(startPercentage * 240);
     return "rgba(" + red + ",0," + (240 - red) + ",1.0)";

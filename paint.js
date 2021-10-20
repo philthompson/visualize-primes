@@ -505,8 +505,8 @@ function parseUrlParams() {
     "scale": 1.5,
     "offsetX": 0.3,
     "offsetY": 0.37,
-    "lineColor": 1,
-    "bgColor": 1,
+    "lineColor": "rby",
+    "bgColor": "b",
     "lineWidth": 1.0
   };
 
@@ -541,15 +541,19 @@ function parseUrlParams() {
       params.offsetY = parseFloat(urlParams.get('offsetY'));
     }
     if (urlParams.has('lineColor')) {
-      params.lineColor = parseInt(urlParams.get('lineColor'));
-      if (params.lineColor > lineColorSchemes.length || params.lineColor < 1) {
-        params.lineColor = 1;
+      const color = urlParams.get('lineColor');
+      if (color in lineColorSchemes) {
+        params.lineColor = color;
+      } else {
+        alert("no such line color scheme [" + color + "]");
       }
     }
     if (urlParams.has('bgColor')) {
-      params.bgColor = parseInt(urlParams.get('bgColor'));
-      if (params.bgColor > 3 || params.bgColor < 1) {
-        params.bgColor = 1;
+      const color = urlParams.get('bgColor');
+      if (color in bgColorSchemes) {
+        params.bgColor = color;
+      } else {
+        alert("no such background color scheme [" + color + "]");
       }
     }
     if (urlParams.has('lineWidth')) {
@@ -608,12 +612,21 @@ var pixelColor = function(imgData, x, y) {
   return [red, green, blue];
 }
 
+const bgColorSchemes = {
+  "b": "#000000",
+  "g": "#333333",
+  "w": "#FFFFFF"
+}
+
+const bgColorSchemeNames = [];
+for (name in bgColorSchemes) {
+  bgColorSchemeNames.push(name);
+}
+
 function fillBg(ctx) {
   var canvas = ctx.canvas;
-  if (historyParams.bgColor == 2) {
-    ctx.fillStyle = "#FFFFFF";
-  } else if (historyParams.bgColor == 3) {
-    ctx.fillStyle = "#333333";
+  if (historyParams.bgColor in bgColorSchemes) {
+    ctx.fillStyle = bgColorSchemes[historyParams.bgColor];
   } else {
     ctx.fillStyle = "#000000";
   }
@@ -647,8 +660,8 @@ var pushToHistory = function() {
   //console.log("just pushed to history");
 };
 
-const lineColorSchemes = [
-  function c(startPercentage) { // 1: red -> blue -> yellow
+const lineColorSchemes = {
+  "rby": function c(startPercentage) { // red -> blue -> yellow
     if (startPercentage < 0.5) {
       const blue = parseInt(startPercentage * 2 * 240);
       return "rgba(" + (240 - blue) + ",0," + blue + ",1.0)";
@@ -656,48 +669,65 @@ const lineColorSchemes = [
       const blue = 240 - parseInt((startPercentage - 0.5) * 2 * 240);
       return "rgba(" + (240 - blue) + "," + (240 - blue) + "," + blue + ",1.0)";
     }
-  }, function c(startPercentage) { // 2: blue -> red
+  },
+  "br": function c(startPercentage) { // blue -> red
     const red = parseInt(startPercentage * 240);
     return "rgba(" + red + ",0," + (240 - red) + ",1.0)";
-  }, function c(startPercentage) { // 3: blue -> yellow
+  },
+  "by": function c(startPercentage) { // blue -> yellow
     const red = parseInt(startPercentage * 240);
     return "rgba(" + red + "," + red + "," + (240 - red) + ",1.0)";
-  }, function c(startPercentage) { // 4: orange -> purple
+  },
+  "op": function c(startPercentage) { // orange -> purple
     const blue = parseInt(startPercentage * 240);
     return "rgba(240," + (120 - (blue/2)) + "," + blue + ",1.0)";
-  }, function c(startPercentage) { // 5: light gray -> dark gray
+  },
+  "lgdg": function c(startPercentage) { // light gray -> dark gray
     const c = parseInt(startPercentage * 150);
     return "rgba(" + (200 - c) + "," + (200 - c) + "," + (200 - c) + ",1.0)";
-  }, function c(startPercentage) { // 6: red
+  },
+  "r": function c(startPercentage) { // red
     const red = 200 - parseInt(startPercentage * 30);
     return "rgba(" + red + "," + (red * 0.2) + "," + (red * 0.2) + ",1.0)";
-  }, function c(startPercentage) { // 7: orange
+  },
+  "o": function c(startPercentage) { // orange
     const red = 200 - parseInt(startPercentage * 40);
     return "rgba(" + red + "," + (red * 0.5) + ",0,1.0)";
-  }, function c(startPercentage) { // 8: yellow
+  },
+  "y": function c(startPercentage) { // yellow
     const red = 200 - parseInt(startPercentage * 40);
     return "rgba(" + red + "," + red + ",0,1.0)";
-  }, function c(startPercentage) { // 9: green
+  },
+  "g": function c(startPercentage) { // green
     const green = 200 - parseInt(startPercentage * 40);
     return "rgba(" + (green * 0.1) + "," + green + "," + (green * 0.1) + ",1.0)";
-  }, function c(startPercentage) { // 10: blue
+  },
+  "b": function c(startPercentage) { // blue
     const blue = 200 - parseInt(startPercentage * 40);
     return "rgba(" + (blue * 0.1) + "," + (blue * 0.1) + "," + blue + ",1.0)";
-  }, function c(startPercentage) { // 11: purple
+  },
+  "p": function c(startPercentage) { // purple
     const blue = 200 - parseInt(startPercentage * 40);
     return "rgba(" + blue + "," + (blue * 0.1) + "," + blue + ",1.0)";
-  }, function c(startPercentage) { // 12: dark gray
+  },
+  "dg": function c(startPercentage) { // dark gray
     const c = 60 - parseInt(startPercentage * 20);
     return "rgba(" + c + "," + c + "," + c + ",1.0)";
-  }, function c(startPercentage) { // 13: light gray
+  },
+  "lg": function c(startPercentage) { // light gray
     const c = 200 - parseInt(startPercentage * 40);
     return "rgba(" + c + "," + c + "," + c + ",1.0)";
   }
-];
+};
+
+const lineColorSchemeNames = [];
+for (name in lineColorSchemes) {
+  lineColorSchemeNames.push(name);
+}
 
 function getLineColor(startPercentage, colorScheme) {
-  if (colorScheme > 0 && colorScheme <= lineColorSchemes.length) {
-    return lineColorSchemes[colorScheme-1](startPercentage);
+  if (colorScheme in lineColorSchemes) {
+    return lineColorSchemes[colorScheme](startPercentage);
   }
   return "rgba(200,200,200,1.0)";
 }
@@ -926,16 +956,33 @@ window.addEventListener("keydown", function(e) {
     start();
     drawPoints(historyParams);
   } else if (e.keyCode == 86 /* v */) {
-    historyParams.lineColor += 1;
-    if (historyParams.lineColor > lineColorSchemes.length) {
-      historyParams.lineColor = 1;
+    var schemeNum = -1;
+    for (var i = 0; i < lineColorSchemeNames.length; i++) {
+      if (lineColorSchemeNames[i] == historyParams.lineColor) {
+        schemeNum = i;
+        break;
+      }
     }
+    schemeNum += 1;
+    if (schemeNum >= lineColorSchemeNames.length) {
+      schemeNum = 0;
+    }
+    historyParams.lineColor = lineColorSchemeNames[schemeNum];
+
     drawPoints(historyParams);
   } else if (e.keyCode == 66 /* b */) {
-    historyParams.bgColor += 1;
-    if (historyParams.bgColor > 3) {
-      historyParams.bgColor = 1;
+    var schemeNum = -1;
+    for (var i = 0; i < bgColorSchemeNames.length; i++) {
+      if (bgColorSchemeNames[i] == historyParams.bgColor) {
+        schemeNum = i;
+        break;
+      }
     }
+    schemeNum += 1;
+    if (schemeNum >= bgColorSchemeNames.length) {
+      schemeNum = 0;
+    }
+    historyParams.bgColor = bgColorSchemeNames[schemeNum];
     drawPoints(historyParams);
   } else if (e.keyCode == 88 /* x */) {
     var seqNum = -1;

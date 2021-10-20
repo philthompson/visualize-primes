@@ -297,12 +297,21 @@ function parseUrlParams() {
     }
     if (urlParams.has('lineColor')) {
       params.lineColor = parseInt(urlParams.get('lineColor'));
+      if (params.lineColor > lineColorSchemes.length || params.lineColor < 1) {
+        params.lineColor = 1;
+      }
     }
     if (urlParams.has('bgColor')) {
       params.bgColor = parseInt(urlParams.get('bgColor'));
+      if (params.bgColor > 3 || params.bgColor < 1) {
+        params.bgColor = 1;
+      }
     }
     if (urlParams.has('lineWidth')) {
       params.lineWidth = parseFloat(urlParams.get('lineWidth'));
+      if (params.lineWidth > 20.0) {
+        params.lineWidth = 20.0;
+      }
     }
   }
   console.log(params);
@@ -392,8 +401,8 @@ var pushToHistory = function() {
   //console.log("just pushed to history");
 };
 
-function getLineColor(startPercentage, colorScheme) {
-  if (colorScheme == 1) { // red -> blue -> yellow
+const lineColorSchemes = [
+  function c(startPercentage) { // 1: red -> blue -> yellow
     if (startPercentage < 0.5) {
       const blue = parseInt(startPercentage * 2 * 240);
       return "rgba(" + (240 - blue) + ",0," + blue + ",1.0)";
@@ -401,42 +410,48 @@ function getLineColor(startPercentage, colorScheme) {
       const blue = 240 - parseInt((startPercentage - 0.5) * 2 * 240);
       return "rgba(" + (240 - blue) + "," + (240 - blue) + "," + blue + ",1.0)";
     }
-  } else if (colorScheme == 2) { // blue -> red
+  }, function c(startPercentage) { // 2: blue -> red
     const red = parseInt(startPercentage * 240);
     return "rgba(" + red + ",0," + (240 - red) + ",1.0)";
-  } else if (colorScheme == 3) { // blue -> yellow
+  }, function c(startPercentage) { // 3: blue -> yellow
     const red = parseInt(startPercentage * 240);
     return "rgba(" + red + "," + red + "," + (240 - red) + ",1.0)";
-  } else if (colorScheme == 4) { // orange -> purple
+  }, function c(startPercentage) { // 4: orange -> purple
     const blue = parseInt(startPercentage * 240);
     return "rgba(240," + (120 - (blue/2)) + "," + blue + ",1.0)";
-  } else if (colorScheme == 5) { // light gray -> dark gray
+  }, function c(startPercentage) { // 5: light gray -> dark gray
     const c = parseInt(startPercentage * 150);
     return "rgba(" + (200 - c) + "," + (200 - c) + "," + (200 - c) + ",1.0)";
-  } else if (colorScheme == 6) { // red
+  }, function c(startPercentage) { // 6: red
     const red = 200 - parseInt(startPercentage * 30);
     return "rgba(" + red + "," + (red * 0.2) + "," + (red * 0.2) + ",1.0)";
-  } else if (colorScheme == 7) { // orange
+  }, function c(startPercentage) { // 7: orange
     const red = 200 - parseInt(startPercentage * 40);
     return "rgba(" + red + "," + (red * 0.5) + ",0,1.0)";
-  } else if (colorScheme == 8) { // yellow
+  }, function c(startPercentage) { // 8: yellow
     const red = 200 - parseInt(startPercentage * 40);
     return "rgba(" + red + "," + red + ",0,1.0)";
-  } else if (colorScheme == 9) { // green
+  }, function c(startPercentage) { // 9: green
     const green = 200 - parseInt(startPercentage * 40);
     return "rgba(" + (green * 0.1) + "," + green + "," + (green * 0.1) + ",1.0)";
-  } else if (colorScheme == 10) { // blue
+  }, function c(startPercentage) { // 10: blue
     const blue = 200 - parseInt(startPercentage * 40);
     return "rgba(" + (blue * 0.1) + "," + (blue * 0.1) + "," + blue + ",1.0)";
-  } else if (colorScheme == 11) { // purple
+  }, function c(startPercentage) { // 11: purple
     const blue = 200 - parseInt(startPercentage * 40);
     return "rgba(" + blue + "," + (blue * 0.1) + "," + blue + ",1.0)";
-  } else if (colorScheme == 12) { // dark gray
+  }, function c(startPercentage) { // 12: dark gray
     const c = 60 - parseInt(startPercentage * 20);
     return "rgba(" + c + "," + c + "," + c + ",1.0)";
-  } else if (colorScheme == 13) { // light gray
+  }, function c(startPercentage) { // 13: light gray
     const c = 200 - parseInt(startPercentage * 40);
     return "rgba(" + c + "," + c + "," + c + ",1.0)";
+  }
+];
+
+function getLineColor(startPercentage, colorScheme) {
+  if (colorScheme > 0 && colorScheme <= lineColorSchemes.length) {
+    return lineColorSchemes[colorScheme-1](startPercentage);
   }
   return "rgba(200,200,200,1.0)";
 }
@@ -652,7 +667,7 @@ window.addEventListener("keydown", function(e) {
     drawPoints(historyParams);
   } else if (e.keyCode == 86 /* v */) {
     historyParams.lineColor += 1;
-    if (historyParams.lineColor > 13) {
+    if (historyParams.lineColor > lineColorSchemes.length) {
       historyParams.lineColor = 1;
     }
     drawPoints(historyParams);

@@ -17,7 +17,8 @@ var helpVisible = false;
 // each "sequence" has its own "privContext" that can contain whatever data/functions
 //   it needs to compute points
 const sequences = [{
-  "name": "Prime Numbers: 1 step forward per integer, but for primes, turn 90 degrees clockwise before stepping",
+  "name": "Primes-1-Step-90-turn",
+  "desc": "Prime Numbers: 1 step forward per integer, but for primes, turn 90 degrees clockwise before stepping",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -58,56 +59,58 @@ const sequences = [{
       return changeDirectionDegrees(dir, 90);
     },
     "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, x, y);
-    }
-  },
-},{
-  "name": "Prime Numbers: 1 step forward per integer, but for primes, turn 45 degrees clockwise before stepping",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-
-    // a million points takes a while to compute, at least with this
-    //   initial/naive method of computing/storing points
-    if (historyParams.n > 1000000) {
-      historyParams.n = 1000000;
-    }
-    const params = historyParams;
-
-    var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
-
-    for (var i = 1.0; i < params.n; i+=1.0) {
-      if (isPrime(i)) {
-        //console.log(i + " is prime");
-        // only add points right before we change direction, and once at the end
-        resultPoints.push(nextPoint);
-        privContext.direction = privContext.changeDirection(privContext.direction);
-      }
-      // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
-      resultLength += 1;
-    }
-    // add the last point
-    resultPoints.push(nextPoint);
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  "privContext": {
-    // degrees clockwise, 0 is right (3 o'clock)
-    "direction": 0,
-    // turn "right"
-    "changeDirection": function(dir) {
-      return changeDirectionDegrees(dir, 45);
-    },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, x, y);
+      return computeNextPointDegrees(dir, 1, x, y);
     }
   }
 },{
-  "name": "Perfect Squares: 1 step forward per integer, but for squares, turn 90 degrees clockwise before stepping",
+  "name": "Primes-1-Step-45-turn",
+  "desc": "Prime Numbers: 1 step forward per integer, but for primes, turn 45 degrees clockwise before stepping",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+
+    // a million points takes a while to compute, at least with this
+    //   initial/naive method of computing/storing points
+    if (historyParams.n > 1000000) {
+      historyParams.n = 1000000;
+    }
+    const params = historyParams;
+
+    var nextPoint = getPoint(0.0, 0.0);
+    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
+
+    for (var i = 1.0; i < params.n; i+=1.0) {
+      if (isPrime(i)) {
+        //console.log(i + " is prime");
+        // only add points right before we change direction, and once at the end
+        resultPoints.push(nextPoint);
+        privContext.direction = privContext.changeDirection(privContext.direction);
+      }
+      // find the next point according to direction and current location
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      resultLength += 1;
+    }
+    // add the last point
+    resultPoints.push(nextPoint);
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  "privContext": {
+    // degrees clockwise, 0 is right (3 o'clock)
+    "direction": 0,
+    // turn "right"
+    "changeDirection": function(dir) {
+      return changeDirectionDegrees(dir, 45);
+    },
+    "computeNextPoint": function(dir, n, x, y) {
+      return computeNextPointDegrees(dir, 1, x, y);
+    }
+  }
+},{
+  "name": "Squares-1-Step-90-turn",
+  "desc": "Perfect Squares: 1 step forward per integer, but for squares, turn 90 degrees clockwise before stepping",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -147,15 +150,16 @@ const sequences = [{
       return changeDirectionDegrees(dir, 90);
     },
     "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, x, y);
+      return computeNextPointDegrees(dir, 1, x, y);
     },
     "isSquare": function(n) {
       const sqrt = Math.sqrt(n);
-      return sqrt == Math.round(sqrt);
+      return sqrt == Math.trunc(sqrt);
     }
-  },
+  }
 },{
-  "name": "Perfect Squares: 1 step forward per integer, but for squares, turn 45 degrees clockwise before stepping",
+  "name": "Squares-1-Step-45-turn",
+  "desc": "Perfect Squares: 1 step forward per integer, but for squares, turn 45 degrees clockwise before stepping",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -195,17 +199,20 @@ const sequences = [{
       return changeDirectionDegrees(dir, 45);
     },
     "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, x, y);
+      return computeNextPointDegrees(dir, 1, x, y);
     },
     "isSquare": function(n) {
       const sqrt = Math.sqrt(n);
-      return sqrt == Math.round(sqrt);
+      return sqrt == Math.trunc(sqrt);
     }
-  },
+  }
 }];
 
 function changeDirectionDegrees(dir, degrees) {
   var newDir = dir + degrees;
+  while (newDir < 0) {
+    newDir += 360;
+  }
   while (newDir >= 360) {
     newDir -= 360;
   }
@@ -213,23 +220,23 @@ function changeDirectionDegrees(dir, degrees) {
 }
 
 // 0 degrees is 3 o'clock
-function computeNextPointDegrees(dir, x, y) {
+function computeNextPointDegrees(dir, n, x, y) {
   if (dir == 0) {
-    return getPoint(x + 1, y);
+    return getPoint(x + n, y);
   } else if (dir == 45) {
-    return getPoint(x + 1, y + 1);
+    return getPoint(x + n, y + n);
   } else if (dir == 90) {
-    return getPoint(x, y + 1);
+    return getPoint(x, y + n);
   } else if (dir == 135) {
-    return getPoint(x - 1, y + 1);
+    return getPoint(x - n, y + n);
   } else if (dir == 180) {
-    return getPoint(x - 1, y);
+    return getPoint(x - n, y);
   } else if (dir == 225) {
-    return getPoint(x - 1, y - 1);
+    return getPoint(x - n, y - n);
   } else if (dir == 270) {
-    return getPoint(x, y - 1);
+    return getPoint(x, y - n);
   }
-  return getPoint(x + 1, y - 1); // 315
+  return getPoint(x + n, y - n); // 315
 }
 
 function isPrime(n) {
@@ -323,6 +330,7 @@ function showParameters() {
   alert(
     "displayed sequence:\n" +
     sequences[historyParams.sequence-1].name + "\n" +
+    "    " + sequences[historyParams.sequence-1].desc + "\n" +
     "\n" +
     "number of displayed integers:\n" +
     Number(historyParams.n).toLocaleString()
@@ -499,12 +507,14 @@ function drawPoints(params) {
     //   we have drawn and therefore which part much of the overall
     //   line gradient this segment should be drawn with
     if (i > 0) {
-      segmentX = Math.abs(x - lastX);
-      segmentY = Math.abs(y - lastY);
+      segmentX = x - lastX;
+      segmentY = y - lastY;
       if (segmentX == 0) {
-        drawnLength += segmentY;
+        drawnLength += Math.abs(segmentY);
+      } else if (segmentY == 0) {
+        drawnLength += Math.abs(segmentX);
       } else {
-        drawnLength += segmentX;
+        drawnLength += Math.sqrt((segmentX*segmentX)+(segmentY*segmentY));
       }
     }
     dContext.beginPath();
@@ -641,15 +651,27 @@ window.addEventListener("keydown", function(e) {
     drawPoints(historyParams);
   } else if (e.keyCode == 61 || e.keyCode == 107 /* plus */) {
     addParamPercentAndRound("scale", 1);
+    if (historyParams.scale > 500) {
+      historyParams.scale = 500;
+    }
     drawPoints(historyParams);
   } else if (e.keyCode == 173 || e.keyCode == 109 /* minus */) {
     addParamPercentAndRound("scale", -1);
+    if (historyParams.scale < 0.01) {
+      historyParams.scale = 0.01;
+    }
     drawPoints(historyParams);
   } else if (e.keyCode == 69 /* e */) {
     addParamPercentAndRound("scale", 50);
+    if (historyParams.scale > 500) {
+      historyParams.scale = 500;
+    }
     drawPoints(historyParams);
   } else if (e.keyCode == 81 /* q */) {
     addParamPercentAndRound("scale", -50);
+    if (historyParams.scale < 0) {
+      historyParams.scale = 0.01;
+    }
     drawPoints(historyParams);
   } else if (e.keyCode == 67 /* c */) {
     historyParams.offsetX = 0.0;
@@ -734,9 +756,9 @@ dCanvas.addEventListener("wheel", function(e) {
   // set 48 wheelDeltaY units as 5% zoom (in or out)
   // so -48 is 95% zoom, and +96 is 110% zoom
   const oldScale = historyParams.scale;
-  const newScale = roundTo2Decimals(historyParams.scale * (1.0 + ((e.wheelDeltaY / 48) * 0.05)));
-  if (newScale < 0.25) {
-    historyParams.scale = 0.25;
+  const newScale = roundTo5Decimals(historyParams.scale * (1.0 + ((e.wheelDeltaY / 48) * 0.05)));
+  if (newScale < 0.00005) {
+    historyParams.scale = 0.00005;
   } else if (newScale > 500) {
     historyParams.scale = 500.0;
   } else {

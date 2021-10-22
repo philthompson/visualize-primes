@@ -51,6 +51,14 @@ const sequences = [{
       "length": resultLength
     };
   },
+  // these settings are auto-applied when this sequence is activated
+  "forcedDefaults": {
+    "v": 1,
+    "n": 60000,
+    "scale": 1.2,
+    "offsetX": 0.2,
+    "offsetY": -0.3
+  },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
     "direction": 0,
@@ -97,6 +105,14 @@ const sequences = [{
       "length": resultLength
     };
   },
+  // these settings are auto-applied when this sequence is activated
+  "forcedDefaults": {
+    "v": 1,
+    "n": 60000,
+    "scale": 0.85,
+    "offsetX": -0.07,
+    "offsetY": -0.32
+  },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
     "direction": 0,
@@ -141,6 +157,14 @@ const sequences = [{
       "points": resultPoints,
       "length": resultLength
     };
+  },
+  // these settings are auto-applied when this sequence is activated
+  "forcedDefaults": {
+    "v": 1,
+    "n": 5000,
+    "scale": 6.5,
+    "offsetX": 0.0,
+    "offsetY": 0.0
   },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
@@ -190,6 +214,14 @@ const sequences = [{
       "points": resultPoints,
       "length": resultLength
     };
+  },
+  // these settings are auto-applied when this sequence is activated
+  "forcedDefaults": {
+    "v": 1,
+    "n": 5000,
+    "scale": 2.3,
+    "offsetX": 0.0,
+    "offsetY": 0.0
   },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
@@ -268,6 +300,14 @@ const sequences = [{
       "length": resultLength
     };
   },
+  // these settings are auto-applied when this sequence is activated
+  "forcedDefaults": {
+    "v": 1,
+    "n": 5000,
+    "scale": 0.08,
+    "offsetX": 0.0,
+    "offsetY": 0.0
+  },
   "privContext": {
   }
 },{
@@ -304,6 +344,14 @@ const sequences = [{
       "points": resultPoints,
       "length": resultLength
     };
+  },
+  // these settings are auto-applied when this sequence is activated
+  "forcedDefaults": {
+    "v": 1,
+    "n": 5000,
+    "scale": 15.0,
+    "offsetX": 0.0,
+    "offsetY": 0.0
   },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
@@ -393,6 +441,14 @@ const sequences = [{
       "length": resultLength
     };
   },
+  // these settings are auto-applied when this sequence is activated
+  "forcedDefaults": {
+    "v": 1,
+    "n": 2016,
+    "scale": 15.0,
+    "offsetX": 0.0,
+    "offsetY": 0.0
+  },
   "privContext": {
     // by "x-y" coordinates, store chessboard square numbers, starting with center square at "0-0"
     "boardPoints": {},
@@ -467,7 +523,11 @@ var doSomething = function(e) {
   if (newSeq == historyParams.seq) {
     return;
   }
-  historyParams.seq = newSeq;
+  //historyParams.seq = newSeq;
+  var defaults = Object.assign(historyParams, sequences[clickedId].forcedDefaults);
+  defaults.seq = newSeq;
+  replaceHistoryWithParams(defaults);
+  parseUrlParams();
   start();
   drawPoints(historyParams);
 };
@@ -681,9 +741,15 @@ function setDScaleVars(dCtx) {
   }
 }
 
-var replaceHistory = function() {
-  history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
+// this is separate so that we can call it with only a subset of params,
+//   and the rest will be populated with standard values as part of parseUrlParams()
+function replaceHistoryWithParams(params) {
+  history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(params).toString());
   replaceStateTimeout = null;
+};
+
+var replaceHistory = function() {
+  replaceHistoryWithParams(historyParams);
 };
 
 var pushToHistory = function() {
@@ -987,7 +1053,7 @@ window.addEventListener("keydown", function(e) {
     }
     historyParams.seq = sequences[seqNum].name;
     start();
-    drawPoints(historyParams);
+    //drawPoints(historyParams);
   } else if (e.keyCode == 90 /* z */) {
     addParamPercentAndRound("lineWidth", 50);
     if (historyParams.lineWidth > 20.0) {
@@ -1006,6 +1072,23 @@ window.addEventListener("keydown", function(e) {
     } else {
       openMenu();
     }
+  } else if (e.keyCode == 49 || e.keyCode == 97 /* 1 */) {
+    // seq=Primes-1-Step-90-turn&v=1&n=60000&lineWidth=1&scale=1.35&offsetX=0.22&offsetY=-0.34&lineColor=rbgyo&bgColor=b
+    replaceHistoryWithParams({
+      "seq": "Primes-1-Step-90-turn",
+      "v": 1,
+      "n": 60000,
+      "lineWidth": 1,
+      "scale": 1.35,
+      "offsetX": 0.22,
+      "offsetY": -0.34,
+      "lineColor": "rbgyo",
+      "bgColor": "b"
+    });
+    parseUrlParams();
+    start();
+  } else if (e.keyCode == 50 || e.keyCode == 98 /* 2 */) {
+  //} else if (e.keyCode == 57 || e.keyCode == 105 /* 9 */) {
   }
 });
 

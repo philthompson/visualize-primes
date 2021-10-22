@@ -18,7 +18,7 @@ var menuVisible = false;
 //   it needs to compute points
 const sequences = [{
   "name": "Primes-1-Step-90-turn",
-  "desc": "Prime Numbers: 1 step forward per integer, but for primes, turn 90 degrees clockwise before stepping",
+  "desc": "Move 1 step forward per integer, but for primes, turn 90 degrees clockwise before moving.",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -72,7 +72,9 @@ const sequences = [{
   }
 },{
   "name": "Primes-1-Step-45-turn",
-  "desc": "Prime Numbers: 1 step forward per integer, but for primes, turn 45 degrees clockwise before stepping",
+  "desc": "Move 1 step forward per integer, but for primes, turn 45 degrees clockwise before moving.  " +
+          "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
+          "moving ~1.414 steps diagonally.",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -126,7 +128,7 @@ const sequences = [{
   }
 },{
   "name": "Squares-1-Step-90-turn",
-  "desc": "Perfect Squares: 1 step forward per integer, but for squares, turn 90 degrees clockwise before stepping",
+  "desc": "Move 1 step forward per integer, but for perfect squares, turn 90 degrees clockwise before moving.",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -183,7 +185,9 @@ const sequences = [{
   }
 },{
   "name": "Squares-1-Step-45-turn",
-  "desc": "Perfect Squares: 1 step forward per integer, but for squares, turn 45 degrees clockwise before stepping",
+  "desc": "Move 1 step forward per integer, but for perfect squares, turn 45 degrees clockwise before moving.  " +
+          "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
+          "moving ~1.414 steps diagonally.",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -240,7 +244,15 @@ const sequences = [{
   }
 },{
   "name": "Primes-X-Y-neg-mod-3",
-  "desc": "Prime Numbers: (x,y) where Nth prime is X and (N+1)th prime is Y, and where X is negated if sum of digits of X and Y mod 3 is 1, Y is negated if mod 3 is 2",
+  "desc": "Where each plotted point <code>(x,y)</code> consists of the primes, in order.  " +
+          "Those points are (1,2), (3,5), (7,11), and so on.<br/><br/>" +
+          "Then we take the sum of the digits of both the <code>x</code> and <code>y</code> of each point.<br/>" +
+          "If that sum, mod 3, is 1, the <code>x</code> is negated.<br/>" +
+          "If that sum, mod 3, is 2, the <code>y</code> is negated.<br/><br/>" +
+          "After applying the negation rule, the first three plotted points become:<br/>" +
+          "<code>(1,2) → digits sum = 3&nbsp;&nbsp;→  3&nbsp;&nbsp;mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (1,2)</code><br/>" +
+          "<code>(3,5) → digits sum = 8&nbsp;&nbsp;→  8&nbsp;&nbsp;mod 3 = 2 → -y → (3,-5)</code><br/>" +
+          "<code>(7,11)→ digits sum = 18 → 18 mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (7,11)</code>",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -1037,7 +1049,7 @@ window.addEventListener("keydown", function(e) {
       "seq": "Trapped-Knight",
       "v": 1,
       "n": 2016,
-      "lineWidth": 1,
+      "lineWidth": 1.5,
       "scale": 15.0,
       "offsetX": 0.0,
       "offsetY": 0.0,

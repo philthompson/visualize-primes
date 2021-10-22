@@ -311,60 +311,6 @@ const sequences = [{
   "privContext": {
   }
 },{
-  "name": "Primes-N-Step-90-turn",
-  "desc": "Prime Numbers: n steps forward per integer, but for primes, turn 90 degrees clockwise before stepping",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-
-    // a million points takes a while to compute, at least with this
-    //   initial/naive method of computing/storing points
-    if (historyParams.n > 1000000) {
-      historyParams.n = 1000000;
-    }
-    const params = historyParams;
-
-    var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
-
-    for (var i = 1; i < params.n; i+=1) {
-      if (isPrime(i)) {
-        //console.log(i + " is prime");
-        // only add points right before we change direction, and once at the end
-        resultPoints.push(nextPoint);
-        privContext.direction = privContext.changeDirection(privContext.direction);
-      }
-      // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
-      resultLength += i;
-    }
-    // add the last point
-    resultPoints.push(nextPoint);
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this sequence is activated
-  "forcedDefaults": {
-    "v": 1,
-    "n": 5000,
-    "scale": 15.0,
-    "offsetX": 0.0,
-    "offsetY": 0.0
-  },
-  "privContext": {
-    // degrees clockwise, 0 is right (3 o'clock)
-    "direction": 0,
-    // turn "right"
-    "changeDirection": function(dir) {
-      return changeDirectionDegrees(dir, 90);
-    },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, n, x, y);
-    }
-  }
-},{
   "name": "Trapped-Knight",
   "desc": "On a chessboard, where the squares are numbered in a spiral, " +
           "find the squares a knight can jump to in sequence where the " +

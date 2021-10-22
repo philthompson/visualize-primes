@@ -330,8 +330,9 @@ const sequences = [{
           "visited squares cannot be returned to again.  After more than " +
           "2,000 jumps the knight has no valid squares to jump to, so the " +
           "sequence ends.<br/><br/>" +
-          "Credit to The Online Encyclopedia of Integer Sequences<br/>" +
+          "Credit to The Online Encyclopedia of Integer Sequences:<br/>" +
           "<a target='_blank' href='https://oeis.org/A316667'>https://oeis.org/A316667</a><br/>" +
+          "and to Numberphile:<br/>" +
           "<a target='_blank' href='https://www.youtube.com/watch?v=RGQe8waGJ4w'>https://www.youtube.com/watch?v=RGQe8waGJ4w</a>",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];

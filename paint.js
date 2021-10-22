@@ -31,7 +31,7 @@ const sequences = [{
     const params = historyParams;
 
     var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
+    privContext.direction = 0;
 
     for (var i = 1.0; i < params.n; i+=1.0) {
       if (isPrime(i)) {
@@ -87,7 +87,7 @@ const sequences = [{
     const params = historyParams;
 
     var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
+    privContext.direction = 315;
 
     for (var i = 1.0; i < params.n; i+=1.0) {
       if (isPrime(i)) {
@@ -245,14 +245,14 @@ const sequences = [{
 },{
   "name": "Primes-X-Y-neg-mod-3",
   "desc": "Where each plotted point <code>(x,y)</code> consists of the primes, in order.  " +
-          "Those points are (1,2), (3,5), (7,11), and so on.<br/><br/>" +
+          "Those points are (2,-3), (5,7), (11,13), and so on.<br/><br/>" +
           "Then we take the sum of the digits of both the <code>x</code> and <code>y</code> of each point.<br/>" +
           "If that sum, mod 3, is 1, the <code>x</code> is negated.<br/>" +
           "If that sum, mod 3, is 2, the <code>y</code> is negated.<br/><br/>" +
           "After applying the negation rule, the first three plotted points become:<br/>" +
-          "<code>(1,2) → digits sum = 3&nbsp;&nbsp;→  3&nbsp;&nbsp;mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (1,2)</code><br/>" +
-          "<code>(3,5) → digits sum = 8&nbsp;&nbsp;→  8&nbsp;&nbsp;mod 3 = 2 → -y → (3,-5)</code><br/>" +
-          "<code>(7,11)→ digits sum = 18 → 18 mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (7,11)</code>",
+          "<code>(2,-3) → sum digits = 5&nbsp;&nbsp;mod 3 = 2 → -y → (2,-3)</code><br/>" +
+          "<code>(5,7)&nbsp;&nbsp;→ sum digits = 12 mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (5,7)</code><br/>" +
+          "<code>(11,13)→ sum digits = 6&nbsp;&nbsp;mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (11,13)</code>",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -526,7 +526,7 @@ function computeNextPointDegrees(dir, n, x, y) {
 }
 
 function isPrime(n) {
-  if (n < 1) {
+  if (n < 2) {
     return false;
   }
   for (var i = 2; i < n; i++) {

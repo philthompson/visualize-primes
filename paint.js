@@ -550,18 +550,17 @@ function parseUrlParams() {
   //   up-to-date with what is being drawn without reloading the page)
   var urlParams = new URLSearchParams(document.location.search);
 
-  // default settings that work on my monitor
+  // default settings are basically preset 1
   var params = {
     "seq": "Primes-1-Step-90-turn",
     "v": 1,
     "n": 60000,
     "lineWidth": 1.0,
-    "scale": 1.5,
-    "offsetX": 0.3,
-    "offsetY": 0.37,
+    "scale": 1.35,
+    "offsetX": 0.22,
+    "offsetY": -0.34,
     "lineColor": "rby",
-    "bgColor": "b",
-    "lineWidth": 1.0
+    "bgColor": "b"
   };
 
   // on my monitor, good test settings for 60,000 points

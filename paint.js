@@ -1019,7 +1019,6 @@ window.addEventListener("keydown", function(e) {
       openMenu();
     }
   } else if (e.keyCode == 49 || e.keyCode == 97 /* 1 */) {
-    // seq=Primes-1-Step-90-turn&v=1&n=60000&lineWidth=1&scale=1.35&offsetX=0.22&offsetY=-0.34&lineColor=rbgyo&bgColor=b
     replaceHistoryWithParams({
       "seq": "Primes-1-Step-90-turn",
       "v": 1,
@@ -1034,6 +1033,33 @@ window.addEventListener("keydown", function(e) {
     parseUrlParams();
     start();
   } else if (e.keyCode == 50 || e.keyCode == 98 /* 2 */) {
+    replaceHistoryWithParams({
+      "seq": "Trapped-Knight",
+      "v": 1,
+      "n": 2016,
+      "lineWidth": 1,
+      "scale": 15.0,
+      "offsetX": 0.0,
+      "offsetY": 0.0,
+      "lineColor": "rbgyo",
+      "bgColor": "b"
+    });
+    parseUrlParams();
+    start();
+  } else if (e.keyCode == 51 || e.keyCode == 99 /* 3 */) {
+    replaceHistoryWithParams({
+      "seq": "Primes-1-Step-45-turn",
+      "v": 1,
+      "n": 32400,
+      "lineWidth": 2,
+      "scale": 10.95,
+      "offsetX": -0.30847,
+      "offsetY": -0.96171,
+      "lineColor": "rbgyo",
+      "bgColor": "b"
+    });
+    parseUrlParams();
+    start();
   //} else if (e.keyCode == 57 || e.keyCode == 105 /* 9 */) {
   }
 });

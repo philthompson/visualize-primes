@@ -900,17 +900,11 @@ window.addEventListener("keydown", function(e) {
   } else if (e.keyCode == 68 /* a */) {
     addParamPercentAndRound("offsetX", -10);
     drawPoints(historyParams);
-  } else if (e.keyCode == 76 /* l */) {
-    addParamPercentAndRound("offsetX", -50);
-    drawPoints(historyParams);
   } else if (e.keyCode == 37 /* left arrow */) {
     addParamPercentAndRound("offsetX", 1);
     drawPoints(historyParams);
   } else if (e.keyCode == 65 /* a */) {
     addParamPercentAndRound("offsetX", 10);
-    drawPoints(historyParams);
-  } else if (e.keyCode == 74 /* j */) {
-    addParamPercentAndRound("offsetX", 50);
     drawPoints(historyParams);
   } else if (e.keyCode == 38 /* up arrow */) {
     addParamPercentAndRound("offsetY", 1);
@@ -918,17 +912,11 @@ window.addEventListener("keydown", function(e) {
   } else if (e.keyCode == 87 /* w */) {
     addParamPercentAndRound("offsetY", 10);
     drawPoints(historyParams);
-  } else if (e.keyCode == 73 /* i */) {
-    addParamPercentAndRound("offsetY", 50);
-    drawPoints(historyParams);
   } else if (e.keyCode == 40 /* down arrow */) {
     addParamPercentAndRound("offsetY", -1);
     drawPoints(historyParams);
   } else if (e.keyCode == 83 /* s */) {
     addParamPercentAndRound("offsetY", -10);
-    drawPoints(historyParams);
-  } else if (e.keyCode == 75 /* k */) {
-    addParamPercentAndRound("offsetY", -50);
     drawPoints(historyParams);
   } else if (e.keyCode == 61 || e.keyCode == 107 /* plus */) {
     addParamPercentAndRound("scale", 1);

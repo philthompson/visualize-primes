@@ -11,8 +11,8 @@ var historyParams = {};
 var replaceStateTimeout = null;
 var historyTimeout = null;
 var resizeTimeout = null;
-var helpTimeout = null;
 var helpVisible = false;
+var menuVisible = false;
 
 // each "sequence" has its own "privContext" that can contain whatever data/functions
 //   it needs to compute points
@@ -318,7 +318,15 @@ const sequences = [{
   }
 },{
   "name": "Trapped-Knight",
-  "desc": "Numbered squares on a chessboard that a knight can jump to in sequence where the smallest-numbered square must be taken.  Credit to The Online Encyclopedia of Integer Sequences: https://oeis.org/A316667",
+  "desc": "On a chessboard, where the squares are numbered in a spiral, " +
+          "find the squares a knight can jump to in sequence where the " +
+          "smallest-numbered square must always be taken.  Previously-" +
+          "visited squares cannot be returned to again.  After more than " +
+          "2,000 jumps the knight has no valid squares to jump to, so the " +
+          "sequence ends.<br/><br/>" +
+          "Credit to The Online Encyclopedia of Integer Sequences<br/>" +
+          "<a target='_blank' href='https://oeis.org/A316667'>https://oeis.org/A316667</a><br/>" +
+          "<a target='_blank' href='https://www.youtube.com/watch?v=RGQe8waGJ4w'>https://www.youtube.com/watch?v=RGQe8waGJ4w</a>",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -436,10 +444,37 @@ const sequences = [{
   }
 }];
 
+var menuHtml = "";
 const sequencesByName = {};
 for (var i = 0; i < sequences.length; i++) {
   sequencesByName[sequences[i].name] = sequences[i];
+
+  menuHtml +=
+    "<div class='sequence-desc'>" +
+      "<button class='seq-view-btn' id='seq-view-btn-" + i + "'>View</button>" +
+      "<b>" + sequences[i].name + "</b><br/>" +
+      sequences[i].desc +
+    "</div>";
 }
+document.getElementById('menu-contents').innerHTML = menuHtml;
+const viewButtons = document.getElementsByClassName("seq-view-btn");
+var doSomething = function(e) {
+  var clickedId = parseInt(e.target.id.split("-")[3]);
+  if (clickedId >= sequences.length) {
+    clickedId = 0;
+  }
+  const newSeq = sequences[clickedId].name;
+  if (newSeq == historyParams.seq) {
+    return;
+  }
+  historyParams.seq = newSeq;
+  start();
+  drawPoints(historyParams);
+};
+for (var i = 0; i < viewButtons.length; i++) {
+  viewButtons[i].addEventListener('click', doSomething);
+}
+
 
 function changeDirectionDegrees(dir, degrees) {
   var newDir = dir + degrees;
@@ -568,15 +603,17 @@ function parseUrlParams() {
   historyParams = params;
 }
 
-function showParameters() {
-  alert(
-    "displayed sequence:\n" +
-    sequencesByName[historyParams.seq].name + "\n" +
-    "    " + sequencesByName[historyParams.seq].desc + "\n" +
-    "\n" +
-    "number of displayed integers:\n" +
-    Number(historyParams.n).toLocaleString()
-  );
+function indicateActiveSequence() {
+  const buttons = document.getElementsByClassName('seq-view-btn');
+  for (var i = 0; i < buttons.length; i++) {
+    if (sequences[i].name == historyParams.seq) {
+      buttons[i].innerHTML = 'Active';
+      buttons[i].parentNode.classList.add('active-seq');
+    } else {
+      buttons[i].innerHTML = 'View';
+      buttons[i].parentNode.classList.remove('active-seq');
+    }
+  }
 }
 
 function start() {
@@ -589,6 +626,8 @@ function start() {
     console.log("invalid seq parameter: no such sequence [" + params.seq + "]");
     return;
   }
+
+  indicateActiveSequence();
 
   // run the selected sequence
   const sequence = sequencesByName[params.seq];
@@ -643,21 +682,15 @@ function setDScaleVars(dCtx) {
 }
 
 var replaceHistory = function() {
-  // no need to replaceState() here -- we'll replaceState() on param
-  //   changes except for mouse dragging, which happen too fast
   history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
   replaceStateTimeout = null;
-  //history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
-  //console.log("just pushed to history");
 };
 
 var pushToHistory = function() {
   // no need to replaceState() here -- we'll replaceState() on param
   //   changes except for mouse dragging, which happen too fast
-  //history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
   history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
   historyTimeout = null;
-  //console.log("just pushed to history");
 };
 
 const lineColorSchemes = {
@@ -755,14 +788,6 @@ function drawPoints(params) {
   }
   replaceStateTimeout = window.setTimeout(replaceHistory, 250);
 
-  // add entry to browser history only if no params change for 2 seconds
-  // since the back button doesn't work with this, i'm just removing this
-  //   for now
-  //if (historyTimeout !== null) {
-  //  window.clearTimeout(historyTimeout);
-  //}
-  //historyTimeout = window.setTimeout(pushToHistory, 2000);
-
   const canvas = dContext.canvas;
   const lineWidth = params.lineWidth;
   const scale = params.scale;
@@ -809,58 +834,7 @@ function drawPoints(params) {
     lastX = x;
     lastY = y;
   }
-
-  if (helpVisible) {
-    drawHelp();
-  }
 }
-
-function drawHelp() {
-  const canvas = dContext.canvas;
-  const textSize = Math.max(Math.min(canvas.width, canvas.height) / 40, 8);
-  const lines = [
-    "drag mouse to move, and scroll mouse wheel to zoom",
-    "",
-    "help   center start    line color    bg color",
-    "  H⃣          C⃣              V⃣           B⃣",
-    "",
-    "move        move more      move less",
-    "  W⃣             I⃣              ↑⃣",
-    "A⃣ S⃣ D⃣         J⃣ K⃣ L⃣          ←⃣ ↓⃣ →⃣",
-    "",
-    "zoom      zoom less    line width",
-    "Q⃣   E⃣        −⃣ +⃣           Z⃣ ",
-    "",
-    "show params   sequence    fewer/more points",
-    "     P⃣            X⃣           N⃣ M⃣ "
-  ];
-
-  var helpMaxY = textSize + 10 + (lines.length * 1.25 * textSize);
-  dContext.fillStyle = "rgba(40,40,40,0.6)";
-  dContext.fillRect(0,0,canvas.width, helpMaxY);
-
-  dContext.font = textSize + 'px Monospace';
-  dContext.fillStyle = "#999999";
-  for (var i = 0; i < lines.length; i++) {
-    const lineY = textSize + 10 + (i * 1.25 * textSize);
-    dContext.fillText(lines[i], 24, lineY);
-  }
-}
-
-// enable help, draw, then re-draw without help after 10 seconds
-function activateHelp() {
-  helpVisible = true;
-  if (helpTimeout !== null) {
-    window.clearTimeout(helpTimeout);
-  }
-
-  drawPoints(historyParams);
-
-  helpTimeout = window.setTimeout(function() {
-    helpVisible = false;
-    drawPoints(historyParams);
-  }, 10000);
-};
 
 // apparently using float math to add 0.01 to 0.06 doesn't result in 0.07
 //   so instead we will multiply by 100, use integer math, then divide by 100
@@ -1021,9 +995,17 @@ window.addEventListener("keydown", function(e) {
     }
     drawPoints(historyParams);
   } else if (e.keyCode == 72 /* h */) {
-    activateHelp();
+    if (helpVisible) {
+      closeHelpMenu();
+    } else {
+      openHelpMenu();
+    }
   } else if (e.keyCode == 80 /* p */) {
-    showParameters();
+    if (menuVisible) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
   }
 });
 
@@ -1104,6 +1086,46 @@ dCanvas.addEventListener("wheel", function(e) {
   drawPoints(historyParams);
 });
 
+document.getElementById('menu-open').addEventListener("click", function(e) {
+  openMenu();
+}, true);
+document.getElementById('menu-close').addEventListener("click", function(e) {
+  closeMenu();
+  closeHelpMenu();
+}, true);
+document.getElementById('help-menu-open').addEventListener("click", function(e) {
+  openHelpMenu();
+}, true);
+document.getElementById('help-menu-close').addEventListener("click", function(e) {
+  closeHelpMenu();
+}, true);
+
+function closeMenu() {
+  menuVisible = false;
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('menu-open-wrap').style.display = 'block';
+}
+
+function openMenu() {
+  menuVisible = true;
+  closeHelpMenu();
+  document.getElementById('menu').style.display = 'block';
+  document.getElementById('menu-open-wrap').style.display = 'none';
+}
+
+function closeHelpMenu() {
+  helpVisible = false;
+  document.getElementById('help-menu').style.display = 'none';
+  document.getElementById('menu-open-wrap').style.display = 'block';
+}
+
+function openHelpMenu() {
+  //hideHelp();
+  closeMenu();
+  helpVisible = true;
+  document.getElementById('help-menu').style.display = 'block';
+  document.getElementById('menu-open-wrap').style.display = 'none';
+}
+
 parseUrlParams();
 start();
-activateHelp();

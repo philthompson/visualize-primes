@@ -7,13 +7,126 @@
 
     <title>Primes</title>
     <style type="text/css">
-        * { border: 0 !important; margin: 0 !important; padding: 0 !important; }
+        body, html, div { border: 0; margin: 0; padding: 0; }
         body, html {  height: 100%; }
         #dc { position:absolute; width: 100%; height: 100%; z-index:10; }
+        #menu, #help-menu, #menu-open-wrap {
+            position:fixed;
+            width: 96%;
+            padding: 2%;
+            margin: 0;
+            z-index: 11;
+            color: #999999;
+            text-shadow: 0px 0px 5px #222;
+            font-family: arial;
+            font-size: 1.5rem;
+        }
+        #menu {
+          max-height: 100%;
+          /* for small screens, take up the whole width, and
+           *   for large screens, only get up to 40 chars wide
+               (thanks to https://stackoverflow.com/a/30515342/259456) */
+          max-width: 40.0rem;
+          width: 97%;
+          right: 0px;
+        }
+        #menu, #help-menu {
+            background-color: rgba(0,0,0,0.8);
+            display: none;
+            overflow-y: auto;
+        }
+        #menu p, #help-menu p {
+            padding-bottom: 1rem;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+        }
+        button {
+            font-size: 1rem;
+            cursor: pointer;
+            z-index: 12;
+        }
+        #menu-close, #help-menu-close, #menu-open-wrap span {
+            color: #aaa;
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-top: -.7rem;
+            cursor: pointer;
+            z-index: 12;
+        }
+        #help-menu {
+          font-family: monospace;
+          padding-left: 2.0rem;
+        }
+        #help-menu div {
+          float: left;
+          margin-right: 4.0rem;
+        }
+        #menu-contents {
+        }
+        .sequence-desc {
+          padding-top: 0.7rem;
+          padding-bottom: 0.7rem;
+          /* cursor: pointer; */
+          font-size: 1.2rem;
+          border-top: 0.1rem solid rgba(200,200,200,0.3);
+          /* display: grid; */
+        }
+        .sequence-desc button {
+          margin-right: 1.5rem;
+          margin-left: 0.5rem;
+          float: left;
+        }
+        .sequence-desc.active-seq {
+          background-color: rgba(50, 50, 50, 0.7);
+          color: #ccc;
+        }
+        .fixed-top-right-btn {
+          position: fixed;
+          right: 2.0rem;
+          top: 2.0rem;
+        }
+        .fixed-top-left-btn {
+          position: fixed;
+          left: 2.0rem;
+          top: 2.0rem;
+        }
     </style>
   </head>
   <body>
     <canvas id="dc"></canvas>
+    <div id="menu-open-wrap">
+        <span class="fixed-top-left-btn" id="help-menu-open">?⃣</span>
+        <span class="fixed-top-right-btn" id="menu-open">𑁔</span>
+    </div>
+    <div id="menu">
+        <span style="position: fixed; right: 2.0rem; top: 2.0rem;" id="menu-close">×</span>
+        <p style="padding-right: 4rem;"c>Use a "View" button below to select a sequence.  Or, use the&nbsp;&nbsp;X⃣&nbsp;&nbsp;key to change sequence.
+        <div id="menu-contents"></div>
+    </div>
+    <div id="help-menu">
+        <span style="position: fixed; right: 2.0rem; top: 2.0rem;" id="help-menu-close">×</span>
+        <p style="margin-left: -1.0rem">mouse</p>
+        <p>
+          drag mouse to move &mdash; scroll mouse wheel to zoom
+        </p>
+        <p style="margin-left: -1.0rem">keyboard</p>
+        <div>help<br/>&nbsp;H⃣</div>
+        <div>center&nbsp;start<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;C⃣</div>
+        <div>line&nbsp;color<br/>&nbsp;&nbsp;&nbsp;&nbsp;V⃣</div>
+        <div>bg&nbsp;color<br/>&nbsp;&nbsp;&nbsp;B⃣</div>
+        <p style="clear: both"></p>
+        <div>move<br/>&nbsp;W⃣<br/>A⃣ S⃣ D⃣</div>
+        <div>move&nbsp;more<br/>&nbsp;&nbsp;&nbsp;I⃣<br/>&nbsp;&nbsp;J⃣ K⃣ L⃣</div>
+        <div>move&nbsp;less<br/>&nbsp;&nbsp;&nbsp;&nbsp;↑⃣<br/>&nbsp;&nbsp;←⃣ ↓⃣ →⃣</div>
+        <p style="clear: both"></p>
+        <div>zoom<br/>Q⃣&nbsp;&nbsp;E⃣</div>
+        <div>zoom&nbsp;less<br/>&nbsp;&nbsp;&nbsp;−⃣&nbsp;+⃣</div>
+        <div>line&nbsp;width<br/>&nbsp;&nbsp;&nbsp;&nbsp;Z⃣</div>
+        <p style="clear: both"></p>
+        <div>show&nbsp;params<br/>&nbsp;&nbsp;&nbsp;&nbsp;P⃣</div>
+        <div>sequence<br/>&nbsp;&nbsp;&nbsp;&nbsp;X⃣</div>
+        <div>fewer/more&nbsp;points<br/>&nbsp;&nbsp;&nbsp;&nbsp;N⃣&nbsp;M⃣</div>
+    </div>
     <script src="paint.js"></script>
   </body>
 </html>

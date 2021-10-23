@@ -94,6 +94,24 @@
           left: 2.0rem;
           top: 2.0rem;
         }
+        #footer {
+          position:fixed;
+          display: none;
+          width: 96%;
+          height: 2rem;
+          padding: 0.5rem;
+          bottom: 0px;
+          margin: 0;
+          z-index: 11;
+          color: #999999;
+          text-shadow: 0px 0px 5px #222;
+          font-family: arial;
+          font-size: 0.9rem;
+        }
+        #footer button a {
+          text-decoration: none;
+          color: inherit;
+        }
     </style>
   </head>
   <body>
@@ -131,6 +149,10 @@
         <div>sequence<br/>&nbsp;&nbsp;&nbsp;&nbsp;X⃣</div>
         <div>line&nbsp;color<br/>&nbsp;&nbsp;&nbsp;&nbsp;V⃣</div>
         <div>bg&nbsp;color<br/>&nbsp;&nbsp;&nbsp;B⃣</div>
+    </div>
+    <div id="footer">
+      <span style="float:left"><a target="_blank" href="https://philthompson.me/">Home</a></span>
+      <button id="tip-btn" style="float:right"><a target="_blank" href="https://philthompson.me/tip-jar/">Tip Jar<a/></button>
     </div>
     <script src="paint.js"></script>
   </body>

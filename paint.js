@@ -1157,6 +1157,7 @@ document.getElementById('help-menu-close').addEventListener("click", function(e)
 
 function closeMenu() {
   menuVisible = false;
+  hideFooter();
   document.getElementById('menu').style.display = 'none';
   document.getElementById('menu-open-wrap').style.display = 'block';
 }
@@ -1164,12 +1165,14 @@ function closeMenu() {
 function openMenu() {
   menuVisible = true;
   closeHelpMenu();
+  showFooter()
   document.getElementById('menu').style.display = 'block';
   document.getElementById('menu-open-wrap').style.display = 'none';
 }
 
 function closeHelpMenu() {
   helpVisible = false;
+  hideFooter();
   document.getElementById('help-menu').style.display = 'none';
   document.getElementById('menu-open-wrap').style.display = 'block';
 }
@@ -1177,9 +1180,18 @@ function closeHelpMenu() {
 function openHelpMenu() {
   //hideHelp();
   closeMenu();
+  showFooter();
   helpVisible = true;
   document.getElementById('help-menu').style.display = 'block';
   document.getElementById('menu-open-wrap').style.display = 'none';
+}
+
+function showFooter() {
+  document.getElementById('footer').style.display = 'block';
+}
+
+function hideFooter() {
+  document.getElementById('footer').style.display = 'none';
 }
 
 parseUrlParams();

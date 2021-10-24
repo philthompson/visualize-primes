@@ -630,7 +630,7 @@ function parseUrlParams() {
     "scale": 1.35,
     "offsetX": 0.22,
     "offsetY": -0.34,
-    "lineColor": "rby",
+    "lineColor": "rbgyo",
     "bgColor": "b"
   };
 

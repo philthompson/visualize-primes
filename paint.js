@@ -6,6 +6,8 @@ const dContext = dCanvas.getContext('2d');
 var mouseDrag = false;
 var mouseDragX = 0;
 var mouseDragY = 0;
+var pinch = false;
+var pinchStartDist = 0;
 
 var historyParams = {};
 var replaceStateTimeout = null;
@@ -1075,15 +1077,32 @@ window.addEventListener("resize", function() {
   }, 500);
 });
 
-dCanvas.addEventListener("mousedown", function(e) {
+// thanks to https://stackoverflow.com/a/11183333/259456 for
+//   general ideas on pinch detection
+var mouseDownHandler = function(e) {
+  // this might help prevent strange ios/mobile weirdness
+  e.preventDefault();
+  // if 2 or more fingers touched
+  if ("touches" in e && "1" in e.touches) {
+    pinch = true;
+    pinchStartDist = Math.hypot(e.touches['0'].pageX - e.touches['1'].pageX, e.touches['0'].pageY - e.touches['1'].pageY);
+  }
   mouseDrag = true;
   mouseDragX = e.pageX;
   mouseDragY = e.pageY;
-});
-dCanvas.addEventListener("mousemove", function(e) {
+};
+dCanvas.addEventListener("mousedown", mouseDownHandler);
+dCanvas.addEventListener("touchstart", mouseDownHandler);
+
+var mouseMoveHandler = function(e) {
+  // this might help prevent strange ios/mobile weirdness
+  e.preventDefault();
   if (!mouseDrag) {
     return;
   }
+
+  // always mouse drag to perform pan, even if pinch zooming (it's nice
+  //    to be able to pinch zoom and pan in one gesture)
   const newX = e.pageX;
   const newY = e.pageY;
   const diffX = (mouseDragX - newX) / dCanvas.width;
@@ -1092,11 +1111,50 @@ dCanvas.addEventListener("mousemove", function(e) {
   historyParams.offsetY = roundTo5Decimals(historyParams.offsetY - diffY);
   mouseDragX = newX;
   mouseDragY = newY;
+
+  // if 2 or more fingers are touching, perform zoom
+  if ("touches" in e && "1" in e.touches) {
+    // calc some stuff to zoom in/out where pinch occurred
+    const midX = (e.touches['0'].pageX + e.touches['1'].pageX) / 2;
+    const midY = (e.touches['0'].pageY + e.touches['1'].pageY) / 2;
+    const oldScale = historyParams.scale;
+    // figure out percentage the fingers have moved closer/farther apart
+    const pinchDuringDist = Math.hypot(e.touches['0'].pageX - e.touches['1'].pageX, e.touches['0'].pageY - e.touches['1'].pageY);
+    const pinchRatio = pinchDuringDist / pinchStartDist;
+    // updating this this is crucial to avoid way over-zooming
+    pinchStartDist = pinchDuringDist;
+    const newScale = roundTo5Decimals(historyParams.scale * pinchRatio);
+    if (newScale < 0.00005) {
+      historyParams.scale = 0.00005;
+    } else if (newScale > 500) {
+      historyParams.scale = 500.0;
+    } else {
+      historyParams.scale = newScale;
+    }
+
+    // see "wheel" event below for explanation of centering the zoom in/out from the mouse/pinch point
+    const newOffsetX = ((midX-(dCanvas.width  * (0.5 + historyParams.offsetX)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.width)  + historyParams.offsetX;
+    const newOffsetY = ((midY-(dCanvas.height * (0.5 + historyParams.offsetY)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.height) + historyParams.offsetY;
+    historyParams.offsetX = roundTo5Decimals(newOffsetX);
+    historyParams.offsetY = roundTo5Decimals(newOffsetY);
+  }
+
   drawPoints(historyParams);
-});
-dCanvas.addEventListener("mouseup", function(e) {
+};
+dCanvas.addEventListener("mousemove", mouseMoveHandler);
+dCanvas.addEventListener("touchmove", mouseMoveHandler);
+
+var mouseUpHandler = function(e) {
+  // this might help prevent strange ios/mobile weirdness
+  e.preventDefault();
   mouseDrag = false;
-});
+  // apparently pinch zoom gestures don't really use touchend event, but it's
+  //   a good time to end a pinch gesture
+  pinch = false;
+};
+dCanvas.addEventListener("mouseup", mouseUpHandler);
+dCanvas.addEventListener("touchend", mouseUpHandler);
+
 dCanvas.addEventListener("wheel", function(e) {
   // set 48 wheelDeltaY units as 5% zoom (in or out)
   // so -48 is 95% zoom, and +96 is 110% zoom
@@ -1178,7 +1236,6 @@ function closeHelpMenu() {
 }
 
 function openHelpMenu() {
-  //hideHelp();
   closeMenu();
   showFooter();
   helpVisible = true;

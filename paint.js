@@ -528,11 +528,17 @@ function computeNextPointDegrees(dir, n, x, y) {
   return getPoint(x + n, y - n); // 315
 }
 
+// in my testing, just adding the sqrt as the iteration boundary
+//   gives the fastest primality checking
+// keeping an array of previously-found primes, and just checking
+//   modulo those, was not nearly as fast as expected and not
+//   nearly as fast as this simple function
 function isPrime(n) {
   if (n < 2) {
     return false;
   }
-  for (var i = 2; i < n; i++) {
+  const sqrtN = Math.sqrt(n);
+  for (var i = 2; i <= sqrtN; i++) {
     if (n % i == 0) {
       return false;
     }

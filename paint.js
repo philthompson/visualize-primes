@@ -300,9 +300,7 @@ const sequences = [{
           thisY = thisY * -1;
         }
         const nextPoint = getPoint(parseFloat(lastX), parseFloat(thisY));
-        const diffX = nextPoint.x - lastPoint.x;
-        const diffY = nextPoint.y - lastPoint.y;
-        resultLength += Math.sqrt((diffX*diffX)+(diffY*diffY));
+        resultLength += Math.hypot(nextPoint.x - lastPoint.x, nextPoint.y - lastPoint.y);
         resultPoints.push(nextPoint);
         //console.log("point [" + i + "]: (" + nextPoint.x + ", " + nextPoint.y + ")");
         lastX = -1;
@@ -387,9 +385,7 @@ const sequences = [{
       if (lowestReachableN == -1) {
         break;
       }
-      const diffX = lowestReachableP.x - lastPoint.x;
-      const diffY = lowestReachableP.y - lastPoint.y;
-      resultLength += Math.sqrt((diffX*diffX)+(diffY*diffY));
+      resultLength += Math.hypot(lowestReachableP.x - lastPoint.x, lowestReachableP.y - lastPoint.y);
 
       lastPoint = lowestReachableP;
       resultPoints.push(lastPoint);
@@ -921,7 +917,7 @@ function drawPoints(params) {
       } else if (segmentY == 0) {
         drawnLength += Math.abs(segmentX);
       } else {
-        drawnLength += Math.sqrt((segmentX*segmentX)+(segmentY*segmentY));
+        drawnLength += Math.hypot(segmentX, segmentY);
       }
     }
     dContext.beginPath();

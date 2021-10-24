@@ -461,7 +461,45 @@ const sequences = [{
   }
 }];
 
-var menuHtml = "";
+const presets = [{
+  "seq": "Primes-1-Step-90-turn",
+  "v": 1,
+  "n": 60000,
+  "lineWidth": 1,
+  "scale": 1.35,
+  "offsetX": 0.22,
+  "offsetY": -0.34,
+  "lineColor": "rbgyo",
+  "bgColor": "b"
+},{
+  "seq": "Trapped-Knight",
+  "v": 1,
+  "n": 2016,
+  "lineWidth": 1.5,
+  "scale": 15.0,
+  "offsetX": 0.0,
+  "offsetY": 0.0,
+  "lineColor": "rbgyo",
+  "bgColor": "b"
+},{
+  "seq": "Primes-1-Step-45-turn",
+  "v": 1,
+  "n": 32400,
+  "lineWidth": 2,
+  "scale": 10.95,
+  "offsetX": -0.30847,
+  "offsetY": -0.96171,
+  "lineColor": "rbgyo",
+  "bgColor": "b"
+}];
+
+var menuHtml =
+  "<div class='sequence-desc'>" +
+    "<b>Presets:</b>";
+for (var i = 0; i < presets.length; i++) {
+  menuHtml += "<button style='float:none; margin:0.5rem; width:2.0rem;' class='preset-view-btn' id='preset-view-btn-" + (i+1) + "'>" + (i+1) +"</button>";
+}
+menuHtml += "</div>";
 const sequencesByName = {};
 for (var i = 0; i < sequences.length; i++) {
   sequencesByName[sequences[i].name] = sequences[i];
@@ -475,7 +513,7 @@ for (var i = 0; i < sequences.length; i++) {
 }
 document.getElementById('menu-contents').innerHTML = menuHtml;
 const viewButtons = document.getElementsByClassName("seq-view-btn");
-var doSomething = function(e) {
+var activateSequenceHandler = function(e) {
   var clickedId = parseInt(e.target.id.split("-")[3]);
   if (clickedId >= sequences.length) {
     clickedId = 0;
@@ -493,7 +531,36 @@ var doSomething = function(e) {
   drawPoints(historyParams);
 };
 for (var i = 0; i < viewButtons.length; i++) {
-  viewButtons[i].addEventListener('click', doSomething);
+  viewButtons[i].addEventListener('click', activateSequenceHandler);
+}
+
+function activatePreset(presetParams) {
+  replaceHistoryWithParams(presetParams);
+  parseUrlParams();
+  start();
+}
+const presetButtons = document.getElementsByClassName("preset-view-btn");
+var activatePresetHandler = function(e) {
+  var clickedId = parseInt(e.target.id.split("-")[3]) - 1;
+  if (clickedId < 0 || clickedId >= presets.length) {
+    clickedId = 0;
+  }
+  activatePreset(presets[clickedId]);
+
+  // const newSeq = sequences[clickedId].name;
+  // if (newSeq == historyParams.seq) {
+  //   return;
+  // }
+  // //historyParams.seq = newSeq;
+  // var defaults = Object.assign(historyParams, sequences[clickedId].forcedDefaults);
+  // defaults.seq = newSeq;
+  // replaceHistoryWithParams(defaults);
+  // parseUrlParams();
+  // start();
+  // drawPoints(historyParams);
+};
+for (var i = 0; i < presetButtons.length; i++) {
+  presetButtons[i].addEventListener('click', activatePresetHandler);
 }
 
 
@@ -1027,47 +1094,11 @@ window.addEventListener("keydown", function(e) {
       openMenu();
     }
   } else if (e.keyCode == 49 || e.keyCode == 97 /* 1 */) {
-    replaceHistoryWithParams({
-      "seq": "Primes-1-Step-90-turn",
-      "v": 1,
-      "n": 60000,
-      "lineWidth": 1,
-      "scale": 1.35,
-      "offsetX": 0.22,
-      "offsetY": -0.34,
-      "lineColor": "rbgyo",
-      "bgColor": "b"
-    });
-    parseUrlParams();
-    start();
+    activatePreset(presets[0]);
   } else if (e.keyCode == 50 || e.keyCode == 98 /* 2 */) {
-    replaceHistoryWithParams({
-      "seq": "Trapped-Knight",
-      "v": 1,
-      "n": 2016,
-      "lineWidth": 1.5,
-      "scale": 15.0,
-      "offsetX": 0.0,
-      "offsetY": 0.0,
-      "lineColor": "rbgyo",
-      "bgColor": "b"
-    });
-    parseUrlParams();
-    start();
+    activatePreset(presets[1]);
   } else if (e.keyCode == 51 || e.keyCode == 99 /* 3 */) {
-    replaceHistoryWithParams({
-      "seq": "Primes-1-Step-45-turn",
-      "v": 1,
-      "n": 32400,
-      "lineWidth": 2,
-      "scale": 10.95,
-      "offsetX": -0.30847,
-      "offsetY": -0.96171,
-      "lineColor": "rbgyo",
-      "bgColor": "b"
-    });
-    parseUrlParams();
-    start();
+    activatePreset(presets[2]);
   //} else if (e.keyCode == 57 || e.keyCode == 105 /* 9 */) {
   }
 });

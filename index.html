@@ -114,18 +114,36 @@
           text-decoration: none;
           color: inherit;
         }
+        kbd {
+          border: 2px solid #555;
+          border-radius: 0.25rem;
+          padding: 0.2rem;
+          width: 1.5rem;
+          display: inline-block;
+          height: 1.5rem;
+          text-align: center;
+          font-size: 1.3rem;
+        }
+        #menu-open {
+          height: 1.5rem;
+          width: 1.7rem;
+          /* create three horizontal bars to serve as menu bar, since on linux the unicode glyph i was using didn't work */
+          background: linear-gradient(to bottom, transparent 0%, transparent 5%, #999999 5%, #999999 23%, transparent 23%, transparent 41%, #999999 41%, #999999 59%, transparent 59%, transparent 77%, #999999 77%, #999999 95%, transparent 95%, transparent 100%);
+          color: rgba(0,0,0,0) !important;
+          text-shadow: none !important;
+        }
     </style>
   </head>
   <body>
     <canvas id="dc"></canvas>
     <div id="menu-open-wrap">
-        <span class="fixed-top-left-btn" id="help-menu-open">?⃣</span>
-        <span class="fixed-top-right-btn" id="menu-open">𑁔</span>
+        <span class="fixed-top-left-btn" id="help-menu-open"><kbd>?</kbd></span>
+        <span class="fixed-top-right-btn" id="menu-open">M</span>
     </div>
     <div id="menu">
         <span style="position: fixed; right: 2.0rem; top: 2.0rem;" id="menu-close">×</span>
         <p style="padding-right: 4rem;"c>Use a "View" button below to select a sequence.  Or, use the
-          buttons below or the number keys&nbsp;&nbsp;&nbsp;1⃣&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;3⃣&nbsp;
+          buttons below or the number keys <kbd>1</kbd>&nbsp;to&nbsp;<kbd>3</kbd>
           to view presets.
         <div id="menu-contents"></div>
     </div>
@@ -136,25 +154,25 @@
           drag mouse to move &mdash; scroll mouse wheel to zoom
         </p>
         <p style="margin-left: -1.0rem">keyboard</p>
-        <div>help<br/>&nbsp;H⃣</div>
-        <div>menu<br/>&nbsp;P⃣</div>
-        <div>presets<br/>&nbsp;1⃣&nbsp;-&nbsp;3⃣</div>
-        <div>center&nbsp;start<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;C⃣</div>
+        <div>help<br/>&nbsp;<kbd>H</kbd></div>
+        <div>menu<br/>&nbsp;<kbd>P</kbd></div>
+        <div>presets<br/>&nbsp;<kbd>1</kbd>&nbsp;-&nbsp;<kbd>3</kbd></div>
+        <div>center&nbsp;start<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<kbd>C</kbd></div>
         <p style="clear: both"></p>
-        <div>move<br/>&nbsp;W⃣<br/>A⃣ S⃣ D⃣</div>
-        <div>move&nbsp;less<br/>&nbsp;&nbsp;&nbsp;&nbsp;↑⃣<br/>&nbsp;&nbsp;←⃣ ↓⃣ →⃣</div>
-        <div>zoom<br/>Q⃣&nbsp;&nbsp;E⃣</div>
-        <div>zoom&nbsp;less<br/>&nbsp;&nbsp;&nbsp;−⃣&nbsp;+⃣</div>
+        <div>move<br/>&nbsp;<kbd>W</kbd><br/><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
+        <div>move&nbsp;less<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>↑</kbd><br/>&nbsp;&nbsp;<kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></div>
+        <div>zoom<br/><kbd>Q</kbd>&nbsp;&nbsp;<kbd>E</kbd></div>
+        <div>zoom&nbsp;less<br/>&nbsp;&nbsp;&nbsp;<kbd>−</kbd>&nbsp;<kbd>+</kbd></div>
         <p style="clear: both"></p>
-        <div>line&nbsp;width<br/>&nbsp;&nbsp;&nbsp;&nbsp;Z⃣</div>
-        <div>fewer/more&nbsp;points<br/>&nbsp;&nbsp;&nbsp;&nbsp;N⃣&nbsp;M⃣</div>
+        <div>line&nbsp;width<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>Z</kbd></div>
+        <div>fewer/more&nbsp;points<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>N</kbd>&nbsp;<kbd>M</kbd></div>
         <p style="clear: both"></p>
-        <div>sequence<br/>&nbsp;&nbsp;&nbsp;&nbsp;X⃣</div>
-        <div>line&nbsp;color<br/>&nbsp;&nbsp;&nbsp;&nbsp;V⃣</div>
-        <div>bg&nbsp;color<br/>&nbsp;&nbsp;&nbsp;B⃣</div>
+        <div>sequence<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>X</kbd></div>
+        <div>line&nbsp;color<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>V</kbd></div>
+        <div>bg&nbsp;color<br/>&nbsp;&nbsp;&nbsp;<kbd>B</kbd></div>
     </div>
     <div id="footer">
-      <span style="float:left"><a target="_blank" href="https://philthompson.me/">Home</a></span>
+      <span style="float:left"><a target="_blank" href="https://philthompson.me/2021/Very-Plotter.html">What is this?</a></span>
       <button id="tip-btn" style="float:right"><a target="_blank" href="https://philthompson.me/tip-jar/">Tip Jar<a/></button>
     </div>
     <script src="paint.js"></script>

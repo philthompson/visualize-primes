@@ -25,10 +25,10 @@ const sequences = [{
     var resultPoints = [];
     var resultLength = 0;
 
-    // a million points takes a while to compute, at least with this
-    //   initial/naive method of computing/storing points
-    if (historyParams.n > 1000000) {
-      historyParams.n = 1000000;
+    // 5 million steps takes a while to compute, at least with this
+    //   method of computing primes and drawing points
+    if (historyParams.n > 5000000) {
+      historyParams.n = 5000000;
     }
     const params = historyParams;
 
@@ -81,10 +81,10 @@ const sequences = [{
     var resultPoints = [];
     var resultLength = 0;
 
-    // a million points takes a while to compute, at least with this
-    //   initial/naive method of computing/storing points
-    if (historyParams.n > 1000000) {
-      historyParams.n = 1000000;
+    // 5 million steps takes a while to compute, at least with this
+    //   imethod of computing primes and drawing points
+    if (historyParams.n > 5000000) {
+      historyParams.n = 5000000;
     }
     const params = historyParams;
 
@@ -135,8 +135,8 @@ const sequences = [{
     var resultPoints = [];
     var resultLength = 0;
 
-    // a million points takes a while to compute, at least with this
-    //   initial/naive method of computing/storing points
+    // this is a straightforward predictable plot, so there's no point in
+    //   going beyond a few thousand points let alone a million
     if (historyParams.n > 1000000) {
       historyParams.n = 1000000;
     }
@@ -194,8 +194,8 @@ const sequences = [{
     var resultPoints = [];
     var resultLength = 0;
 
-    // a million points takes a while to compute, at least with this
-    //   initial/naive method of computing/storing points
+    // this is a straightforward predictable plot, so there's no point in
+    //   going beyond a few thousand points let alone a million
     if (historyParams.n > 1000000) {
       historyParams.n = 1000000;
     }
@@ -259,8 +259,8 @@ const sequences = [{
     var resultPoints = [];
     var resultLength = 0;
 
-    // a million points takes a while to compute, at least with this
-    //   initial/naive method of computing/storing points
+    // this is a straightforward predictable plot, so there's no point in
+    //   going beyond a few thousand points let alone a million
     if (historyParams.n > 1000000) {
       historyParams.n = 1000000;
     }
@@ -650,7 +650,10 @@ function parseUrlParams() {
       }
     }
     if (urlParams.has('n')) {
-      params.n = 1.0 * parseInt(urlParams.get('n'));
+      params.n = parseInt(urlParams.get('n'));
+      if (params.n < 0) {
+        params.n = 100;
+      }
     }
     if (urlParams.has('lineWidth')) {
       params.lineWidth = parseFloat(urlParams.get('lineWidth'));

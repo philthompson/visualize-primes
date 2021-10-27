@@ -1,140 +1,153 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="description" content="prime number visualizer">
+    <meta name="description" content="visualizer for prime numbers and other mathematical sequences">
+    <meta name="keywords" content="math, charts, graphs, interactive, prime numbers, trapped knight, javascript">
+    <meta name="robots" content="all">
+    <meta name="revisit-after" content="30 days">
+    <link rel="apple-touch-icon-precomposed" sizes="144×144" href="../icon-ipad-144x144.png">
+    <link rel="apple-touch-icon-precomposed" sizes="114×114" href="../icon-iphone-114x114.png">
+    <link rel="apple-touch-icon-precomposed" href="../icon-default-57x57.png">
+    <link rel="icon" type="image/png" href="../favicon-16x16.png" sizes="16x16">
+    <link rel="icon" type="image/png" href="../favicon-192x192.png" sizes="192x192">
+    <link rel="icon" type="image/png" href="../favicon-96x96.png" sizes="96x96">
+    <link rel="icon" type="image/png" href="../favicon-64x64.png" sizes="64x64">
+    <link rel="icon" type="image/png" href="../favicon-32x32.png" sizes="32x32">
 
     <title>Very Plotter</title>
     <style type="text/css">
-        body, html, div { border: 0; margin: 0; padding: 0; }
-        /* use overflow: hidden to stop scrolling on mobile devices, thanks;
-             to https://stackoverflow.com/a/28411556/259456 */
-        body, html {  height: 100%; overflow: hidden; }
-        #dc { position:absolute; width: 100%; height: 100%; z-index:10; }
-        #menu, #help-menu, #menu-open-wrap {
-            position:fixed;
-            width: 96%;
-            padding: 2%;
-            margin: 0;
-            z-index: 11;
-            color: #999999;
-            text-shadow: 0px 0px 5px #222;
-            font-family: arial;
-            font-size: 1.5rem;
-        }
-        #menu {
-          max-height: 100%;
-          /* for small screens, take up the whole width, and
-           *   for large screens, only get up to 40 chars wide
-               (thanks to https://stackoverflow.com/a/30515342/259456) */
-          max-width: 40.0rem;
-          width: 97%;
-          right: 0px;
-        }
-        #menu, #help-menu {
-            background-color: rgba(0,0,0,0.8);
-            display: none;
-            overflow-y: auto;
-        }
-        #menu p, #help-menu p {
-            padding-bottom: 1rem;
-            margin-top: 0;
-            margin-bottom: 0.5rem;
-        }
-        button {
-            font-size: 1rem;
-            cursor: pointer;
-            z-index: 12;
-        }
-        #menu-close, #help-menu-close, #menu-open-wrap span {
-            color: #aaa;
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin-top: -.7rem;
-            cursor: pointer;
-            z-index: 12;
-        }
-        #help-menu {
-          font-family: monospace;
-          padding-left: 2.0rem;
-        }
-        #help-menu div {
-          float: left;
-          margin-right: 4.0rem;
-        }
-        #menu-contents {
-        }
-        .sequence-desc {
-          padding-top: 0.7rem;
-          padding-left: 0.5rem;
-          padding-right: 0.5rem;
-          padding-bottom: 0.7rem;
-          /* cursor: pointer; */
-          font-size: 1.2rem;
-          border-top: 0.1rem solid rgba(200,200,200,0.3);
-          /* display: grid; */
-        }
-        .sequence-desc button {
-          margin-right: 1.5rem;
-          margin-left: 0.5rem;
-          float: left;
-          padding: 0.25rem;
-        }
-        .sequence-desc.active-seq {
-          background-color: rgba(50, 50, 50, 0.5);
-          border: 0.1rem solid rgba(200,200,200,0.6);
-          color: #ccc;
-        }
-        .fixed-top-right-btn {
-          position: fixed;
-          right: 2.0rem;
-          top: 2.0rem;
-        }
-        .fixed-top-left-btn {
-          position: fixed;
-          left: 2.0rem;
-          top: 2.0rem;
-        }
-        #footer {
-          position:fixed;
-          display: none;
-          width: 96%;
-          height: 2rem;
-          padding: 0.5rem;
-          bottom: 0px;
-          margin: 0;
-          z-index: 11;
-          color: #999999;
-          text-shadow: 0px 0px 5px #222;
-          font-family: arial;
-          font-size: 0.9rem;
-        }
-        #footer button a {
-          text-decoration: none;
-          color: inherit;
-        }
-        kbd {
-          border: 2px solid #555;
-          border-radius: 0.25rem;
-          padding: 0.2rem;
-          width: 1.5rem;
-          display: inline-block;
-          height: 1.5rem;
-          text-align: center;
-          font-size: 1.3rem;
-        }
-        #menu-open {
-          height: 1.5rem;
-          width: 1.7rem;
-          /* create three horizontal bars to serve as menu bar, since on linux the unicode glyph i was using didn't work */
-          background: linear-gradient(to bottom, transparent 0%, transparent 5%, #999999 5%, #999999 23%, transparent 23%, transparent 41%, #999999 41%, #999999 59%, transparent 59%, transparent 77%, #999999 77%, #999999 95%, transparent 95%, transparent 100%);
-          color: rgba(0,0,0,0) !important;
-          text-shadow: none !important;
-        }
+    body, html, div { border: 0; margin: 0; padding: 0; }
+    /* use overflow: hidden to stop scrolling on mobile devices, thanks;
+         to https://stackoverflow.com/a/28411556/259456 */
+    body, html {  height: 100%; overflow: hidden; }
+    #dc { position:absolute; width: 100%; height: 100%; z-index:10; }
+    #menu, #help-menu, #menu-open-wrap {
+        position:fixed;
+        width: 96%;
+        padding: 2%;
+        margin: 0;
+        z-index: 11;
+        color: #999999;
+        text-shadow: 0px 0px 5px #222;
+        font-family: arial;
+        font-size: 1.5rem;
+    }
+    #menu {
+      max-height: 100%;
+      /* for small screens, take up the whole width, and
+       *   for large screens, only get up to 40 chars wide
+           (thanks to https://stackoverflow.com/a/30515342/259456) */
+      max-width: 40.0rem;
+      width: 97%;
+      right: 0px;
+    }
+    #menu, #help-menu {
+        background-color: rgba(0,0,0,0.8);
+        display: none;
+        overflow-y: auto;
+    }
+    #menu p, #help-menu p {
+        padding-bottom: 1rem;
+        margin-top: 0;
+        margin-bottom: 0.5rem;
+    }
+    button {
+        font-size: 1rem;
+        cursor: pointer;
+        z-index: 12;
+    }
+    #menu-close, #help-menu-close, #menu-open-wrap span {
+        color: #aaa;
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-top: -.7rem;
+        cursor: pointer;
+        z-index: 12;
+    }
+    #help-menu {
+      font-family: monospace;
+      padding-left: 2.0rem;
+    }
+    #help-menu div {
+      float: left;
+      margin-right: 4.0rem;
+    }
+    #menu-contents {
+    }
+    .sequence-desc {
+      padding-top: 0.7rem;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+      padding-bottom: 0.7rem;
+      /* cursor: pointer; */
+      font-size: 1.2rem;
+      border-top: 0.1rem solid rgba(200,200,200,0.3);
+      /* display: grid; */
+    }
+    .sequence-desc button {
+      margin-right: 1.5rem;
+      margin-left: 0.5rem;
+      float: left;
+      padding: 0.25rem;
+    }
+    .sequence-desc.active-seq {
+      background-color: rgba(50, 50, 50, 0.5);
+      border: 0.1rem solid rgba(200,200,200,0.6);
+      color: #ccc;
+    }
+    .fixed-top-right-btn {
+      position: fixed;
+      right: 2.0rem;
+      top: 2.0rem;
+    }
+    .fixed-top-left-btn {
+      position: fixed;
+      left: 2.0rem;
+      top: 2.0rem;
+    }
+    #footer {
+      position:fixed;
+      display: none;
+      width: 96%;
+      height: 2rem;
+      padding: 0.5rem;
+      bottom: 0px;
+      margin: 0;
+      z-index: 11;
+      color: #999999;
+      text-shadow: 0px 0px 5px #222;
+      font-family: arial;
+      font-size: 0.9rem;
+    }
+    #footer button a {
+      text-decoration: none;
+      color: inherit;
+    }
+    kbd {
+        border: 2px solid #555;
+        border-radius: 0.25rem;
+        padding: 0.2rem;
+        width: 1.5rem;
+        display: inline-block;
+        height: 1.5rem;
+        text-align: center;
+        font-size: 1.3rem;
+    }
+    #menu-open {
+        height: 1.5rem;
+        width: 1.7rem;
+        /* create three horizontal bars to serve as menu bar, since on linux the unicode glyph i was using didn't work */
+        background: linear-gradient(to bottom, transparent 0%, transparent 5%, #999999 5%, #999999 23%, transparent 23%, transparent 41%, #999999 41%, #999999 59%, transparent 59%, transparent 77%, #999999 77%, #999999 95%, transparent 95%, transparent 100%);
+        color: rgba(0,0,0,0) !important;
+        text-shadow: none !important;
+    }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <canvas id="dc"></canvas>
     <div id="menu-open-wrap">
         <span class="fixed-top-left-btn" id="help-menu-open"><kbd>?</kbd></span>
@@ -143,15 +156,15 @@
     <div id="menu">
         <span style="position: fixed; right: 2.0rem; top: 2.0rem;" id="menu-close">×</span>
         <p style="padding-right: 4rem;"c>Use a "View" button below to select a sequence.  Or, use the
-          buttons below or the number keys <kbd>1</kbd>&nbsp;to&nbsp;<kbd>3</kbd>
-          to view presets.
+        buttons below or the number keys <kbd>1</kbd>&nbsp;to&nbsp;<kbd>3</kbd>
+        to view presets.
         <div id="menu-contents"></div>
     </div>
     <div id="help-menu">
         <span style="position: fixed; right: 2.0rem; top: 2.0rem;" id="help-menu-close">×</span>
         <p style="margin-left: -1.0rem">mouse</p>
         <p>
-          drag mouse to move &mdash; scroll mouse wheel to zoom
+            drag mouse to move &mdash; scroll mouse wheel to zoom
         </p>
         <p style="margin-left: -1.0rem">keyboard</p>
         <div>help<br/>&nbsp;<kbd>H</kbd></div>
@@ -172,9 +185,9 @@
         <div>bg&nbsp;color<br/>&nbsp;&nbsp;&nbsp;<kbd>B</kbd></div>
     </div>
     <div id="footer">
-      <span style="float:left"><a target="_blank" href="https://philthompson.me/2021/Very-Plotter.html">What is this?</a></span>
-      <button id="tip-btn" style="float:right"><a target="_blank" href="https://philthompson.me/tip-jar/">Tip Jar<a/></button>
+        <span style="float:left"><a target="_blank" href="https://philthompson.me/2021/Very-Plotter.html">What is this?</a></span>
+        <button id="tip-btn" style="float:right"><a target="_blank" href="https://philthompson.me/tip-jar/">Tip Jar<a/></button>
     </div>
     <script src="paint.js"></script>
-  </body>
+</body>
 </html>

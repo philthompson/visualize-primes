@@ -37,7 +37,7 @@
         font-size: 1.5rem;
     }
     #menu {
-      max-height: 100%;
+      max-height: 95%;
       /* for small screens, take up the whole width, and
        *   for large screens, only get up to 40 chars wide
            (thanks to https://stackoverflow.com/a/30515342/259456) */
@@ -122,6 +122,7 @@
       text-shadow: 0px 0px 5px #222;
       font-family: arial;
       font-size: 0.9rem;
+      pointer-events: none;
     }
     #footer button a {
       text-decoration: none;
@@ -185,8 +186,8 @@
         <div>bg&nbsp;color<br/>&nbsp;&nbsp;&nbsp;<kbd>B</kbd></div>
     </div>
     <div id="footer">
-        <span style="float:left"><a target="_blank" href="https://philthompson.me/2021/Very-Plotter.html">What is this?</a></span>
-        <button id="tip-btn" style="float:right"><a target="_blank" href="https://philthompson.me/tip-jar/">Tip Jar<a/></button>
+        <span style="float:left; pointer-events: visible"><a target="_blank" href="https://philthompson.me/2021/Very-Plotter.html">What is this?</a></span>
+        <button id="tip-btn" style="float:right; pointer-events: visible"><a target="_blank" href="https://philthompson.me/tip-jar/">Tip Jar<a/></button>
     </div>
     <script src="paint.js"></script>
 </body>

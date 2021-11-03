@@ -20,6 +20,7 @@ var menuVisible = false;
 //   it needs to compute points
 const sequences = [{
   "name": "Primes-1-Step-90-turn",
+  "calcFrom": "sequence",
   "desc": "Move 1 step forward per integer, but for primes, turn 90 degrees clockwise before moving.",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
@@ -74,6 +75,7 @@ const sequences = [{
   }
 },{
   "name": "Primes-1-Step-45-turn",
+  "calcFrom": "sequence",
   "desc": "Move 1 step forward per integer, but for primes, turn 45 degrees clockwise before moving.  " +
           "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
           "moving ~1.414 steps diagonally.",
@@ -130,6 +132,7 @@ const sequences = [{
   }
 },{
   "name": "Squares-1-Step-90-turn",
+  "calcFrom": "sequence",
   "desc": "Move 1 step forward per integer, but for perfect squares, turn 90 degrees clockwise before moving.",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
@@ -187,6 +190,7 @@ const sequences = [{
   }
 },{
   "name": "Squares-1-Step-45-turn",
+  "calcFrom": "sequence",
   "desc": "Move 1 step forward per integer, but for perfect squares, turn 45 degrees clockwise before moving.  " +
           "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
           "moving ~1.414 steps diagonally.",
@@ -246,6 +250,7 @@ const sequences = [{
   }
 },{
   "name": "Primes-X-Y-neg-mod-3",
+  "calcFrom": "sequence",
   "desc": "Where each plotted point <code>(x,y)</code> consists of the primes, in order.  " +
           "Those points are (2,3), (5,7), (11,13), and so on.<br/><br/>" +
           "Then we take the sum of the digits of both the <code>x</code> and <code>y</code> of each point.<br/>" +
@@ -324,6 +329,7 @@ const sequences = [{
   }
 },{
   "name": "Trapped-Knight",
+  "calcFrom": "sequence",
   "desc": "On a chessboard, where the squares are numbered in a spiral, " +
           "find the squares a knight can jump to in sequence where the " +
           "smallest-numbered square must always be taken.  Previously-" +
@@ -455,6 +461,54 @@ const sequences = [{
       return sqrt == Math.trunc(sqrt);
     }
   }
+},{
+  "name": "Circle",
+  "calcFrom": "window",
+  "desc": "Draws a purple circle, for testing the window calculation+drawing methods",
+  "computeBoundPoints": function(privContext, leftEdge, topEdge, rightEdge, bottomEdge) {
+    var resultPoints = [];
+    privContext.calculatedPoints = {};
+
+    const params = historyParams;
+
+    // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
+    const pixWidth = dContext.canvas.width;
+    const pixHeight = dContext.canvas.height;
+
+    const width = rightEdge - leftEdge;
+    const height = bottomEdge - topEdge;
+    const eachPixWidth = width / pixWidth;
+    const eachPixHeight = height / pixHeight;
+    var px = 0.0;
+    var py = 0.0;
+    var pointColor = getColor(0, 0, 0);
+    for (var x = 0; x < pixWidth; x++) {
+      px = (eachPixWidth * x) + leftEdge;
+      for (var y = 0; y < pixHeight; y++) {
+        py = (eachPixHeight * y) + topEdge;
+        pointColor = getColor(0, 0, 0);
+        if (Math.hypot(px, py) < 10) {
+          pointColor = getColor(100, 40, 90);
+        }
+        var point = getColorPoint(x, y, pointColor);
+        //privContext.calculatedPoints[pointName] = point;
+        resultPoints.push(point);
+      }
+    }
+
+    return {
+      "points": resultPoints,
+    };
+  },
+  // these settings are auto-applied when this sequence is activated
+  "forcedDefaults": {
+    "scale": 40.0,
+    "offsetX": 0.0,
+    "offsetY": 0.0
+  },
+  "privContext": {
+    "calculatedPoints": {}
+  }
 }];
 
 const presets = [{
@@ -524,7 +578,7 @@ var activateSequenceHandler = function(e) {
   replaceHistoryWithParams(defaults);
   parseUrlParams();
   start();
-  drawPoints(historyParams);
+  //drawPoints(historyParams);
 };
 for (var i = 0; i < viewButtons.length; i++) {
   viewButtons[i].addEventListener('click', activateSequenceHandler);
@@ -611,6 +665,14 @@ function isPrime(n) {
 
 function getPoint(x, y) {
   return {"x": x, "y": y};
+}
+
+function getColor(r, g, b) {
+  return {"r": r, "g": g, "b": b};
+}
+
+function getColorPoint(x, y, color) {
+  return {"x": x, "y": y, "r": color.r, "g": color.g, "b": color.b};
 }
 
 function parseUrlParams() {
@@ -721,19 +783,26 @@ function start() {
 
   indicateActiveSequence();
 
+  setDScaleVars(dContext);
+
   // run the selected sequence
   const sequence = sequencesByName[params.seq];
-  const out = sequence.computePointsAndLength(sequence.privContext);
+  if (sequence.calcFrom == "sequence") {
+    const out = sequence.computePointsAndLength(sequence.privContext);
 
-  // copy the results
-  totalLength = out.length;
-  for (var i = 0; i < out.points.length; i++) {
-    points.push(out.points[i]);
+    // copy the results
+    totalLength = out.length;
+    for (var i = 0; i < out.points.length; i++) {
+      points.push(out.points[i]);
+    }
+
+    drawPoints(params);
+  } else if (sequence.calcFrom == "window") {
+    calculateAndDrawWindow(params);
+  } else {
+    alert("Unexpected \"calcFrom\" field for the sequence: [" + sequence.calcFrom + "]");
   }
 
-  // draw the results
-  setDScaleVars(dContext);
-  drawPoints(params);
 };
 
 var pixelColor = function(imgData, x, y) {
@@ -878,6 +947,15 @@ function getLineColor(startPercentage, colorScheme) {
   return "rgba(200,200,200,1.0)";
 }
 
+function redraw(params) {
+  const sequence = sequencesByName[params.seq];
+  if (sequence.calcFrom == "sequence") {
+    drawPoints(params);
+  } else if (sequence.calcFrom == "window") {
+    calculateAndDrawWindow(params);
+  }
+}
+
 function drawPoints(params) {
   // change URL bar to reflect current params, only if no params change
   //   for 1/4 second
@@ -934,6 +1012,54 @@ function drawPoints(params) {
   }
 }
 
+function calculateAndDrawWindow(params) {
+  // thanks to https://stackoverflow.com/a/1232046/259456
+  points.length = 0;
+
+  const sequence = sequencesByName[params.seq];
+
+  // find the visible abstract points using offset and scale
+  const scaledWidth = dContext.canvas.offsetWidth / params.scale;
+  const rightEdge = scaledWidth - (scaledWidth * (0.5 + params.offsetX));
+  const leftEdge = rightEdge - scaledWidth;
+
+  const scaledHeight = dContext.canvas.offsetHeight / params.scale;
+  const bottomEdge = scaledHeight - (scaledHeight * (0.5 + params.offsetY));
+  const topEdge = bottomEdge - scaledHeight;
+
+  const out = sequence.computeBoundPoints(sequence.privContext, leftEdge, topEdge, rightEdge, bottomEdge);
+
+  // copy the results
+  for (var i = 0; i < out.points.length; i++) {
+    points.push(out.points[i]);
+  }
+
+  // draw the results
+  drawColorPoints(params);
+}
+
+function drawColorPoints(params) {
+  // change URL bar to reflect current params, only if no params change
+  //   for 1/4 second
+  if (replaceStateTimeout != null) {
+    window.clearTimeout(replaceStateTimeout);
+  }
+  replaceStateTimeout = window.setTimeout(replaceHistory, 250);
+
+  const canvas = dContext.canvas;
+  const width = canvas.width;
+  const height = canvas.height;
+  var pixelsImage = dContext.createImageData(width, height);
+  for (var i = 0; i < points.length; i++) {
+    const pixelOffsetInImage = ((points[i].y * width) + points[i].x) * 4;
+    pixelsImage.data[pixelOffsetInImage+0] = points[i].r;
+    pixelsImage.data[pixelOffsetInImage+1] = points[i].g;
+    pixelsImage.data[pixelOffsetInImage+2] = points[i].b;
+    pixelsImage.data[pixelOffsetInImage+3] = 255; // alpha
+  }
+  dContext.putImageData(pixelsImage, 0, 0);
+}
+
 // apparently using float math to add 0.01 to 0.06 doesn't result in 0.07
 //   so instead we will multiply by 100, use integer math, then divide by 100
 function addParamPercentAndRound(fieldName, nPercent) {
@@ -970,67 +1096,67 @@ window.addEventListener("keydown", function(e) {
 
   if (e.keyCode == 39 /* right arrow */) {
     addParamPercentAndRound("offsetX", -1)
-    drawPoints(historyParams);
-  } else if (e.keyCode == 68 /* a */) {
+    redraw(historyParams);
+  } else if (e.keyCode == 68 /* d */) {
     addParamPercentAndRound("offsetX", -10);
-    drawPoints(historyParams);
+    redraw(historyParams);
   } else if (e.keyCode == 37 /* left arrow */) {
     addParamPercentAndRound("offsetX", 1);
-    drawPoints(historyParams);
+    redraw(historyParams);
   } else if (e.keyCode == 65 /* a */) {
     addParamPercentAndRound("offsetX", 10);
-    drawPoints(historyParams);
+    redraw(historyParams);
   } else if (e.keyCode == 38 /* up arrow */) {
     addParamPercentAndRound("offsetY", 1);
-    drawPoints(historyParams);
+    redraw(historyParams);
   } else if (e.keyCode == 87 /* w */) {
     addParamPercentAndRound("offsetY", 10);
-    drawPoints(historyParams);
+    redraw(historyParams);
   } else if (e.keyCode == 40 /* down arrow */) {
     addParamPercentAndRound("offsetY", -1);
-    drawPoints(historyParams);
+    redraw(historyParams);
   } else if (e.keyCode == 83 /* s */) {
     addParamPercentAndRound("offsetY", -10);
-    drawPoints(historyParams);
+    redraw(historyParams);
   } else if (e.keyCode == 61 || e.keyCode == 107 /* plus */) {
     addParamPercentAndRound("scale", 1);
     if (historyParams.scale > 500) {
       historyParams.scale = 500;
     }
-    drawPoints(historyParams);
+    redraw(historyParams);
   } else if (e.keyCode == 173 || e.keyCode == 109 /* minus */) {
     addParamPercentAndRound("scale", -1);
     if (historyParams.scale < 0.01) {
       historyParams.scale = 0.01;
     }
-    drawPoints(historyParams);
+    redraw(historyParams);
   } else if (e.keyCode == 69 /* e */) {
     addParamPercentAndRound("scale", 50);
     if (historyParams.scale > 500) {
       historyParams.scale = 500;
     }
-    drawPoints(historyParams);
+    redraw(historyParams);
   } else if (e.keyCode == 81 /* q */) {
     addParamPercentAndRound("scale", -50);
     if (historyParams.scale < 0) {
       historyParams.scale = 0.01;
     }
-    drawPoints(historyParams);
+    redraw(historyParams);
   } else if (e.keyCode == 67 /* c */) {
     historyParams.offsetX = 0.0;
     historyParams.offsetY = 0.0;
-    drawPoints(historyParams);
-  } else if (e.keyCode == 77 /* m */) {
+    redraw(historyParams);
+  } else if (e.keyCode == 77 /* m */ && sequences[param.seq].calcFrom == "sequence") {
     historyParams.n += 500;
     start();
     drawPoints(historyParams);
-  } else if (e.keyCode == 78 /* n */) {
+  } else if (e.keyCode == 78 /* n */ && sequences[param.seq].calcFrom == "sequence") {
     if (historyParams.n > 100) {
       historyParams.n -= 100
     }
     start();
     drawPoints(historyParams);
-  } else if (e.keyCode == 86 /* v */) {
+  } else if (e.keyCode == 86 /* v */ && sequences[param.seq].calcFrom == "sequence") {
     var schemeNum = -1;
     for (var i = 0; i < lineColorSchemeNames.length; i++) {
       if (lineColorSchemeNames[i] == historyParams.lineColor) {
@@ -1045,7 +1171,7 @@ window.addEventListener("keydown", function(e) {
     historyParams.lineColor = lineColorSchemeNames[schemeNum];
 
     drawPoints(historyParams);
-  } else if (e.keyCode == 66 /* b */) {
+  } else if (e.keyCode == 66 /* b */ && sequences[param.seq].calcFrom == "sequence") {
     var schemeNum = -1;
     for (var i = 0; i < bgColorSchemeNames.length; i++) {
       if (bgColorSchemeNames[i] == historyParams.bgColor) {
@@ -1079,7 +1205,7 @@ window.addEventListener("keydown", function(e) {
     if (historyParams.lineWidth > 20.0) {
       historyParams.lineWidth = 0.5;
     }
-    drawPoints(historyParams);
+    redraw(historyParams);
   } else if (e.keyCode == 72 /* h */) {
     if (helpVisible) {
       closeHelpMenu();
@@ -1109,7 +1235,7 @@ window.addEventListener("resize", function() {
   }
   resizeTimeout = window.setTimeout(function() {
     setDScaleVars(dContext);
-    drawPoints(historyParams);
+    redraw(historyParams);
   }, 500);
 });
 
@@ -1175,7 +1301,7 @@ var mouseMoveHandler = function(e) {
     historyParams.offsetY = roundTo5Decimals(newOffsetY);
   }
 
-  drawPoints(historyParams);
+  redraw(historyParams);
 };
 dCanvas.addEventListener("mousemove", mouseMoveHandler);
 dCanvas.addEventListener("touchmove", mouseMoveHandler);
@@ -1232,7 +1358,7 @@ dCanvas.addEventListener("wheel", function(e) {
   historyParams.offsetX = roundTo5Decimals(newOffsetX);
   historyParams.offsetY = roundTo5Decimals(newOffsetY);
 
-  drawPoints(historyParams);
+  redraw(historyParams);
 });
 
 document.getElementById('menu-open').addEventListener("click", function(e) {

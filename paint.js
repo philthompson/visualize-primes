@@ -467,8 +467,12 @@ const sequences = [{
   "desc": "Draws a purple circle, for testing the window calculation+drawing methods",
   "computeBoundPoints": function(privContext, leftEdge, topEdge, rightEdge, bottomEdge) {
     var resultPoints = [];
-    privContext.calculatedPoints = {};
 
+    // use lineWidth to determine how large to make the calculated/displayed
+    //   pixels, so round to integer
+    // use Math.round(), not Math.trunc(), because we want the minimum
+    //   lineWidth of 0.5 to result in a pixel size of 1
+    const pixelSize = Math.round(historyParams.lineWidth);
     const params = historyParams;
 
     // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
@@ -482,16 +486,15 @@ const sequences = [{
     var px = 0.0;
     var py = 0.0;
     var pointColor = getColor(0, 0, 0);
-    for (var x = 0; x < pixWidth; x++) {
+    for (var x = 0; x < pixWidth; x+=pixelSize) {
       px = (eachPixWidth * x) + leftEdge;
-      for (var y = 0; y < pixHeight; y++) {
+      for (var y = 0; y < pixHeight; y+=pixelSize) {
         py = (eachPixHeight * y) + topEdge;
         pointColor = getColor(0, 0, 0);
         if (Math.hypot(px, py) < 10) {
           pointColor = getColor(100, 40, 90);
         }
         var point = getColorPoint(x, y, pointColor);
-        //privContext.calculatedPoints[pointName] = point;
         resultPoints.push(point);
       }
     }
@@ -507,7 +510,6 @@ const sequences = [{
     "offsetY": 0.0
   },
   "privContext": {
-    "calculatedPoints": {}
   }
 }];
 
@@ -672,7 +674,7 @@ function getColor(r, g, b) {
 }
 
 function getColorPoint(x, y, color) {
-  return {"x": x, "y": y, "r": color.r, "g": color.g, "b": color.b};
+  return {"x": x, "y": y, "c": color};
 }
 
 function parseUrlParams() {
@@ -717,9 +719,6 @@ function parseUrlParams() {
         params.n = 100;
       }
     }
-    if (urlParams.has('lineWidth')) {
-      params.lineWidth = parseFloat(urlParams.get('lineWidth'));
-    }
     if (urlParams.has('scale')) {
       params.scale = parseFloat(urlParams.get('scale'));
     }
@@ -746,10 +745,7 @@ function parseUrlParams() {
       }
     }
     if (urlParams.has('lineWidth')) {
-      params.lineWidth = parseFloat(urlParams.get('lineWidth'));
-      if (params.lineWidth > 20.0) {
-        params.lineWidth = 20.0;
-      }
+      params.lineWidth = sanityCheckLineWidth(parseFloat(urlParams.get('lineWidth')) || 1.0, false, sequencesByName[params.seq]);
     }
   }
   console.log(params);
@@ -1051,11 +1047,24 @@ function drawColorPoints(params) {
   const height = canvas.height;
   var pixelsImage = dContext.createImageData(width, height);
   for (var i = 0; i < points.length; i++) {
-    const pixelOffsetInImage = ((points[i].y * width) + points[i].x) * 4;
-    pixelsImage.data[pixelOffsetInImage+0] = points[i].r;
-    pixelsImage.data[pixelOffsetInImage+1] = points[i].g;
-    pixelsImage.data[pixelOffsetInImage+2] = points[i].b;
-    pixelsImage.data[pixelOffsetInImage+3] = 255; // alpha
+    // use lineWidth param as "resolution":
+    //   1 = 1  pixel  drawn per point
+    //   2 = 2  pixels drawn per point
+    //  10 = 10 pixels drawn per point
+    const resX = points[i].x;
+    const resY = points[i].y;
+    const pixelSize = Math.round(params.lineWidth);;
+    var pixelOffsetInImage = 0;
+    for (var x = 0; x < pixelSize; x++) {
+      for (var y = 0; y < pixelSize; y++) {
+        //const pixelOffsetInImage = ((points[i].y * width) + points[i].x) * 4;
+        pixelOffsetInImage = (((resY+y) * width) + (resX+x)) * 4;
+        pixelsImage.data[pixelOffsetInImage+0] = points[i].c.r;
+        pixelsImage.data[pixelOffsetInImage+1] = points[i].c.g;
+        pixelsImage.data[pixelOffsetInImage+2] = points[i].c.b;
+        pixelsImage.data[pixelOffsetInImage+3] = 255; // alpha
+      }
+    }
   }
   dContext.putImageData(pixelsImage, 0, 0);
 }
@@ -1083,6 +1092,33 @@ function roundTo2Decimals(f) {
 function roundTo5Decimals(f) {
   var val = Math.round(f * 100000.0);
   return parseFloat(val / 100000.0);
+}
+
+function sanityCheckLineWidth(w, circular, sequence) {
+  // window plots use lineWidth to determine how many pixels to
+  //  display for each calculated pixel, so allow larger values
+  //  for that
+  if (w < 0.5) {
+    return 0.5;
+  }
+  if (sequence.calcFrom == "window") {
+    if (w > 64.0) {
+      if (circular) {
+        return 0.5;
+      } else {
+        return 64.0;
+      }
+    }
+  } else {
+    if (w > 20.0) {
+      if (circular) {
+        return 0.5;
+      } else {
+        return 20.0;
+      }
+    }
+  }
+  return w;
 }
 
 // thanks to https://stackoverflow.com/a/3396805/259456
@@ -1146,17 +1182,17 @@ window.addEventListener("keydown", function(e) {
     historyParams.offsetX = 0.0;
     historyParams.offsetY = 0.0;
     redraw(historyParams);
-  } else if (e.keyCode == 77 /* m */ && sequences[param.seq].calcFrom == "sequence") {
+  } else if (e.keyCode == 77 /* m */ && sequencesByName[params.seq].calcFrom == "sequence") {
     historyParams.n += 500;
     start();
     drawPoints(historyParams);
-  } else if (e.keyCode == 78 /* n */ && sequences[param.seq].calcFrom == "sequence") {
+  } else if (e.keyCode == 78 /* n */ && sequencesByName[params.seq].calcFrom == "sequence") {
     if (historyParams.n > 100) {
       historyParams.n -= 100
     }
     start();
     drawPoints(historyParams);
-  } else if (e.keyCode == 86 /* v */ && sequences[param.seq].calcFrom == "sequence") {
+  } else if (e.keyCode == 86 /* v */ && sequencesByName[params.seq].calcFrom == "sequence") {
     var schemeNum = -1;
     for (var i = 0; i < lineColorSchemeNames.length; i++) {
       if (lineColorSchemeNames[i] == historyParams.lineColor) {
@@ -1171,7 +1207,7 @@ window.addEventListener("keydown", function(e) {
     historyParams.lineColor = lineColorSchemeNames[schemeNum];
 
     drawPoints(historyParams);
-  } else if (e.keyCode == 66 /* b */ && sequences[param.seq].calcFrom == "sequence") {
+  } else if (e.keyCode == 66 /* b */ && sequencesByName[params.seq].calcFrom == "sequence") {
     var schemeNum = -1;
     for (var i = 0; i < bgColorSchemeNames.length; i++) {
       if (bgColorSchemeNames[i] == historyParams.bgColor) {
@@ -1202,10 +1238,13 @@ window.addEventListener("keydown", function(e) {
     //drawPoints(historyParams);
   } else if (e.keyCode == 90 /* z */) {
     addParamPercentAndRound("lineWidth", 50);
-    if (historyParams.lineWidth > 20.0) {
-      historyParams.lineWidth = 0.5;
+    historyParams.lineWidth = sanityCheckLineWidth(historyParams.lineWidth, true, sequencesByName[historyParams.seq]);
+    if (sequencesByName[historyParams.seq].calcFrom == "window") {
+      // changing the lineWidth for a window plot means we need to re-calculate
+      start();
+    } else {
+      redraw(historyParams);
     }
-    redraw(historyParams);
   } else if (e.keyCode == 72 /* h */) {
     if (helpVisible) {
       closeHelpMenu();

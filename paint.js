@@ -1061,6 +1061,14 @@ function drawPoints(params) {
 }
 
 function calculateAndDrawWindow() {
+  drawCalculatingNotice(dContext);
+  // thanks to https://stackoverflow.com/a/5521412/259456
+  // hand control back to the browser to allow canvas to actually show
+  //   the "calculating" text
+  window.setTimeout(calculateAndDrawWindowInner, 25);
+}
+
+function calculateAndDrawWindowInner() {
   const params = historyParams;
   if (windowResolutionTimeout != null) {
     window.clearTimeout(windowResolutionTimeout);
@@ -1144,6 +1152,18 @@ function drawColorPoints(lineWidth) {
     }
   }
   dContext.putImageData(pixelsImage, 0, 0);
+}
+
+function drawCalculatingNotice(ctx) {
+  const canvas = ctx.canvas;
+  ctx.fillStyle = "rgba(100,100,100,0.7)";
+  const noticeHeight = Math.max(24, canvas.height * 0.03);
+  const textHeight = Math.round(noticeHeight * 0.6);
+  const noticeWidth = Math.max(150, textHeight * 8);
+  ctx.fillRect(0,canvas.height-noticeHeight,noticeWidth, noticeHeight);
+  ctx.font = textHeight + "px system-ui";
+  ctx.fillStyle = "rgba(0,0,0,0.9)";
+  ctx.fillText("Calculating...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
 }
 
 // apparently using float math to add 0.01 to 0.06 doesn't result in 0.07

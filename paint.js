@@ -18,6 +18,8 @@ var menuVisible = false;
 
 const windowLogTiming = true;
 const windowPointCaching = true;
+var windowResolutionTimeout = null;
+var windowTempLineWidth = 0;
 
 // each "sequence" has its own "privContext" that can contain whatever data/functions
 //   it needs to compute points
@@ -468,7 +470,7 @@ const sequences = [{
   "name": "Circle",
   "calcFrom": "window",
   "desc": "Draws a purple circle, for testing the window calculation+drawing methods",
-  "computeBoundPoints": function(privContext, leftEdge, topEdge, rightEdge, bottomEdge) {
+  "computeBoundPoints": function(privContext, lineWidth, leftEdge, topEdge, rightEdge, bottomEdge) {
     const startTimeMs = Date.now();
     if (windowPointCaching) {
       const pointsBounds = leftEdge + "-" + topEdge + "-" + rightEdge + "-" + bottomEdge;
@@ -485,7 +487,7 @@ const sequences = [{
     //   pixels, so round to integer
     // use Math.round(), not Math.trunc(), because we want the minimum
     //   lineWidth of 0.5 to result in a pixel size of 1
-    const pixelSize = Math.round(historyParams.lineWidth);
+    const pixelSize = Math.round(lineWidth);
     const params = historyParams;
 
     // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
@@ -838,7 +840,10 @@ function start() {
 
     drawPoints(params);
   } else if (sequence.calcFrom == "window") {
-    calculateAndDrawWindow(params);
+    // since line width is halved each time the draw occurs, use 128 to get
+    //   the initial draw to use a 64-wide pixels
+    windowTempLineWidth = 128;
+    calculateAndDrawWindow();
   } else {
     alert("Unexpected \"calcFrom\" field for the sequence: [" + sequence.calcFrom + "]");
   }
@@ -987,12 +992,15 @@ function getLineColor(startPercentage, colorScheme) {
   return "rgba(200,200,200,1.0)";
 }
 
-function redraw(params) {
-  const sequence = sequencesByName[params.seq];
+function redraw() {
+  const sequence = sequencesByName[historyParams.seq];
   if (sequence.calcFrom == "sequence") {
-    drawPoints(params);
+    drawPoints(historyParams);
   } else if (sequence.calcFrom == "window") {
-    calculateAndDrawWindow(params);
+    // since line width is halved each time the draw occurs, use 128 to get
+    //   the initial draw to use a 64-wide pixels
+    windowTempLineWidth = 128;
+    calculateAndDrawWindow();
   }
 }
 
@@ -1052,7 +1060,20 @@ function drawPoints(params) {
   }
 }
 
-function calculateAndDrawWindow(params) {
+function calculateAndDrawWindow() {
+  const params = historyParams;
+  if (windowResolutionTimeout != null) {
+    window.clearTimeout(windowResolutionTimeout);
+  }
+  var potentialTempLineWidth = Math.round(windowTempLineWidth / 2);
+  if (potentialTempLineWidth <= params.lineWidth) {
+    potentialTempLineWidth = params.lineWidth;
+    windowTempLineWidth = params.lineWidth;
+  } else {
+    windowResolutionTimeout = window.setTimeout(calculateAndDrawWindow, 250);
+  }
+  windowTempLineWidth = potentialTempLineWidth;
+
   // thanks to https://stackoverflow.com/a/1232046/259456
   points.length = 0;
 
@@ -1067,7 +1088,7 @@ function calculateAndDrawWindow(params) {
   const bottomEdge = scaledHeight - (scaledHeight * (0.5 + params.offsetY));
   const topEdge = bottomEdge - scaledHeight;
 
-  const out = sequence.computeBoundPoints(sequence.privContext, leftEdge, topEdge, rightEdge, bottomEdge);
+  const out = sequence.computeBoundPoints(sequence.privContext, windowTempLineWidth, leftEdge, topEdge, rightEdge, bottomEdge);
 
   // copy the results
   for (var i = 0; i < out.points.length; i++) {
@@ -1075,10 +1096,10 @@ function calculateAndDrawWindow(params) {
   }
 
   // draw the results
-  drawColorPoints(params);
+  drawColorPoints(windowTempLineWidth);
 }
 
-function drawColorPoints(params) {
+function drawColorPoints(lineWidth) {
   // change URL bar to reflect current params, only if no params change
   //   for 1/4 second
   if (replaceStateTimeout != null) {
@@ -1097,7 +1118,7 @@ function drawColorPoints(params) {
     //  10 = 10 pixels drawn per point
     const resX = points[i].x;
     const resY = points[i].y;
-    const pixelSize = Math.round(params.lineWidth);;
+    const pixelSize = Math.round(lineWidth);;
     var pixelOffsetInImage = 0;
     for (var x = 0; x < pixelSize; x++) {
       for (var y = 0; y < pixelSize; y++) {
@@ -1176,67 +1197,67 @@ window.addEventListener("keydown", function(e) {
 
   if (e.keyCode == 39 /* right arrow */) {
     addParamPercentAndRound("offsetX", -1)
-    redraw(historyParams);
+    redraw();
   } else if (e.keyCode == 68 /* d */) {
     addParamPercentAndRound("offsetX", -10);
-    redraw(historyParams);
+    redraw();
   } else if (e.keyCode == 37 /* left arrow */) {
     addParamPercentAndRound("offsetX", 1);
-    redraw(historyParams);
+    redraw();
   } else if (e.keyCode == 65 /* a */) {
     addParamPercentAndRound("offsetX", 10);
-    redraw(historyParams);
+    redraw();
   } else if (e.keyCode == 38 /* up arrow */) {
     addParamPercentAndRound("offsetY", 1);
-    redraw(historyParams);
+    redraw();
   } else if (e.keyCode == 87 /* w */) {
     addParamPercentAndRound("offsetY", 10);
-    redraw(historyParams);
+    redraw();
   } else if (e.keyCode == 40 /* down arrow */) {
     addParamPercentAndRound("offsetY", -1);
-    redraw(historyParams);
+    redraw();
   } else if (e.keyCode == 83 /* s */) {
     addParamPercentAndRound("offsetY", -10);
-    redraw(historyParams);
+    redraw();
   } else if (e.keyCode == 61 || e.keyCode == 107 /* plus */) {
     addParamPercentAndRound("scale", 1);
     if (historyParams.scale > 500) {
       historyParams.scale = 500;
     }
-    redraw(historyParams);
+    redraw();
   } else if (e.keyCode == 173 || e.keyCode == 109 /* minus */) {
     addParamPercentAndRound("scale", -1);
     if (historyParams.scale < 0.01) {
       historyParams.scale = 0.01;
     }
-    redraw(historyParams);
+    redraw();
   } else if (e.keyCode == 69 /* e */) {
     addParamPercentAndRound("scale", 50);
     if (historyParams.scale > 500) {
       historyParams.scale = 500;
     }
-    redraw(historyParams);
+    redraw();
   } else if (e.keyCode == 81 /* q */) {
     addParamPercentAndRound("scale", -50);
     if (historyParams.scale < 0) {
       historyParams.scale = 0.01;
     }
-    redraw(historyParams);
+    redraw();
   } else if (e.keyCode == 67 /* c */) {
     historyParams.offsetX = 0.0;
     historyParams.offsetY = 0.0;
-    redraw(historyParams);
-  } else if (e.keyCode == 77 /* m */ && sequencesByName[params.seq].calcFrom == "sequence") {
+    redraw();
+  } else if (e.keyCode == 77 /* m */ && sequencesByName[historyParams.seq].calcFrom == "sequence") {
     historyParams.n += 500;
     start();
     drawPoints(historyParams);
-  } else if (e.keyCode == 78 /* n */ && sequencesByName[params.seq].calcFrom == "sequence") {
+  } else if (e.keyCode == 78 /* n */ && sequencesByName[historyParams.seq].calcFrom == "sequence") {
     if (historyParams.n > 100) {
       historyParams.n -= 100
     }
     start();
     drawPoints(historyParams);
-  } else if (e.keyCode == 86 /* v */ && sequencesByName[params.seq].calcFrom == "sequence") {
+  } else if (e.keyCode == 86 /* v */ && sequencesByName[historyParams.seq].calcFrom == "sequence") {
     var schemeNum = -1;
     for (var i = 0; i < lineColorSchemeNames.length; i++) {
       if (lineColorSchemeNames[i] == historyParams.lineColor) {
@@ -1251,7 +1272,7 @@ window.addEventListener("keydown", function(e) {
     historyParams.lineColor = lineColorSchemeNames[schemeNum];
 
     drawPoints(historyParams);
-  } else if (e.keyCode == 66 /* b */ && sequencesByName[params.seq].calcFrom == "sequence") {
+  } else if (e.keyCode == 66 /* b */ && sequencesByName[historyParams.seq].calcFrom == "sequence") {
     var schemeNum = -1;
     for (var i = 0; i < bgColorSchemeNames.length; i++) {
       if (bgColorSchemeNames[i] == historyParams.bgColor) {
@@ -1287,7 +1308,7 @@ window.addEventListener("keydown", function(e) {
       // changing the lineWidth for a window plot means we need to re-calculate
       start();
     } else {
-      redraw(historyParams);
+      redraw();
     }
   } else if (e.keyCode == 72 /* h */) {
     if (helpVisible) {
@@ -1318,7 +1339,7 @@ window.addEventListener("resize", function() {
   }
   resizeTimeout = window.setTimeout(function() {
     setDScaleVars(dContext);
-    redraw(historyParams);
+    redraw();
   }, 500);
 });
 
@@ -1384,7 +1405,7 @@ var mouseMoveHandler = function(e) {
     historyParams.offsetY = roundTo5Decimals(newOffsetY);
   }
 
-  redraw(historyParams);
+  redraw();
 };
 dCanvas.addEventListener("mousemove", mouseMoveHandler);
 dCanvas.addEventListener("touchmove", mouseMoveHandler);
@@ -1441,7 +1462,7 @@ dCanvas.addEventListener("wheel", function(e) {
   historyParams.offsetX = roundTo5Decimals(newOffsetX);
   historyParams.offsetY = roundTo5Decimals(newOffsetY);
 
-  redraw(historyParams);
+  redraw();
 });
 
 document.getElementById('menu-open').addEventListener("click", function(e) {

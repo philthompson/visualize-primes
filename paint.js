@@ -1121,7 +1121,19 @@ function drawColorPoints(lineWidth) {
     const pixelSize = Math.round(lineWidth);;
     var pixelOffsetInImage = 0;
     for (var x = 0; x < pixelSize; x++) {
+      // there may be a more efficient way to break early when pixels
+      //   would extend beyond the edge of the canvas, other than
+      //   checking every single pixel
+      if (resX + x >= width) {
+        break;
+      }
       for (var y = 0; y < pixelSize; y++) {
+        // there may be a more efficient way to break early when pixels
+        //   would extend beyond the edge of the canvas, other than
+        //   checking every single pixel
+        if (resY + y >= height) {
+          break;
+        }
         //const pixelOffsetInImage = ((points[i].y * width) + points[i].x) * 4;
         pixelOffsetInImage = (((resY+y) * width) + (resX+x)) * 4;
         pixelsImage.data[pixelOffsetInImage+0] = points[i].c.r;

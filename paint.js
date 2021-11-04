@@ -16,6 +16,9 @@ var resizeTimeout = null;
 var helpVisible = false;
 var menuVisible = false;
 
+const windowLogTiming = true;
+const windowPointCaching = true;
+
 // each "sequence" has its own "privContext" that can contain whatever data/functions
 //   it needs to compute points
 const sequences = [{
@@ -466,7 +469,17 @@ const sequences = [{
   "calcFrom": "window",
   "desc": "Draws a purple circle, for testing the window calculation+drawing methods",
   "computeBoundPoints": function(privContext, leftEdge, topEdge, rightEdge, bottomEdge) {
+    const startTimeMs = Date.now();
+    if (windowPointCaching) {
+      const pointsBounds = leftEdge + "-" + topEdge + "-" + rightEdge + "-" + bottomEdge;
+      if (privContext.pointsBounds != pointsBounds) {
+        privContext.pointsBounds = pointsBounds;
+        privContext.points = {};
+      }
+    }
     var resultPoints = [];
+
+    var cachedPointsUsed = 0;
 
     // use lineWidth to determine how large to make the calculated/displayed
     //   pixels, so round to integer
@@ -483,22 +496,51 @@ const sequences = [{
     const height = bottomEdge - topEdge;
     const eachPixWidth = width / pixWidth;
     const eachPixHeight = height / pixHeight;
-    var px = 0.0;
-    var py = 0.0;
-    var pointColor = getColor(0, 0, 0);
-    for (var x = 0; x < pixWidth; x+=pixelSize) {
-      px = (eachPixWidth * x) + leftEdge;
-      for (var y = 0; y < pixHeight; y+=pixelSize) {
-        py = (eachPixHeight * y) + topEdge;
-        pointColor = getColor(0, 0, 0);
-        if (Math.hypot(px, py) < 10) {
-          pointColor = getColor(100, 40, 90);
+    if (windowPointCaching) {
+      var px = 0.0;
+      var py = 0.0;
+      var pointColor = getColor(0, 0, 0);
+      for (var x = 0; x < pixWidth; x+=pixelSize) {
+        px = (eachPixWidth * x) + leftEdge;
+        for (var y = 0; y < pixHeight; y+=pixelSize) {
+          const pointPixel = x + "," + y;
+          if (pointPixel in privContext.points) {
+            cachedPointsUsed++;
+            resultPoints.push(privContext.points[pointPixel]);
+          } else {
+            py = (eachPixHeight * y) + topEdge;
+            pointColor = getColor(0, 0, 0);
+            if (Math.hypot(px, py) < 10) {
+              pointColor = getColor(100, 40, 90);
+            }
+            var point = getColorPoint(x, y, pointColor);
+            privContext.points[pointPixel] = point;
+            resultPoints.push(point);
+          }
         }
-        var point = getColorPoint(x, y, pointColor);
-        resultPoints.push(point);
+      }
+    } else {
+      var px = 0.0;
+      var py = 0.0;
+      var pointColor = getColor(0, 0, 0);
+      for (var x = 0; x < pixWidth; x+=pixelSize) {
+        px = (eachPixWidth * x) + leftEdge;
+        for (var y = 0; y < pixHeight; y+=pixelSize) {
+          py = (eachPixHeight * y) + topEdge;
+          pointColor = getColor(0, 0, 0);
+          if (Math.hypot(px, py) < 10) {
+            pointColor = getColor(100, 40, 90);
+          }
+          var point = getColorPoint(x, y, pointColor);
+          resultPoints.push(point);
+        }
       }
     }
 
+    if (windowLogTiming) {
+      const durationMs = Date.now() - startTimeMs;
+      console.log("computing [" + resultPoints.length + "] points, of which [" + cachedPointsUsed + "] were cached, took [" + durationMs + "] ms");
+    }
     return {
       "points": resultPoints,
     };
@@ -510,6 +552,8 @@ const sequences = [{
     "offsetY": 0.0
   },
   "privContext": {
+    "points": {},
+    "pointsBounds": "--"
   }
 }];
 

@@ -21,6 +21,271 @@ const windowPointCaching = true;
 var windowResolutionTimeout = null;
 var windowTempLineWidth = 0;
 
+function infNum(value, exponent) {
+  return {"v": value, "e": exponent};
+}
+
+function createInfNum(stringNum) {
+  var trimmed = stringNum.trim();
+  const negative = trimmed.startsWith('-');
+  if (negative) {
+    trimmed = trimmed.substr(1);
+  }
+  while (trimmed.length > 1 && trimmed.startsWith('0')) {
+    trimmed = trimmed.substr(1);
+  }
+  if (negative) {
+    trimmed = "-" + trimmed;
+  }
+  const parts = trimmed.split('.');
+  if (parts.length == 1) {
+    return infNum(BigInt(parts[0]), 0n);
+  }
+  while (parts[1].length > 0 && parts[1].endsWith('0')) {
+    parts[1] = parts[1].slice(0, -1);
+  }
+  if (parts[1].length == 0) {
+    return infNum(BigInt(parts[0]), 0n);
+  }
+  return infNum(BigInt(parts[0] + "" + parts[1]), BigInt("-" + parts[1].length));
+}
+
+console.log(createInfNum("0.0"));
+console.log(createInfNum("0"));
+console.log(createInfNum("123"));
+console.log(createInfNum("123.456"));
+console.log(createInfNum("  3 "));
+console.log(createInfNum("  123456789.000000000012345"));
+console.log(createInfNum("  -4.00321"));
+console.log(createInfNum("  -0.009 "));
+
+// after a quick test this seems to actually create a copy
+function copyInfNum(n) {
+  return infNum(n.v+0n, n.e+0n);
+}
+
+// only reads values from a and b, so the given objects are never modified
+function infNumMul(a, b) {
+  // the product of the values
+  // the sum of the exponents
+  return infNum(a.v * b.v, a.e + b.e);
+}
+
+console.log("100 * 1.5 = ... // 150 (1500, -1)");
+console.log(infNumMul(createInfNum("100"), createInfNum("1.5")));
+
+console.log("123.5 * 1.5 = ... // 185.25 (18525, -2)");
+console.log(infNumMul(createInfNum("123.5"), createInfNum("1.5")));
+
+console.log("123.5 * 1.5 = ... // 185.25 (18525, -2)");
+console.log(infNumMul(createInfNum("123.5"), createInfNum("1.5")));
+
+console.log("15000 * 0.0006 = ... // 9 (9, 0)");
+console.log(infNumMul(createInfNum("15000"), createInfNum("0.0006")));
+
+// adjust the exponents to make them the same, by
+//   increasing the value part of the InfNum with the
+//   larger exponent
+function normInfNum(argA, argB) {
+  var a = copyInfNum(argA);
+  var b = copyInfNum(argB);
+  // if they already have the same exponent, our work is done
+  if (a.e === b.e) {
+    return [a, b];
+  }
+  var swapped = false;
+  // find which operand has smaller exponent
+  var s = a;
+  var l = b;
+  if (l.e < s.e) {
+    swapped = true;
+    s = b;
+    l = a;
+  }
+
+  var expDiff = l.e - s.e;
+  // multiply larger value, and reduce its exponent accordingly,
+  //   to get matching exponents
+  const newL = infNum(l.v * (10n ** expDiff), l.e - expDiff);
+
+  // ensure we return the args in the same order
+  if (swapped) {
+    return [newL, s];
+  }
+  return [s, newL];
+}
+
+console.log("100 and 123.456"); // (100000, -3) and (123456, -3)
+console.log(normInfNum(createInfNum("100"), createInfNum("123.456")));
+
+console.log("0.0321 and 5"); // (321, -4) and (50000, -4)
+console.log(normInfNum(createInfNum("0.0321"), createInfNum("5")));
+
+console.log("22 and 5"); // (22, 0) and (5, 0)
+console.log(normInfNum(createInfNum("22"), createInfNum("5")));
+
+// copies values from a and b, so the given objects are never modified
+function infNumAdd(a, b) {
+  const norm = normInfNum(a, b);
+  return infNum(norm[0].v + norm[1].v, norm[0].e);
+}
+
+console.log("100 + 1.5 = ... // 101.5 (1015, -1)");
+console.log(infNumAdd(createInfNum("100"), createInfNum("1.5")));
+
+console.log("123 + 0.456 = ... // 123.456 (123456, -3)");
+console.log(infNumAdd(createInfNum("123"), createInfNum("0.456")));
+
+console.log("0.00001 + 5.05 = ... // 5.05001 (505001, -5)");
+console.log(infNumAdd(createInfNum("0.00001"), createInfNum("5.05")));
+
+
+// copies values from a and b, so the given objects are not modified
+function infNumSub(a, b) {
+  const norm = normInfNum(a, b);
+  return infNum(norm[0].v - norm[1].v, norm[0].e);
+}
+
+console.log("100 - 1.5 = ... // 98.5 (985, -1)");
+console.log(infNumSub(createInfNum("100"), createInfNum("1.5")));
+
+console.log("123 - 0.01 = ... // 122.99 (12299, -2)");
+console.log(infNumSub(createInfNum("123"), createInfNum("0.01")));
+
+console.log("0.00001 - 50 = ... // -49.99999 (-4999999, -5)");
+console.log(infNumSub(createInfNum("0.00001"), createInfNum("50")));
+
+function infNumDiv(argA, argB) {
+  var a = copyInfNum(argA);
+  var b = copyInfNum(argB);
+
+  var truncated = infNum(a.v / b.v, a.e - b.e);
+
+  var remainder = a.v % b.v;
+
+  if (remainder === 0n) {
+    return truncated;
+  }
+
+  // this may give 16 digits of precision?
+  // seems easy enough to go to 32 or 64....
+  var remInf = infNum(remainder * 10000000000000000n, 1n);
+  var remTrunc = infNum(remInf.v / b.v, -16n);
+
+  return infNumAdd(truncated, remTrunc);
+}
+
+console.log("50000 / 20 = ... // 2500 (25, 2)");
+console.log(infNumDiv(createInfNum("50000"), createInfNum("20")));
+
+console.log("100 / 7 = ... // 14.28571428571428...");
+console.log(infNumDiv(createInfNum("100"), createInfNum("7")));
+
+console.log("100 / 64 = ... // 1.5625 (15625, -4)");
+console.log(infNumDiv(createInfNum("100"), createInfNum("64")));
+
+function infNumEq(a, b) {
+  const normalized = normInfNum(a, b);
+  return normalized[0].v === normalized[1].v;
+}
+function infNumLt(a, b) {
+  const normalized = normInfNum(a, b);
+  return normalized[0].v < normalized[1].v;
+}
+function infNumLe(a, b) {
+  const normalized = normInfNum(a, b);
+  return normalized[0].v <= normalized[1].v;
+}
+function infNumGt(a, b) {
+  const normalized = normInfNum(a, b);
+  return normalized[0].v > normalized[1].v;
+}
+function infNumGe(a, b) {
+  const normalized = normInfNum(a, b);
+  return normalized[0].v >= normalized[1].v;
+}
+
+console.log("100 < 123.456 // true");
+console.log(infNumLt(createInfNum("100"), createInfNum("123.456")));
+
+console.log("0.0321 > 5 // false");
+console.log(infNumGt(createInfNum("0.0321"), createInfNum("5")));
+
+console.log("5 > 0.0321 // true");
+console.log(infNumGt(createInfNum("5"), createInfNum("0.0321")));
+
+console.log("22 === 5 // false");
+console.log(infNumEq(createInfNum("22"), createInfNum("5")));
+
+console.log("-22 > 5 // false");
+console.log(infNumGt(createInfNum("-22"), createInfNum("5")));
+
+console.log("-22 <= -22.0000 // true");
+console.log(infNumLe(createInfNum("-22"), createInfNum("-22.0000")));
+
+function infNumToString(n) {
+  var value = n.v.toString();
+  if (n.e === 0n) {
+    return value;
+  }
+  if (n.e > 0n) {
+    var i = 0n;
+    while (i < n.e) {
+      value = value + "0";
+      i = i + 1n;
+    }
+    return value;
+  }
+  var i = 0n;
+  var dec = "";
+  var neg = false;
+  if (value.startsWith("-")) {
+    neg = true;
+    value = value.substr(1);
+  }
+  while (i > n.e) {
+    if (value.length > 0) {
+      dec = value.slice(-1) + dec
+      value = value.slice(0, -1);
+    } else {
+      dec = "0" + dec;
+    }
+    i = i - 1n;
+  }
+  if (value.length == 0) {
+    value = "0";
+  }
+  if (neg) {
+    value = "-" + value;
+  }
+  return value + "." + dec;
+}
+
+console.log("(22,0) // 22");
+console.log(infNumToString(infNum(22n, 0n)));
+
+console.log("(22,1) // 220");
+console.log(infNumToString(infNum(22n, 1n)));
+
+console.log("22,-1) // 2.2");
+console.log(infNumToString(infNum(22n, -1n)));
+
+console.log("22,-2) // 0.22");
+console.log(infNumToString(infNum(22n, -2n)));
+
+console.log("22,-4) // 0.0022");
+console.log(infNumToString(infNum(22n, -4n)));
+
+console.log("(-22,0) // -22");
+console.log(infNumToString(infNum(-22n, 0n)));
+
+console.log("(-22,1) // -220");
+console.log(infNumToString(infNum(-22n, 1n)));
+
+console.log("-22,-4) // -0.0022");
+console.log(infNumToString(infNum(-22n, -4n)));
+
+
 // each "sequence" has its own "privContext" that can contain whatever data/functions
 //   it needs to compute points
 const sequences = [{

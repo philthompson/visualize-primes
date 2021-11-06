@@ -859,6 +859,140 @@ const sequences = [{
     "points": {},
     "pointsBounds": "--"
   }
+},{
+  "name": "Mandelbrot-set",
+  "calcFrom": "window",
+  "desc": "the mandelbrot set",
+  "computeBoundPoints": function(privContext, lineWidth, leftEdge, topEdge, rightEdge, bottomEdge) {
+    const startTimeMs = Date.now();
+    if (windowPointCaching) {
+      const pointsBounds = infNumToString(leftEdge) + "-" + infNumToString(topEdge) + "-" + infNumToString(rightEdge) + "-" + infNumToString(bottomEdge);
+      if (privContext.pointsBounds != pointsBounds) {
+        privContext.pointsBounds = pointsBounds;
+        privContext.points = {};
+      }
+    }
+    var resultPoints = [];
+
+    var cachedPointsUsed = 0;
+
+    // use lineWidth to determine how large to make the calculated/displayed
+    //   pixels, so round to integer
+    // use Math.round(), not Math.trunc(), because we want the minimum
+    //   lineWidth of 0.5 to result in a pixel size of 1
+    const pixelSize = createInfNum(Math.round(lineWidth).toString());
+    const params = historyParams;
+
+    // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
+    const pixWidth = createInfNum(dContext.canvas.width.toString());
+    const pixHeight = createInfNum(dContext.canvas.height.toString());
+
+    const width = infNumSub(rightEdge, leftEdge);
+    const height = infNumSub(bottomEdge, topEdge);
+    const eachPixWidth = infNumDiv(width, pixWidth);
+    const eachPixHeight = infNumDiv(height, pixHeight);
+
+    const maxIter = 7;
+    const two = infNum(2n, 0n);
+    const black = getColor(0, 0, 0);
+    const boundsRadiusSquared = infNum(4n, 0n);
+    if (windowPointCaching) {
+      var px = 0.0;
+      var py = 0.0;
+      var pointColor = black;
+      var x = infNum(0n, 0n);
+      while (infNumLt(x, pixWidth)) {
+        px = infNumAdd(infNumMul(eachPixWidth, x), leftEdge);
+        var y = infNum(0n, 0n);
+        while (infNumLt(y, pixHeight)) {
+          const pointPixel = infNumToString(x) + "," + infNumToString(y);
+          if (pointPixel in privContext.points) {
+            cachedPointsUsed++;
+            resultPoints.push(privContext.points[pointPixel]);
+          } else {
+            py = infNumAdd(infNumMul(eachPixHeight, y), topEdge);
+
+            // the coords used for iteration
+            var ix = px;
+            var iy = py;
+            var ixSq = infNum(0n, 0n);
+            var iySq = infNum(0n, 0n);
+            var ixTemp = infNum(0n, 0n);
+            var iter = 0;
+            while (iter < maxIter) {
+              ixSq = infNumMul(ix, ix);
+              iySq = infNumMul(iy, iy);
+              if (infNumGt(infNumAdd(ixSq, iySq), boundsRadiusSquared)) {
+                break;
+              }
+              ixTemp = infNumAdd(px, infNumSub(ixSq, iySq));
+              iy = infNumAdd(py, infNumMul(two, infNumMul(ix, iy)));
+              ix = ixTemp;
+              iter++
+            }
+
+            if (iter == maxIter) {
+              pointColor = black;
+            } else {
+              pointColor = privContext.lookupColor(privContext, iter / maxIter, params.lineColor);
+            }
+
+            // x and y are integer (actual pixel) values, with no decimal component
+            var point = getColorPoint(parseInt(infNumToString(x)), parseInt(infNumToString(y)), pointColor);
+            privContext.points[pointPixel] = point;
+            resultPoints.push(point);
+          }
+          y = infNumAdd(y, pixelSize);
+        }
+        x = infNumAdd(x, pixelSize);
+      }
+    } else {
+      var px = 0.0;
+      var py = 0.0;
+      var pointColor = getColor(0, 0, 0);
+      for (var x = 0; x < pixWidth; x+=pixelSize) {
+        px = (eachPixWidth * x) + leftEdge;
+        for (var y = 0; y < pixHeight; y+=pixelSize) {
+          py = (eachPixHeight * y) + topEdge;
+          pointColor = getColor(0, 0, 0);
+          if (Math.hypot(px, py) < 10) {
+            pointColor = getColor(100, 40, 90);
+          }
+          var point = getColorPoint(x, y, pointColor);
+          resultPoints.push(point);
+        }
+      }
+    }
+
+    if (windowLogTiming) {
+      const durationMs = Date.now() - startTimeMs;
+      console.log("computing [" + resultPoints.length + "] points, of which [" + cachedPointsUsed + "] were cached, took [" + durationMs + "] ms");
+    }
+    return {
+      "points": resultPoints,
+    };
+  },
+  // these settings are auto-applied when this sequence is activated
+  "forcedDefaults": {
+    "scale": infNum(40n, 0n),
+    "offsetX": infNum(0n, 0n),
+    "offsetY": infNum(0n, 0n)
+  },
+  "privContext": {
+    "points": {},
+    "pointsBounds": "--",
+    "colors": {},
+    "lookupColor": function(privContext, pct, lineColor) {
+      var pctRound = Math.trunc(pct * 10000.0).toString();
+      if (pctRound in privContext.colors) {
+        return privContext.colors[pctRound];
+      }
+      const rgba = getLineColor(pct, lineColor).substr(5).split(',');
+      var color = getColor(parseInt(rgba[0]),parseInt(rgba[1]),parseInt(rgba[2]));
+      privContext.colors[pctRound] = color;
+      return color;
+    }
+  }
 }];
 
 const presets = [{

@@ -155,34 +155,62 @@ console.log(infNumSub(createInfNum("123"), createInfNum("0.01")));
 console.log("0.00001 - 50 = ... // -49.99999 (-4999999, -5)");
 console.log(infNumSub(createInfNum("0.00001"), createInfNum("50")));
 
-function infNumDiv(argA, argB) {
+function infNumDivBad(argA, argB) {
   var a = copyInfNum(argA);
   var b = copyInfNum(argB);
 
   var truncated = infNum(a.v / b.v, a.e - b.e);
 
-  var remainder = a.v % b.v;
+  var remainder = infNum(a.v % b.v, a.e - b.e);
 
-  if (remainder === 0n) {
+  if (remainder.v === 0n) {
     return truncated;
   }
 
   // this may give 16 digits of precision?
   // seems easy enough to go to 32 or 64....
-  var remInf = infNum(remainder * 10000000000000000n, 1n);
+  var remInf = infNumMul(remainder, infNum(10000000000000000n, 0n));
   var remTrunc = infNum(remInf.v / b.v, -16n);
 
   return infNumAdd(truncated, remTrunc);
 }
 
-console.log("50000 / 20 = ... // 2500 (25, 2)");
-console.log(infNumDiv(createInfNum("50000"), createInfNum("20")));
+function infNumDiv(argA, argB) {
+  const norm = normInfNum(argA, argB);
+  var a = norm[0];
+  var b = norm[1];
 
-console.log("100 / 7 = ... // 14.28571428571428...");
-console.log(infNumDiv(createInfNum("100"), createInfNum("7")));
+  var truncated = infNum(a.v / b.v, a.e - b.e);
 
-console.log("100 / 64 = ... // 1.5625 (15625, -4)");
-console.log(infNumDiv(createInfNum("100"), createInfNum("64")));
+  var remainder = infNum(a.v % b.v, a.e - b.e);
+
+  if (remainder.v === 0n) {
+    return truncated;
+  }
+
+  // this may give 16 digits of precision?
+  // seems easy enough to go to 32 or 64....
+  var remInf = infNumMul(remainder, infNum(10000000000000000n, 0n));
+  var remTrunc = infNum(remInf.v / b.v, -16n);
+
+  return infNumAdd(truncated, remTrunc);
+}
+
+var unitTest = infNumDiv(createInfNum("50000"), createInfNum("20"));
+console.log("50000 / 20 = [" + infNumToString(unitTest) + "] // 2500 (25, 2)");
+console.log(unitTest);
+
+unitTest = infNumDiv(createInfNum("100"), createInfNum("7"));
+console.log("100 / 7 = [" + infNumToString(unitTest) + "] // 14.28571428571428...");
+console.log(unitTest);
+
+unitTest = infNumDiv(createInfNum("100"), createInfNum("64"));
+console.log("100 / 64 = [" + infNumToString(unitTest) + "] // 1.5625 (15625, -4)");
+console.log(unitTest);
+
+unitTest = infNumDiv(createInfNum("1302"), createInfNum("10.5"));
+console.log("1302 / 10.5 = [" + infNumToString(unitTest) + "] // 124");
+console.log(unitTest);
 
 function infNumEq(a, b) {
   const normalized = normInfNum(a, b);
@@ -328,9 +356,9 @@ const sequences = [{
   "forcedDefaults": {
     "v": 1,
     "n": 60000,
-    "scale": 1.2,
-    "offsetX": 0.2,
-    "offsetY": -0.3
+    "scale": createInfNum("1.2"),
+    "offsetX": createInfNum("0.2"),
+    "offsetY": createInfNum("-0.3")
   },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
@@ -385,9 +413,9 @@ const sequences = [{
   "forcedDefaults": {
     "v": 1,
     "n": 60000,
-    "scale": 0.85,
-    "offsetX": -0.07,
-    "offsetY": -0.32
+    "scale": createInfNum("0.85"),
+    "offsetX": createInfNum("-0.07"),
+    "offsetY": createInfNum("-0.32")
   },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
@@ -439,9 +467,9 @@ const sequences = [{
   "forcedDefaults": {
     "v": 1,
     "n": 5000,
-    "scale": 6.5,
-    "offsetX": 0.0,
-    "offsetY": 0.0
+    "scale": createInfNum("6.5"),
+    "offsetX": infNum(0n, 0n),
+    "offsetY": infNum(0n, 0n)
   },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
@@ -499,9 +527,9 @@ const sequences = [{
   "forcedDefaults": {
     "v": 1,
     "n": 5000,
-    "scale": 2.3,
-    "offsetX": 0.0,
-    "offsetY": 0.0
+    "scale": createInfNum("2.3"),
+    "offsetX": infNum(0n, 0n),
+    "offsetY": infNum(0n, 0n)
   },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
@@ -591,9 +619,9 @@ const sequences = [{
   "forcedDefaults": {
     "v": 1,
     "n": 5000,
-    "scale": 0.08,
-    "offsetX": 0.0,
-    "offsetY": 0.0
+    "scale": createInfNum("0.08"),
+    "offsetX": infNum(0n, 0n),
+    "offsetY": infNum(0n, 0n)
   },
   "privContext": {
   }
@@ -678,9 +706,9 @@ const sequences = [{
   "forcedDefaults": {
     "v": 1,
     "n": 2016,
-    "scale": 15.0,
-    "offsetX": 0.0,
-    "offsetY": 0.0
+    "scale": infNum(15n, 0n),
+    "offsetX": infNum(0n, 0n),
+    "offsetY": infNum(0n, 0n)
   },
   "privContext": {
     // by "x-y" coordinates, store chessboard square numbers, starting with center square at "0-0"
@@ -738,7 +766,7 @@ const sequences = [{
   "computeBoundPoints": function(privContext, lineWidth, leftEdge, topEdge, rightEdge, bottomEdge) {
     const startTimeMs = Date.now();
     if (windowPointCaching) {
-      const pointsBounds = leftEdge + "-" + topEdge + "-" + rightEdge + "-" + bottomEdge;
+      const pointsBounds = infNumToString(leftEdge) + "-" + infNumToString(topEdge) + "-" + infNumToString(rightEdge) + "-" + infNumToString(bottomEdge);
       if (privContext.pointsBounds != pointsBounds) {
         privContext.pointsBounds = pointsBounds;
         privContext.points = {};
@@ -752,39 +780,48 @@ const sequences = [{
     //   pixels, so round to integer
     // use Math.round(), not Math.trunc(), because we want the minimum
     //   lineWidth of 0.5 to result in a pixel size of 1
-    const pixelSize = Math.round(lineWidth);
+    const pixelSize = createInfNum(Math.round(lineWidth).toString());
     const params = historyParams;
 
     // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
-    const pixWidth = dContext.canvas.width;
-    const pixHeight = dContext.canvas.height;
+    const pixWidth = createInfNum(dContext.canvas.width.toString());
+    const pixHeight = createInfNum(dContext.canvas.height.toString());
 
-    const width = rightEdge - leftEdge;
-    const height = bottomEdge - topEdge;
-    const eachPixWidth = width / pixWidth;
-    const eachPixHeight = height / pixHeight;
+    const width = infNumSub(rightEdge, leftEdge);
+    const height = infNumSub(bottomEdge, topEdge);
+    const eachPixWidth = infNumDiv(width, pixWidth);
+    const eachPixHeight = infNumDiv(height, pixHeight);
+
+    const black = getColor(0, 0, 0);
+    const circleRadiusSquared = infNum(100n, 0n);
     if (windowPointCaching) {
       var px = 0.0;
       var py = 0.0;
-      var pointColor = getColor(0, 0, 0);
-      for (var x = 0; x < pixWidth; x+=pixelSize) {
-        px = (eachPixWidth * x) + leftEdge;
-        for (var y = 0; y < pixHeight; y+=pixelSize) {
-          const pointPixel = x + "," + y;
+      var pointColor = black;
+      var x = infNum(0n, 0n);
+      while (infNumLt(x, pixWidth)) {
+        px = infNumAdd(infNumMul(eachPixWidth, x), leftEdge);
+        var y = infNum(0n, 0n);
+        while (infNumLt(y, pixHeight)) {
+          const pointPixel = infNumToString(x) + "," + infNumToString(y);
           if (pointPixel in privContext.points) {
             cachedPointsUsed++;
             resultPoints.push(privContext.points[pointPixel]);
           } else {
-            py = (eachPixHeight * y) + topEdge;
-            pointColor = getColor(0, 0, 0);
-            if (Math.hypot(px, py) < 10) {
+            py = infNumAdd(infNumMul(eachPixHeight, y), topEdge);
+            if (infNumLe(infNumAdd(infNumMul(px, px), infNumMul(py, py)), circleRadiusSquared)) {
               pointColor = getColor(100, 40, 90);
+            } else {
+              pointColor = black;
             }
-            var point = getColorPoint(x, y, pointColor);
+            // x and y are integer (actual pixel) values, with no decimal component
+            var point = getColorPoint(parseInt(infNumToString(x)), parseInt(infNumToString(y)), pointColor);
             privContext.points[pointPixel] = point;
             resultPoints.push(point);
           }
+          y = infNumAdd(y, pixelSize);
         }
+        x = infNumAdd(x, pixelSize);
       }
     } else {
       var px = 0.0;
@@ -814,9 +851,9 @@ const sequences = [{
   },
   // these settings are auto-applied when this sequence is activated
   "forcedDefaults": {
-    "scale": 40.0,
-    "offsetX": 0.0,
-    "offsetY": 0.0
+    "scale": infNum(40n, 0n),
+    "offsetX": infNum(0n, 0n),
+    "offsetY": infNum(0n, 0n)
   },
   "privContext": {
     "points": {},
@@ -829,9 +866,9 @@ const presets = [{
   "v": 1,
   "n": 60000,
   "lineWidth": 1,
-  "scale": 1.35,
-  "offsetX": 0.22,
-  "offsetY": -0.34,
+  "scale": createInfNum("1.35"),
+  "offsetX": createInfNum("0.22"),
+  "offsetY": createInfNum("-0.34"),
   "lineColor": "rbgyo",
   "bgColor": "b"
 },{
@@ -839,9 +876,9 @@ const presets = [{
   "v": 1,
   "n": 2016,
   "lineWidth": 1.5,
-  "scale": 15.0,
-  "offsetX": 0.0,
-  "offsetY": 0.0,
+  "scale": createInfNum("15.0"),
+  "offsetX": createInfNum("0"),
+  "offsetY": createInfNum("0"),
   "lineColor": "rbgyo",
   "bgColor": "b"
 },{
@@ -849,9 +886,9 @@ const presets = [{
   "v": 1,
   "n": 32400,
   "lineWidth": 2,
-  "scale": 10.95,
-  "offsetX": -0.30847,
-  "offsetY": -0.96171,
+  "scale": createInfNum("10.95"),
+  "offsetX": createInfNum("-0.30847"),
+  "offsetY": createInfNum("-0.96171"),
   "lineColor": "rbgyo",
   "bgColor": "b"
 }];
@@ -1002,9 +1039,9 @@ function parseUrlParams() {
     "v": 1,
     "n": 60000,
     "lineWidth": 1.0,
-    "scale": 1.35,
-    "offsetX": 0.22,
-    "offsetY": -0.34,
+    "scale": createInfNum("1.35"),
+    "offsetX": createInfNum("0.22"),
+    "offsetY": createInfNum("-0.34"),
     "lineColor": "rbgyo",
     "bgColor": "b"
   };
@@ -1031,13 +1068,13 @@ function parseUrlParams() {
       }
     }
     if (urlParams.has('scale')) {
-      params.scale = parseFloat(urlParams.get('scale'));
+      params.scale = createInfNum(urlParams.get('scale'));
     }
     if (urlParams.has('offsetX')) {
-      params.offsetX = parseFloat(urlParams.get('offsetX'));
+      params.offsetX = createInfNum(urlParams.get('offsetX'));
     }
     if (urlParams.has('offsetY')) {
-      params.offsetY = parseFloat(urlParams.get('offsetY'));
+      params.offsetY = createInfNum(urlParams.get('offsetY'));
     }
     if (urlParams.has('lineColor')) {
       const color = urlParams.get('lineColor');
@@ -1155,7 +1192,11 @@ function setDScaleVars(dCtx) {
 // this is separate so that we can call it with only a subset of params,
 //   and the rest will be populated with standard values as part of parseUrlParams()
 function replaceHistoryWithParams(params) {
-  history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(params).toString());
+  var paramsCopy = Object.assign({}, params);
+  paramsCopy.scale = infNumToString(params.scale);
+  paramsCopy.offsetX = infNumToString(params.offsetX);
+  paramsCopy.offsetY = infNumToString(params.offsetY);
+  history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
   replaceStateTimeout = null;
 };
 
@@ -1164,9 +1205,13 @@ var replaceHistory = function() {
 };
 
 var pushToHistory = function() {
+  var paramsCopy = Object.assign({}, historyParams);
+  paramsCopy.scale = infNumToString(params.scale);
+  paramsCopy.offsetX = infNumToString(params.offsetX);
+  paramsCopy.offsetY = infNumToString(params.offsetY);
   // no need to replaceState() here -- we'll replaceState() on param
   //   changes except for mouse dragging, which happen too fast
-  history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(historyParams).toString());
+  history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
   historyTimeout = null;
 };
 
@@ -1269,6 +1314,10 @@ function redraw() {
   }
 }
 
+function infNumToFloat(n) {
+  return parseFloat(infNumToString(n));
+}
+
 function drawPoints(params) {
   // change URL bar to reflect current params, only if no params change
   //   for 1/4 second
@@ -1279,9 +1328,12 @@ function drawPoints(params) {
 
   const canvas = dContext.canvas;
   const lineWidth = params.lineWidth;
-  const scale = params.scale;
-  const offsetX = canvas.width * (0.5 + params.offsetX);
-  const offsetY = canvas.height * (0.5 + params.offsetY);
+  // this function is only used for drawing sequence plots,
+  //   so lots of precision for scale and offset isn't needed,
+  // convert scale, offsetX, and offsetY to float
+  const scale = infNumToFloat(params.scale);
+  const offsetX = canvas.width * (0.5 + infNumToFloat(params.offsetX));
+  const offsetY = canvas.height * (0.5 + infNumToFloat(params.offsetY));
 
   fillBg(dContext);
   console.log("drawing [" + points.length + "] points with a total length of [" + totalLength + "]");
@@ -1350,16 +1402,36 @@ function calculateAndDrawWindowInner() {
   // thanks to https://stackoverflow.com/a/1232046/259456
   points.length = 0;
 
+  const fiftyPct = createInfNum("0.5");
   const sequence = sequencesByName[params.seq];
 
-  // find the visible abstract points using offset and scale
-  const scaledWidth = dContext.canvas.offsetWidth / params.scale;
-  const rightEdge = scaledWidth - (scaledWidth * (0.5 + params.offsetX));
-  const leftEdge = rightEdge - scaledWidth;
+  const canvasWidth = createInfNum(dContext.canvas.offsetWidth.toString());
+  const canvasHeight = createInfNum(dContext.canvas.offsetHeight.toString());
 
-  const scaledHeight = dContext.canvas.offsetHeight / params.scale;
-  const bottomEdge = scaledHeight - (scaledHeight * (0.5 + params.offsetY));
-  const topEdge = bottomEdge - scaledHeight;
+  // find the visible abstract points using offset and scale
+  const scaledWidth = infNumDiv(canvasWidth, params.scale);
+  //const scaledWidthFloat = dContext.canvas.offsetWidth/parseFloat(infNumToString(params.scale));
+  //console.log("scaledWidth -- float [" + scaledWidthFloat + "], infNum [" + infNumToString(scaledWidth) + "]");
+  const offsetXPct = infNumAdd(fiftyPct, params.offsetX);
+  //const offsetXPctFloat = 0.5 + parseFloat(infNumToString(params.offsetX));
+  const rightEdge = infNumSub(scaledWidth, infNumMul(scaledWidth, offsetXPct));
+  //const rightEdgeFloat = scaledWidthFloat - (scaledWidthFloat * offsetXPctFloat);
+  //console.log("rightEdge -- float [" + rightEdgeFloat + "], infNum [" + infNumToString(rightEdge) + "]");
+  const leftEdge = infNumSub(rightEdge, scaledWidth);
+  //const leftEdgeFloat = rightEdgeFloat - scaledWidthFloat;
+  //console.log("leftEdge -- float [" + leftEdgeFloat + "], infNum [" + infNumToString(leftEdge) + "]");
+
+  const scaledHeight = infNumDiv(canvasHeight, params.scale);
+  //const scaledHeightFloat = dContext.canvas.offsetHeight/parseFloat(infNumToString(params.scale));
+  //console.log("scaledHeight -- float [" + scaledHeightFloat + "], infNum [" + infNumToString(scaledHeight) + "]");
+  const offsetYPct = infNumAdd(fiftyPct, params.offsetY);
+  //const offsetYPctFloat = 0.5 + parseFloat(infNumToString(params.offsetY));
+  const bottomEdge = infNumSub(scaledHeight, infNumMul(scaledHeight, offsetYPct));
+  //const bottomEdgeFloat = scaledHeightFloat - (scaledHeightFloat * offsetYPctFloat);
+  //console.log("bottomEdge -- float [" + bottomEdgeFloat + "], infNum [" + infNumToString(bottomEdge) + "]");
+  const topEdge = infNumSub(bottomEdge, scaledHeight);
+  //const topEdgeFloat = bottomEdgeFloat - scaledHeightFloat;
+  //console.log("topEdge -- float [" + topEdgeFloat + "], infNum [" + infNumToString(topEdge) + "]");
 
   const out = sequence.computeBoundPoints(sequence.privContext, windowTempLineWidth, leftEdge, topEdge, rightEdge, bottomEdge);
 
@@ -1380,6 +1452,7 @@ function drawColorPoints(lineWidth) {
   }
   replaceStateTimeout = window.setTimeout(replaceHistory, 250);
 
+  const pixelSize = Math.round(lineWidth);
   const canvas = dContext.canvas;
   const width = canvas.width;
   const height = canvas.height;
@@ -1391,7 +1464,6 @@ function drawColorPoints(lineWidth) {
     //  10 = 10 pixels drawn per point
     const resX = points[i].x;
     const resY = points[i].y;
-    const pixelSize = Math.round(lineWidth);;
     var pixelOffsetInImage = 0;
     for (var x = 0; x < pixelSize; x++) {
       // there may be a more efficient way to break early when pixels
@@ -1441,9 +1513,29 @@ function addParamPercentAndRound(fieldName, nPercent) {
   // use Math.round() instead of parseInt() because, for example:
   //   parseInt(0.29 * 100.0)   --> 28
   //   Math.round(0.29 * 100.0) --> 29
-  var val = Math.round(historyParams[fieldName] * 100.0);
-  val += nPercent;
-  historyParams[fieldName] = parseFloat(val / 100.0);
+//  var val = Math.round(historyParams[fieldName] * 100.0);
+//  val += nPercent;
+//  historyParams[fieldName] = parseFloat(val / 100.0);
+
+  const pct = infNumMul(historyParams[fieldName], infNum(100n, 0n));
+  const newPct = infNumAdd(pct, createInfNum(nPercent.toString()));
+  const roundedStr = infNumToString(newPct).split('.')[0];
+  historyParams[fieldName] = infNumDiv(createInfNum(roundedStr), infNum(100n, 0n));
+}
+
+function applyParamPercentAndRound(fieldName, pctStr) {
+  if (! fieldName in historyParams) {
+    console.log("unknown params field [" + fieldName + "]");
+    return;
+  }
+  const pct = createInfNum(pctStr);
+  if (infNumLe(pct, infNum(0n, 0n))) {
+    console.log("cannot apply a zero or negative percentage to field [" + fieldName + "]");
+    return;
+  }
+  const newVal = infNumMul(historyParams[fieldName], pct);
+  const roundedStr = infNumToString(infNumMul(newVal, infNum(100n, 0n))).split('.')[0];
+  historyParams[fieldName] = infNumDiv(createInfNum(roundedStr), infNum(100n, 0n));
 }
 
 function roundTo2Decimals(f) {
@@ -1517,32 +1609,40 @@ window.addEventListener("keydown", function(e) {
     addParamPercentAndRound("offsetY", -10);
     redraw();
   } else if (e.keyCode == 61 || e.keyCode == 107 /* plus */) {
-    addParamPercentAndRound("scale", 1);
-    if (historyParams.scale > 500) {
-      historyParams.scale = 500;
-    }
+    //addParamPercentAndRound("scale", 1);
+    applyParamPercentAndRound("scale", "1.01");
+    //historyParams.scale = infNumAdd(historyParams.scale, infNum(1n, -2n)); // add 0.01
+    //if (infNumGt(historyParams.scale, infNum(500n, 0n))) {
+    //  historyParams.scale = infNum(500n, 0n);
+    //}
     redraw();
   } else if (e.keyCode == 173 || e.keyCode == 109 /* minus */) {
-    addParamPercentAndRound("scale", -1);
-    if (historyParams.scale < 0.01) {
-      historyParams.scale = 0.01;
+    //addParamPercentAndRound("scale", -1);
+    applyParamPercentAndRound("scale", "0.99");
+    //historyParams.scale = infNumSub(historyParams.scale, infNum(1n, -2n)); // subtract 0.01
+    if (infNumLt(historyParams.scale, infNum(1n, -2n))) {
+      historyParams.scale = createInfNum("0.01");
     }
     redraw();
   } else if (e.keyCode == 69 /* e */) {
-    addParamPercentAndRound("scale", 50);
-    if (historyParams.scale > 500) {
-      historyParams.scale = 500;
-    }
+    //addParamPercentAndRound("scale", 50);
+    applyParamPercentAndRound("scale", "1.05");
+    //historyParams.scale = infNumAdd(historyParams.scale, infNum(5n, -1n)); // add 0.5
+    //if (infNumGt(historyParams.scale, infNum(500n, 0n))) {
+    //  historyParams.scale = infNum(500n, 0n);
+    //}
     redraw();
   } else if (e.keyCode == 81 /* q */) {
-    addParamPercentAndRound("scale", -50);
-    if (historyParams.scale < 0) {
-      historyParams.scale = 0.01;
+    //addParamPercentAndRound("scale", -50);
+    applyParamPercentAndRound("scale", "0.95");
+    //historyParams.scale = infNumSub(historyParams.scale, infNum(5n, -1n)); // subtract 0.5
+    if (infNumLt(historyParams.scale, infNum(0n, 0n))) {
+      historyParams.scale = createInfNum("0.01");
     }
     redraw();
   } else if (e.keyCode == 67 /* c */) {
-    historyParams.offsetX = 0.0;
-    historyParams.offsetY = 0.0;
+    historyParams.offsetX = createInfNum("0");
+    historyParams.offsetY = createInfNum("0");
     redraw();
   } else if (e.keyCode == 77 /* m */ && sequencesByName[historyParams.seq].calcFrom == "sequence") {
     historyParams.n += 500;
@@ -1599,7 +1699,13 @@ window.addEventListener("keydown", function(e) {
     start();
     //drawPoints(historyParams);
   } else if (e.keyCode == 90 /* z */) {
-    addParamPercentAndRound("lineWidth", 50);
+    // use Math.round() instead of parseInt() because, for example:
+    //   parseInt(0.29 * 100.0)   --> 28
+    //   Math.round(0.29 * 100.0) --> 29
+    var valPct = Math.round(historyParams.lineWidth * 100.0);
+    valPct += 50;
+    historyParams.lineWidth = parseFloat(valPct / 100.0);
+
     historyParams.lineWidth = sanityCheckLineWidth(historyParams.lineWidth, true, sequencesByName[historyParams.seq]);
     if (sequencesByName[historyParams.seq].calcFrom == "window") {
       // changing the lineWidth for a window plot means we need to re-calculate
@@ -1670,8 +1776,8 @@ var mouseMoveHandler = function(e) {
   const newY = e.pageY;
   const diffX = (mouseDragX - newX) / dCanvas.width;
   const diffY = (mouseDragY - newY) / dCanvas.height;
-  historyParams.offsetX = roundTo5Decimals(historyParams.offsetX - diffX);
-  historyParams.offsetY = roundTo5Decimals(historyParams.offsetY - diffY);
+  historyParams.offsetX = infNumSub(historyParams.offsetX, createInfNum(diffX.toString()));
+  historyParams.offsetY = infNumSub(historyParams.offsetY, createInfNum(diffY.toString()));
   mouseDragX = newX;
   mouseDragY = newY;
 
@@ -1686,20 +1792,40 @@ var mouseMoveHandler = function(e) {
     const pinchRatio = pinchDuringDist / pinchStartDist;
     // updating this this is crucial to avoid way over-zooming
     pinchStartDist = pinchDuringDist;
-    const newScale = roundTo5Decimals(historyParams.scale * pinchRatio);
-    if (newScale < 0.00005) {
-      historyParams.scale = 0.00005;
-    } else if (newScale > 500) {
-      historyParams.scale = 500.0;
+    const newScale = infNumMul(historyParams.scale, createInfNum(pinchRatio.toString()));
+    //if (newScale < 0.00005) {
+    //  historyParams.scale = 0.00005;
+    //} else if (newScale > 500) {
+    //  historyParams.scale = 500.0;
+    //} else {
+    //  historyParams.scale = newScale;
+    //}
+
+    const maxSeqScale = createInfNum("500");
+    const minSeqScale = createInfNum("0.00005");
+    if (sequencesByName[historyParams.seq].calcFrom == "sequence") {
+      if (infNumLt(newScale, minSeqScale)) {
+        historyParams.scale = minSeqScale;
+      } else if (infNumGt(newScale, maxSeqScale)) {
+        historyParams.scale = maxSeqScale;
+      } else {
+        historyParams.scale = newScale;
+      }
+    // for window plots, use full-precision scale
     } else {
       historyParams.scale = newScale;
     }
 
     // see "wheel" event below for explanation of centering the zoom in/out from the mouse/pinch point
-    const newOffsetX = ((midX-(dCanvas.width  * (0.5 + historyParams.offsetX)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.width)  + historyParams.offsetX;
-    const newOffsetY = ((midY-(dCanvas.height * (0.5 + historyParams.offsetY)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.height) + historyParams.offsetY;
-    historyParams.offsetX = roundTo5Decimals(newOffsetX);
-    historyParams.offsetY = roundTo5Decimals(newOffsetY);
+//    const newOffsetX = ((midX-(dCanvas.width  * (0.5 + historyParams.offsetX)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.width)  + historyParams.offsetX;
+//    const newOffsetY = ((midY-(dCanvas.height * (0.5 + historyParams.offsetY)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.height) + historyParams.offsetY;
+//    historyParams.offsetX = roundTo5Decimals(newOffsetX);
+//    historyParams.offsetY = roundTo5Decimals(newOffsetY);
+
+    const newOffsetX = calculateNewZoomOffset(createInfNum(midX.toString()), createInfNum(dCanvas.width.toString()),  historyParams.offsetX, oldScale, historyParams.scale);
+    const newOffsetY = calculateNewZoomOffset(createInfNum(midY.toString()), createInfNum(dCanvas.height.toString()), historyParams.offsetY, oldScale, historyParams.scale);
+    historyParams.offsetX = newOffsetX;
+    historyParams.offsetY = newOffsetY;
   }
 
   redraw();
@@ -1722,11 +1848,24 @@ dCanvas.addEventListener("wheel", function(e) {
   // set 48 wheelDeltaY units as 5% zoom (in or out)
   // so -48 is 95% zoom, and +96 is 110% zoom
   const oldScale = historyParams.scale;
-  const newScale = roundTo5Decimals(historyParams.scale * (1.0 + ((e.wheelDeltaY / 48) * 0.05)));
-  if (newScale < 0.00005) {
-    historyParams.scale = 0.00005;
-  } else if (newScale > 500) {
-    historyParams.scale = 500.0;
+  var newScaleFactor = createInfNum((1.0 + ((e.wheelDeltaY / 48) * 0.05)).toString());
+  if (infNumLt(newScaleFactor, createInfNum("0"))) {
+    console.log("NEGATIVE scale factor would have been applied: [" + infNumToString(newScaleFactor) + "]");
+    newScaleFactor = createInfNum("0.05");
+  }
+  const newScale = infNumMul(historyParams.scale, newScaleFactor);
+
+  const maxSeqScale = createInfNum("500");
+  const minSeqScale = createInfNum("0.00005");
+  if (sequencesByName[historyParams.seq].calcFrom == "sequence") {
+    if (infNumLt(newScale, minSeqScale)) {
+      historyParams.scale = minSeqScale;
+    } else if (infNumGt(newScale, maxSeqScale)) {
+      historyParams.scale = maxSeqScale;
+    } else {
+      historyParams.scale = newScale;
+    }
+  // for window plots, use full-precision scale
   } else {
     historyParams.scale = newScale;
   }
@@ -1752,15 +1891,59 @@ dCanvas.addEventListener("wheel", function(e) {
   // (pt_x * scale) + (canvas.width * (0.5 + params.offsetX)) = mouse_x
   // pt_x = (mouse_x - (canvas.width * (0.5 + params.offsetX)))/scale
 
-  // this is a mess, but it works
-  // this might be able to be simplified...
-  const newOffsetX = ((e.pageX-(dCanvas.width  * (0.5 + historyParams.offsetX)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.width)  + historyParams.offsetX;
-  const newOffsetY = ((e.pageY-(dCanvas.height * (0.5 + historyParams.offsetY)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.height) + historyParams.offsetY;
-  historyParams.offsetX = roundTo5Decimals(newOffsetX);
-  historyParams.offsetY = roundTo5Decimals(newOffsetY);
+  // this is a mess, but it works (for default javascript floating point math)
+  // replaced with infNum implementation below
+  //const newOffsetX = ((e.pageX-(dCanvas.width  * (0.5 + historyParams.offsetX)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.width)  + historyParams.offsetX;
+  //const newOffsetY = ((e.pageY-(dCanvas.height * (0.5 + historyParams.offsetY)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.height) + historyParams.offsetY;
+
+//  const offsetXPct = infNumAdd(createInfNum("0.5"), historyParams.offsetX);
+//  const offsetYPct = infNumAdd(createInfNum("0.5"), historyParams.offsetY);
+//
+//  const offsetXCanvas = infNumMul(createInfNum(dCanvas.width.toString()), offsetXPct);
+//  const offsetYCanvas = infNumMul(createInfNum(dCanvas.height.toString()), offsetYPct);
+//
+//  const mouseXCanvas = infNumSub(createInfNum(e.pageX.toString()), offsetXCanvas);
+//  const mouseYCanvas = infNumSub(createInfNum(e.pageY.toString()), offsetYCanvas);
+//
+//  const oldScaleMouseX = infNumDiv(mouseXCanvas, oldScale);
+//  const oldScaleMouseY = infNumDiv(mouseYCanvas, oldScale);
+//
+//  const scaleDiff = infNumSub(oldScale, historyParams.scale);
+//  const scaleDiffX = infNumDiv(scaleDiff, createInfNum(dCanvas.width.toString()));
+//  const scaleDiffY = infNumDiv(scaleDiff, createInfNum(dCanvas.height.toString()));
+//
+//  const newOffsetX = infNumAdd(infNumMul(oldScaleMouseX, scaleDiffX), historyParams.offsetX);
+//  const newOffsetY = infNumAdd(infNumMul(oldScaleMouseY, scaleDiffY), historyParams.offsetY);
+
+  const newOffsetX = calculateNewZoomOffset(createInfNum(e.pageX.toString()), createInfNum(dCanvas.width.toString()),  historyParams.offsetX, oldScale, historyParams.scale);
+  const newOffsetY = calculateNewZoomOffset(createInfNum(e.pageY.toString()), createInfNum(dCanvas.height.toString()), historyParams.offsetY, oldScale, historyParams.scale);
+
+  //historyParams.offsetX = roundTo5Decimals(newOffsetX);
+  //historyParams.offsetY = roundTo5Decimals(newOffsetY);
+  historyParams.offsetX = newOffsetX;
+  historyParams.offsetY = newOffsetY;
 
   redraw();
 });
+
+// all arguments must be infNum
+//
+//const newOffsetY = ((e.pageY-(dCanvas.height * (0.5 + historyParams.offsetY)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.height) + historyParams.offsetY;
+function calculateNewZoomOffset(relativeToPosition, canvasSize, oldOffset, oldScale, newScale) {
+  const fiftyPct = createInfNum("0.5");
+  const offsetXPct = infNumAdd(fiftyPct, oldOffset);
+
+  const offsetXCanvas = infNumMul(canvasSize, offsetXPct);
+
+  const mouseXCanvas = infNumSub(relativeToPosition, offsetXCanvas);
+
+  const oldScaleMouseX = infNumDiv(mouseXCanvas, oldScale);
+
+  const scaleDiff = infNumSub(oldScale, newScale);
+  const scaleDiffX = infNumDiv(scaleDiff, canvasSize);
+
+  return infNumAdd(infNumMul(oldScaleMouseX, scaleDiffX), oldOffset);
+}
 
 document.getElementById('menu-open').addEventListener("click", function(e) {
   openMenu();

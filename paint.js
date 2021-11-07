@@ -21,6 +21,24 @@ const windowPointCaching = true;
 var windowResolutionTimeout = null;
 var windowTempLineWidth = 0;
 
+const windowCalc = {
+  "chunkCalcTimeout": null,
+  "seqName": "",
+  "lineWidth": 0,
+  "leftEdge": 0,
+  "topEdge": 0,
+  "rightEdge": 0,
+  "bottomEdge": 0,
+  "xPixelChunks": [],
+  "resultPoints": [],
+  "totalTimeMs": 0,
+  "totalPoints": 0,
+  "cachedPoints": 0,
+  "chunksComplete": 0,
+  "totalChunks": 0,
+  "chunksSetting": 100
+};
+
 function infNum(value, exponent) {
   return {"v": value, "e": exponent};
 }
@@ -929,7 +947,59 @@ const sequences = [{
   "name": "Mandelbrot-set",
   "calcFrom": "window",
   "desc": "the mandelbrot set",
-  "computeBoundPoints": function(privContext, lineWidth, leftEdge, topEdge, rightEdge, bottomEdge) {
+//  "computeBoundPoints": function(privContext, lineWidth, leftEdge, topEdge, rightEdge, bottomEdge) {
+//    // if the window has changed, reset the window cache
+//    const pointsBounds = infNumToString(leftEdge) + "-" + infNumToString(topEdge) + "-" + infNumToString(rightEdge) + "-" + infNumToString(bottomEdge);
+//    if (privContext.pointsBounds != pointsBounds) {
+//      privContext.pointsBounds = pointsBounds;
+//      privContext.points = {};
+//    }
+//    // regardless of the window, always reset the calculation state
+//    privContext.xPixelChunks = [];
+//    privContext.resultPoints = [];
+//
+//    // call a function to split the calculation into chunks and kick it off
+//    runWindowBoundPointsCalculators(privContext, lineWidth);
+//  },
+  // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
+  "computeBoundPointColor": function(privContext, x, y) {
+    const maxIter = 500;
+    const two = infNum(2n, 0n);
+    const black = getColor(0, 0, 0);
+    const boundsRadiusSquared = infNum(4n, 0n);
+
+    var pointColor = black;
+
+    // the coords used for iteration
+    var ix = infNum(0n, 0n);
+    var iy = infNum(0n, 0n);
+    var ixSq = infNum(0n, 0n);
+    var iySq = infNum(0n, 0n);
+    var ixTemp = infNum(0n, 0n);
+    var iter = 0;
+    //var lastNPointsMax = 20;
+    //var lastNPoints = [];
+    while (iter < maxIter) {
+      ixSq = infNumMul(ix, ix);
+      iySq = infNumMul(iy, iy);
+      if (infNumGt(infNumAdd(ixSq, iySq), boundsRadiusSquared)) {
+        break;
+      }
+      ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
+      iy = infNumAdd(y, infNumMul(two, infNumMul(ix, iy)));
+      ix = ixTemp;
+      ix = infNumTruncate(ix);
+      iy = infNumTruncate(iy);
+      iter++
+    }
+
+    if (iter == maxIter) {
+      return black;
+    } else {
+      return privContext.lookupColor(privContext, iter / maxIter, historyParams.lineColor);
+    }
+  },
+  "computeBoundPointsOld": function(privContext, lineWidth, leftEdge, topEdge, rightEdge, bottomEdge) {
     const startTimeMs = Date.now();
     if (windowPointCaching) {
       const pointsBounds = infNumToString(leftEdge) + "-" + infNumToString(topEdge) + "-" + infNumToString(rightEdge) + "-" + infNumToString(bottomEdge);
@@ -958,7 +1028,7 @@ const sequences = [{
     const eachPixWidth = infNumDiv(width, pixWidth);
     const eachPixHeight = infNumDiv(height, pixHeight);
 
-    const maxIter = 1000;
+    const maxIter = 500;
     const two = infNum(2n, 0n);
     const black = getColor(0, 0, 0);
     const boundsRadiusSquared = infNum(4n, 0n);
@@ -979,14 +1049,10 @@ const sequences = [{
             py = infNumAdd(infNumMul(eachPixHeight, y), topEdge);
 
             // the coords used for iteration
-            //var ix = px;
-            //var iy = py;
             var ix = infNum(0n, 0n);
             var iy = infNum(0n, 0n);
             var ixSq = infNum(0n, 0n);
             var iySq = infNum(0n, 0n);
-            var ixStr = "";
-            var iyStr = "";
             var ixTemp = infNum(0n, 0n);
             var iter = 0;
             //var lastNPointsMax = 20;
@@ -1002,27 +1068,6 @@ const sequences = [{
               ix = ixTemp;
               ix = infNumTruncate(ix);
               iy = infNumTruncate(iy);
-              // maybe converting to string before adding, and comparing, would actually be
-              //   faster (MUST ensure string removes extraneous leading/trailing zeros)
-              //ixStr = infNumToString(ix);
-              //iyStr = infNumToString(iy);
-              // try using the trimmed string version to avoid "too large to allocate" errors
-              //ix = createInfNum(ixStr);
-              //iy = createInfNum(iyStr);
-              //if (iter >= 9) {
-              //  console.log("ix (" + ixTemp.v + ", " + ixTemp.e + ") becomes new ix (" + ix.v + ", " + ix.e + ")");
-              //}
-              //for (var n = 0; n < lastNPoints.length; n++) {
-              // if (lastNPoints[n].x == ixStr && lastNPoints[n].y == iy) {
-              //   iter = maxIter - 1;
-              //   console.log("pixel [" + infNumToString(x) + ", " + infNumToString(y) + "] iterated to a previous value, so stopping early");
-              //   break;
-              // }
-              //}
-              //lastNPoints.push({"x":ixStr, "y":iyStr});
-              //if (lastNPoints.length >= lastNPointsMax) {
-              // lastNPoints.shift();
-              //}
               iter++
             }
 
@@ -1074,6 +1119,8 @@ const sequences = [{
     "offsetY": infNum(0n, 0n)
   },
   "privContext": {
+    //"xPixelChunks": [],
+    //"resultPoints": [],
     "points": {},
     "pointsBounds": "--",
     "colors": {},
@@ -1089,6 +1136,116 @@ const sequences = [{
     }
   }
 }];
+
+function isComputationComplete() {
+  return windowCalc.xPixelChunks.length == 0;// && privContext.resultPoints.length > 0;
+}
+
+//function getResults(privContext) {
+//  return privContext.resultPoints;
+//}
+
+function computeBoundPoints(privContext, lineWidth, leftEdge, topEdge, rightEdge, bottomEdge) {
+  // if the window has changed, reset the window cache
+  const pointsBounds = infNumToString(leftEdge) + "-" + infNumToString(topEdge) + "-" + infNumToString(rightEdge) + "-" + infNumToString(bottomEdge);
+  if (privContext.pointsBounds != pointsBounds) {
+    privContext.pointsBounds = pointsBounds;
+    privContext.points = {};
+  }
+  // regardless of the window, always reset the calculation state
+
+  // call a function to split the calculation into chunks and kick it off
+  runWindowBoundPointsCalculators(privContext, lineWidth);
+}
+
+// call the plot's computeBoundPoints function in chunks, to better
+//   allow interuptions for long-running calculations
+function runWindowBoundPointsCalculators(privContext, lineWidth) {
+
+  // use lineWidth to determine how large to make the calculated/displayed
+  //   pixels, so round to integer
+  // use Math.round(), not Math.trunc(), because we want the minimum
+  //   lineWidth of 0.5 to result in a pixel size of 1
+  const pixelSize = Math.round(lineWidth);
+
+  const pixWidth = dContext.canvas.width;
+  const numXChunks = windowCalc.chunksSetting;
+  var pixPerChunk = 1;
+  var realPixelsPerChunk = pixWidth/numXChunks;
+  var pixPerChunk = Math.trunc(realPixelsPerChunk / pixelSize) + 1;
+
+  // split the x-axis, to break the computation down into interruptable chunks
+  var xChunkPix = 0;
+  var xChunk = [];
+  for (var x = 0; x < pixWidth; x+=pixelSize) {
+    xChunkPix++;
+    if (xChunkPix > pixPerChunk) {
+      windowCalc.xPixelChunks.push(xChunk);
+      xChunkPix = 1;
+      xChunk = [];
+    }
+    xChunk.push(x);
+  }
+  windowCalc.xPixelChunks.push(xChunk);
+  windowCalc.totalChunks = windowCalc.xPixelChunks.length;
+
+  waitAndDrawWindow();
+}
+
+function computeBoundPointsChunk(sequence, lineWidth, leftEdge, topEdge, rightEdge, bottomEdge, xChunk) {
+  chunkStartMs = Date.now();
+  const privContext = sequence.privContext;
+  var resultPoints = [];
+
+  // use lineWidth to determine how large to make the calculated/displayed
+  //   pixels, so round to integer
+  // use Math.round(), not Math.trunc(), because we want the minimum
+  //   lineWidth of 0.5 to result in a pixel size of 1
+  const pixelSize = createInfNum(Math.round(lineWidth).toString());
+  const params = historyParams;
+
+  // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
+  const pixWidth = createInfNum(dContext.canvas.width.toString());
+  const pixHeight = createInfNum(dContext.canvas.height.toString());
+
+  const width = infNumSub(rightEdge, leftEdge);
+  const height = infNumSub(bottomEdge, topEdge);
+  const eachPixWidth = infNumDiv(width, pixWidth);
+  const eachPixHeight = infNumDiv(height, pixHeight);
+
+  var px = 0.0;
+  var py = 0.0;
+  var x = infNum(0n, 0n);
+  for (var i = 0; i < xChunk.length; i++) {
+    x = infNum(BigInt(xChunk[i]), 0n);
+
+    px = infNumAdd(infNumMul(eachPixWidth, x), leftEdge);
+    var y = infNum(0n, 0n);
+    while (infNumLt(y, pixHeight)) {
+      const pointPixel = infNumToString(x) + "," + infNumToString(y);
+      if (pointPixel in privContext.points) {
+        windowCalc.cachedPoints++;
+        resultPoints.push(privContext.points[pointPixel]);
+      } else {
+        py = infNumAdd(infNumMul(eachPixHeight, y), topEdge);
+
+        const pointColor = sequence.computeBoundPointColor(privContext, px, py);
+
+        // x and y are integer (actual pixel) values, with no decimal component
+        var point = getColorPoint(parseInt(infNumToString(x)), parseInt(infNumToString(y)), pointColor);
+        privContext.points[pointPixel] = point;
+        resultPoints.push(point);
+      }
+      y = infNumAdd(y, pixelSize);
+    }
+  }
+  windowCalc.totalTimeMs += (Date.now() - chunkStartMs);
+  windowCalc.totalPoints += resultPoints.length;
+  windowCalc.chunksComplete++;
+  return {
+    "points": resultPoints,
+  };
+}
 
 const presets = [{
   "seq": "Primes-1-Step-90-turn",
@@ -1373,7 +1530,8 @@ function start() {
   } else if (sequence.calcFrom == "window") {
     // since line width is halved each time the draw occurs, use 128 to get
     //   the initial draw to use a 64-wide pixels
-    windowTempLineWidth = 128;
+    windowCalc.lineWidth = 128;
+    windowCalc.pixelsImage = dContext.createImageData(dContext.canvas.width, dContext.canvas.height);
     calculateAndDrawWindow();
   } else {
     alert("Unexpected \"calcFrom\" field for the sequence: [" + sequence.calcFrom + "]");
@@ -1538,7 +1696,8 @@ function redraw() {
   } else if (sequence.calcFrom == "window") {
     // since line width is halved each time the draw occurs, use 128 to get
     //   the initial draw to use a 64-wide pixels
-    windowTempLineWidth = 128;
+    windowCalc.lineWidth = 128;
+    windowCalc.pixelsImage = dContext.createImageData(dContext.canvas.width, dContext.canvas.height);
     calculateAndDrawWindow();
   }
 }
@@ -1616,17 +1775,17 @@ function calculateAndDrawWindow() {
 
 function calculateAndDrawWindowInner() {
   const params = historyParams;
-  if (windowResolutionTimeout != null) {
-    window.clearTimeout(windowResolutionTimeout);
-  }
-  var potentialTempLineWidth = Math.round(windowTempLineWidth / 2);
-  if (potentialTempLineWidth <= params.lineWidth) {
-    potentialTempLineWidth = params.lineWidth;
-    windowTempLineWidth = params.lineWidth;
-  } else {
-    windowResolutionTimeout = window.setTimeout(calculateAndDrawWindow, 250);
-  }
-  windowTempLineWidth = potentialTempLineWidth;
+//  if (windowResolutionTimeout != null) {
+//    window.clearTimeout(windowResolutionTimeout);
+//  }
+//  var potentialTempLineWidth = Math.round(windowTempLineWidth / 2);
+//  if (potentialTempLineWidth <= params.lineWidth) {
+//    potentialTempLineWidth = params.lineWidth;
+//    windowTempLineWidth = params.lineWidth;
+//  } else {
+//    windowResolutionTimeout = window.setTimeout(calculateAndDrawWindow, 250);
+//  }
+//  windowTempLineWidth = potentialTempLineWidth;
 
   // thanks to https://stackoverflow.com/a/1232046/259456
   points.length = 0;
@@ -1662,15 +1821,76 @@ function calculateAndDrawWindowInner() {
   //const topEdgeFloat = bottomEdgeFloat - scaledHeightFloat;
   //console.log("topEdge -- float [" + topEdgeFloat + "], infNum [" + infNumToString(topEdge) + "]");
 
-  const out = sequence.computeBoundPoints(sequence.privContext, windowTempLineWidth, leftEdge, topEdge, rightEdge, bottomEdge);
-
-  // copy the results
-  for (var i = 0; i < out.points.length; i++) {
-    points.push(out.points[i]);
+  if (windowCalc.chunkCalcTimeout != null) {
+    window.clearTimeout(windowCalc.chunkCalcTimeout);
   }
 
-  // draw the results
-  drawColorPoints(windowTempLineWidth);
+  windowCalc.seqName = params.seq;
+  //windowCalc.lineWidth = windowTempLineWidth;
+  windowCalc.leftEdge = leftEdge;
+  windowCalc.topEdge = topEdge;
+  windowCalc.rightEdge = rightEdge;
+  windowCalc.bottomEdge = bottomEdge;
+  windowCalc.xPixelChunks = [];
+  windowCalc.resultPoints = [];
+  windowCalc.totalTimeMs = 0;
+  windowCalc.totalPoints = 0;
+  windowCalc.cachedPoints = 0;
+  windowCalc.chunksComplete = 0;
+  windowCalc.totalChunks = 0;
+
+
+  const roundedParamLineWidth =  Math.round(params.lineWidth);
+  const potentialTempLineWidth = Math.round(windowCalc.lineWidth / 2);
+  if (potentialTempLineWidth <= roundedParamLineWidth) {
+    windowCalc.lineWidth = roundedParamLineWidth;
+  } else {
+    windowCalc.lineWidth = potentialTempLineWidth;
+  }
+
+  // this calls some functions that will later call other functions
+  //   to incrementally compute and display the results
+  computeBoundPoints(sequence.privContext, windowCalc.lineWidth, leftEdge, topEdge, rightEdge, bottomEdge);
+}
+
+function waitAndDrawWindow() {
+  const sequence = sequencesByName[windowCalc.seqName];
+
+  var nextXChunk = windowCalc.xPixelChunks.shift();
+  const isFinished = isComputationComplete();
+  
+  if (nextXChunk) {
+    const out = computeBoundPointsChunk(sequence, windowCalc.lineWidth, windowCalc.leftEdge, windowCalc.topEdge, windowCalc.rightEdge, windowCalc.bottomEdge, nextXChunk);
+
+    // copy the results
+    for (var i = 0; i < out.points.length; i++) {
+      points.push(out.points[i]);
+    }
+
+    // draw the results
+    drawColorPoints(windowCalc.lineWidth);
+    if (!isFinished) {
+      drawCalculatingNotice(dContext);
+    }
+  }
+
+  // if the calculation is not finished, schedule another chunk to be calculated
+  if (isFinished) {
+    if (windowLogTiming) {
+      console.log("computing [" + windowCalc.totalPoints + "] points, of which [" + windowCalc.cachedPoints + "] were cached, took [" + windowCalc.totalTimeMs + "] ms");
+    }
+  } else {
+    windowCalc.chunkCalcTimeout = window.setTimeout(waitAndDrawWindow, 50);
+    return;
+  }
+
+  if (windowResolutionTimeout != null) {
+    window.clearTimeout(windowResolutionTimeout);
+  }
+  // if line width just finished matches the param lineWidth, we are done
+  if (windowCalc.lineWidth > Math.round(historyParams.lineWidth)) {
+    windowResolutionTimeout = window.setTimeout(calculateAndDrawWindow, 250);
+  }
 }
 
 function drawColorPoints(lineWidth) {
@@ -1685,7 +1905,8 @@ function drawColorPoints(lineWidth) {
   const canvas = dContext.canvas;
   const width = canvas.width;
   const height = canvas.height;
-  var pixelsImage = dContext.createImageData(width, height);
+  //var pixelsImage = dContext.createImageData(width, height);
+  const pixelsImage = windowCalc.pixelsImage;
   for (var i = 0; i < points.length; i++) {
     // use lineWidth param as "resolution":
     //   1 = 1  pixel  drawn per point
@@ -1725,11 +1946,12 @@ function drawCalculatingNotice(ctx) {
   ctx.fillStyle = "rgba(100,100,100,0.7)";
   const noticeHeight = Math.max(24, canvas.height * 0.03);
   const textHeight = Math.round(noticeHeight * 0.6);
-  const noticeWidth = Math.max(150, textHeight * 8);
+  const noticeWidth = Math.max(200, textHeight * 14);
   ctx.fillRect(0,canvas.height-noticeHeight,noticeWidth, noticeHeight);
   ctx.font = textHeight + "px system-ui";
   ctx.fillStyle = "rgba(0,0,0,0.9)";
-  ctx.fillText("Calculating...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
+  const percentComplete = Math.round(windowCalc.chunksComplete * 100.0 / windowCalc.totalChunks);
+  ctx.fillText("Calculating " + windowCalc.lineWidth + "-wide pixels (" + percentComplete + "%) ...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
 }
 
 // apparently using float math to add 0.01 to 0.06 doesn't result in 0.07

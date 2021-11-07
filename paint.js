@@ -25,7 +25,50 @@ function infNum(value, exponent) {
   return {"v": value, "e": exponent};
 }
 
-function createInfNum(stringNum) {
+function trimZeroes(stringNum) {
+  var trimmed = stringNum.trim();
+  const negative = trimmed.startsWith('-');
+  if (negative) {
+    trimmed = trimmed.substr(1);
+  }
+  while (trimmed.length > 1 && trimmed.startsWith('0')) {
+    trimmed = trimmed.substr(1);
+  }
+  if (negative) {
+    trimmed = "-" + trimmed;
+  }
+  const parts = trimmed.split('.');
+  if (parts.length == 1) {
+    return trimmed;
+  }
+  while (parts[1].length > 0 && parts[1].endsWith('0')) {
+    parts[1] = parts[1].slice(0, -1);
+  }
+  if (parts[1].length == 0) {
+    return trimmed;
+  }
+  return parts[0] + "." + parts[1];
+}
+
+var unitTest = trimZeroes("50000");
+console.log("trimZeroes(\"50000\") = [" + unitTest + "] // 50000");
+
+unitTest = trimZeroes("050");
+console.log("trimZeroes(\"050\") = [" + unitTest + "] // 50");
+
+unitTest = trimZeroes("-050");
+console.log("trimZeroes(\"-050\") = [" + unitTest + "] // -50");
+
+unitTest = trimZeroes("-022.00");
+console.log("trimZeroes(\"-022.00\") = [" + unitTest + "] // -22");
+
+unitTest = trimZeroes("022.002200");
+console.log("trimZeroes(\"022.002200\") = [" + unitTest + "] // 22.0022");
+
+unitTest = trimZeroes("-22.002200");
+console.log("trimZeroes(\"-22.002200\") = [" + unitTest + "] // -22.0022");
+
+function createInfNumOld(stringNum) {
   var trimmed = stringNum.trim();
   const negative = trimmed.startsWith('-');
   if (negative) {
@@ -45,6 +88,15 @@ function createInfNum(stringNum) {
     parts[1] = parts[1].slice(0, -1);
   }
   if (parts[1].length == 0) {
+    return infNum(BigInt(parts[0]), 0n);
+  }
+  return infNum(BigInt(parts[0] + "" + parts[1]), BigInt("-" + parts[1].length));
+}
+
+function createInfNum(stringNum) {
+  var trimmed = trimZeroes(stringNum);
+  const parts = trimmed.split('.');
+  if (parts.length == 1) {
     return infNum(BigInt(parts[0]), 0n);
   }
   return infNum(BigInt(parts[0] + "" + parts[1]), BigInt("-" + parts[1].length));
@@ -225,6 +277,9 @@ function infNumLe(a, b) {
   return normalized[0].v <= normalized[1].v;
 }
 function infNumGt(a, b) {
+  if (a.v > b.v && a.e >= b.e) {
+    return true;
+  }
   const normalized = normInfNum(a, b);
   return normalized[0].v > normalized[1].v;
 }
@@ -286,7 +341,7 @@ function infNumToString(n) {
   if (neg) {
     value = "-" + value;
   }
-  return value + "." + dec;
+  return trimZeroes(value + "." + dec);
 }
 
 console.log("(22,0) // 22");
@@ -312,6 +367,17 @@ console.log(infNumToString(infNum(-22n, 1n)));
 
 console.log("-22,-4) // -0.0022");
 console.log(infNumToString(infNum(-22n, -4n)));
+
+function infNumTruncate(n) {
+  var a = copyInfNum(n);
+  const orig = a.v.toString();
+  if (orig.length <= 24) {
+    return a;
+  }
+  a.v = BigInt(a.v.toString().substring(0,24));
+  a.e = a.e + BigInt(orig.length - 24);
+  return a;
+}
 
 
 // each "sequence" has its own "privContext" that can contain whatever data/functions
@@ -892,7 +958,7 @@ const sequences = [{
     const eachPixWidth = infNumDiv(width, pixWidth);
     const eachPixHeight = infNumDiv(height, pixHeight);
 
-    const maxIter = 7;
+    const maxIter = 1000;
     const two = infNum(2n, 0n);
     const black = getColor(0, 0, 0);
     const boundsRadiusSquared = infNum(4n, 0n);
@@ -913,12 +979,18 @@ const sequences = [{
             py = infNumAdd(infNumMul(eachPixHeight, y), topEdge);
 
             // the coords used for iteration
-            var ix = px;
-            var iy = py;
+            //var ix = px;
+            //var iy = py;
+            var ix = infNum(0n, 0n);
+            var iy = infNum(0n, 0n);
             var ixSq = infNum(0n, 0n);
             var iySq = infNum(0n, 0n);
+            var ixStr = "";
+            var iyStr = "";
             var ixTemp = infNum(0n, 0n);
             var iter = 0;
+            //var lastNPointsMax = 20;
+            //var lastNPoints = [];
             while (iter < maxIter) {
               ixSq = infNumMul(ix, ix);
               iySq = infNumMul(iy, iy);
@@ -928,6 +1000,29 @@ const sequences = [{
               ixTemp = infNumAdd(px, infNumSub(ixSq, iySq));
               iy = infNumAdd(py, infNumMul(two, infNumMul(ix, iy)));
               ix = ixTemp;
+              ix = infNumTruncate(ix);
+              iy = infNumTruncate(iy);
+              // maybe converting to string before adding, and comparing, would actually be
+              //   faster (MUST ensure string removes extraneous leading/trailing zeros)
+              //ixStr = infNumToString(ix);
+              //iyStr = infNumToString(iy);
+              // try using the trimmed string version to avoid "too large to allocate" errors
+              //ix = createInfNum(ixStr);
+              //iy = createInfNum(iyStr);
+              //if (iter >= 9) {
+              //  console.log("ix (" + ixTemp.v + ", " + ixTemp.e + ") becomes new ix (" + ix.v + ", " + ix.e + ")");
+              //}
+              //for (var n = 0; n < lastNPoints.length; n++) {
+              // if (lastNPoints[n].x == ixStr && lastNPoints[n].y == iy) {
+              //   iter = maxIter - 1;
+              //   console.log("pixel [" + infNumToString(x) + ", " + infNumToString(y) + "] iterated to a previous value, so stopping early");
+              //   break;
+              // }
+              //}
+              //lastNPoints.push({"x":ixStr, "y":iyStr});
+              //if (lastNPoints.length >= lastNPointsMax) {
+              // lastNPoints.shift();
+              //}
               iter++
             }
 
@@ -1516,7 +1611,7 @@ function calculateAndDrawWindow() {
   // thanks to https://stackoverflow.com/a/5521412/259456
   // hand control back to the browser to allow canvas to actually show
   //   the "calculating" text
-  window.setTimeout(calculateAndDrawWindowInner, 25);
+  window.setTimeout(calculateAndDrawWindowInner, 50);
 }
 
 function calculateAndDrawWindowInner() {

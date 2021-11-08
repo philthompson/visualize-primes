@@ -18,8 +18,6 @@ var menuVisible = false;
 
 const windowLogTiming = true;
 const windowPointCaching = true;
-//var windowResolutionTimeout = null;
-//var windowTempLineWidth = 0;
 
 const windowCalc = {
   "timeout": null,
@@ -38,8 +36,7 @@ const windowCalc = {
   "totalPoints": 0,
   "cachedPoints": 0,
   "chunksComplete": 0,
-  "totalChunks": 0,
-  "chunksSetting": 100
+  "totalChunks": 0
 };
 
 function infNum(value, exponent) {
@@ -907,8 +904,8 @@ const sequences = [{
   },
   // these settings are auto-applied when this sequence is activated
   "forcedDefaults": {
-    "scale": infNum(40n, 0n),
-    "offsetX": infNum(0n, 0n),
+    "scale": infNum(400n, 0n),
+    "offsetX": infNum(19n, -2n),
     "offsetY": infNum(0n, 0n)
   },
   "privContext": {
@@ -958,7 +955,17 @@ function runWindowBoundPointsCalculators(privContext) {
   const pixelSize = Math.round(windowCalc.lineWidth);
 
   const pixWidth = dContext.canvas.width;
-  const numXChunks = windowCalc.chunksSetting;
+  // use way fewer chunks for larger pixels, which mostly fixes mouse-dragging issues
+  var numXChunks = 128;
+  if (pixelSize == 64) {
+    numXChunks = 1;
+  } else if (pixelSize == 32) {
+    numXChunks = 1;
+  } else if (pixelSize == 16) {
+    numXChunks = 32;
+  } else if (pixelSize == 8 || pixelSize == 4) {
+    numXChunks = 64;
+  }
   var pixPerChunk = 1;
   var realPixelsPerChunk = pixWidth/numXChunks;
   var pixPerChunk = Math.trunc(realPixelsPerChunk / pixelSize) + 1;

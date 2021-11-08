@@ -18,6 +18,7 @@ var menuVisible = false;
 
 const windowLogTiming = true;
 const windowPointCaching = true;
+const mandelbrotCircleHeuristic = false;
 
 const windowCalc = {
   "timeout": null,
@@ -870,10 +871,18 @@ const sequences = [{
   "desc": "the mandelbrot set",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColor": function(privContext, x, y) {
-    const maxIter = 500;
-    const two = infNum(2n, 0n);
-    const black = getColor(0, 0, 0);
-    const boundsRadiusSquared = infNum(4n, 0n);
+    const maxIter = 1000;
+
+    // circle heuristics to speed up zoomed-out viewing
+    if (mandelbrotCircleHeuristic) {
+      for (var i = 0; i < privContext.circles.length; i++) {
+        const xDist = infNumSub(x, privContext.circles[i].centerX);
+        const yDist = infNumSub(y, privContext.circles[i].centerY);
+        if (infNumLe(infNumAdd(infNumMul(xDist, xDist), infNumMul(yDist, yDist)), privContext.circles[i].radSq)) {
+          return privContext.black;
+        }
+      }
+    }
 
     // the coords used for iteration
     var ix = infNum(0n, 0n);
@@ -885,11 +894,11 @@ const sequences = [{
     while (iter < maxIter) {
       ixSq = infNumMul(ix, ix);
       iySq = infNumMul(iy, iy);
-      if (infNumGt(infNumAdd(ixSq, iySq), boundsRadiusSquared)) {
+      if (infNumGt(infNumAdd(ixSq, iySq), privContext.boundsRadiusSquared)) {
         break;
       }
       ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
-      iy = infNumAdd(y, infNumMul(two, infNumMul(ix, iy)));
+      iy = infNumAdd(y, infNumMul(privContext.two, infNumMul(ix, iy)));
       ix = ixTemp;
       ix = infNumTruncate(ix);
       iy = infNumTruncate(iy);
@@ -897,7 +906,7 @@ const sequences = [{
     }
 
     if (iter == maxIter) {
-      return black;
+      return privContext.black;
     } else {
       return privContext.lookupColor(privContext, iter / maxIter, historyParams.lineColor);
     }
@@ -909,6 +918,10 @@ const sequences = [{
     "offsetY": infNum(0n, 0n)
   },
   "privContext": {
+    //"purple": getColor(255, 40, 255),
+    "two": infNum(2n, 0n),
+    "black": getColor(0, 0, 0),
+    "boundsRadiusSquared": infNum(4n, 0n),
     "colors": {},
     "lookupColor": function(privContext, pct, lineColor) {
       var pctRound = Math.trunc(pct * 10000.0).toString();
@@ -919,7 +932,24 @@ const sequences = [{
       var color = getColor(parseInt(rgba[0]),parseInt(rgba[1]),parseInt(rgba[2]));
       privContext.colors[pctRound] = color;
       return color;
-    }
+    },
+    "circles": [{
+      "centerX": createInfNum("-0.29"),
+      "centerY": infNum(0n, 0n),
+      "radSq": createInfNum("0.18")
+    },{
+      "centerX": createInfNum("-0.06"),
+      "centerY": createInfNum("0.22"),
+      "radSq": createInfNum("0.13")
+    },{
+      "centerX": createInfNum("-0.06"),
+      "centerY": createInfNum("-0.22"),
+      "radSq": createInfNum("0.13")
+    },{
+      "centerX": createInfNum("-1.0"),
+      "centerY": createInfNum("0.0"),
+      "radSq": createInfNum("0.04")
+    }]
   }
 }];
 
@@ -1491,7 +1521,7 @@ function redraw() {
   if (sequence.calcFrom == "sequence") {
     drawPoints(historyParams);
   } else if (sequence.calcFrom == "window") {
-    console.log("resetting windowCalc...");
+    //console.log("resetting windowCalc...");
     resetWindowCalcContext();
     calculateAndDrawWindow();
   }
@@ -1948,7 +1978,8 @@ window.addEventListener("keydown", function(e) {
     }
     historyParams.lineColor = lineColorSchemeNames[schemeNum];
 
-    drawPoints(historyParams);
+    //drawPoints(historyParams);
+    redraw();
   } else if (e.keyCode == 66 /* b */ && sequencesByName[historyParams.seq].calcFrom == "sequence") {
     var schemeNum = -1;
     for (var i = 0; i < bgColorSchemeNames.length; i++) {
@@ -2108,7 +2139,7 @@ var mouseMoveHandler = function(e) {
     historyParams.offsetY = newOffsetY;
   }
 
-  console.log("MOUSE WAS MOVED so doing redraw()");
+  //console.log("MOUSE WAS MOVED so doing redraw()");
   redraw();
 };
 dCanvas.addEventListener("mousemove", mouseMoveHandler);

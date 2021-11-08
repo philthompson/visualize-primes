@@ -850,91 +850,12 @@ const sequences = [{
   "name": "Circle",
   "calcFrom": "window",
   "desc": "Draws a purple circle, for testing the window calculation+drawing methods",
-  "computeBoundPoints": function(privContext, lineWidth, leftEdge, topEdge, rightEdge, bottomEdge) {
-    const startTimeMs = Date.now();
-    if (windowPointCaching) {
-      const pointsBounds = infNumToString(leftEdge) + "-" + infNumToString(topEdge) + "-" + infNumToString(rightEdge) + "-" + infNumToString(bottomEdge);
-      if (privContext.pointsBounds != pointsBounds) {
-        privContext.pointsBounds = pointsBounds;
-        privContext.points = {};
-      }
-    }
-    var resultPoints = [];
-
-    var cachedPointsUsed = 0;
-
-    // use lineWidth to determine how large to make the calculated/displayed
-    //   pixels, so round to integer
-    // use Math.round(), not Math.trunc(), because we want the minimum
-    //   lineWidth of 0.5 to result in a pixel size of 1
-    const pixelSize = createInfNum(Math.round(lineWidth).toString());
-    const params = historyParams;
-
-    // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
-    const pixWidth = createInfNum(dContext.canvas.width.toString());
-    const pixHeight = createInfNum(dContext.canvas.height.toString());
-
-    const width = infNumSub(rightEdge, leftEdge);
-    const height = infNumSub(bottomEdge, topEdge);
-    const eachPixWidth = infNumDiv(width, pixWidth);
-    const eachPixHeight = infNumDiv(height, pixHeight);
-
-    const black = getColor(0, 0, 0);
-    const circleRadiusSquared = infNum(100n, 0n);
-    if (windowPointCaching) {
-      var px = 0.0;
-      var py = 0.0;
-      var pointColor = black;
-      var x = infNum(0n, 0n);
-      while (infNumLt(x, pixWidth)) {
-        px = infNumAdd(infNumMul(eachPixWidth, x), leftEdge);
-        var y = infNum(0n, 0n);
-        while (infNumLt(y, pixHeight)) {
-          const pointPixel = infNumToString(x) + "," + infNumToString(y);
-          if (pointPixel in privContext.points) {
-            cachedPointsUsed++;
-            resultPoints.push(privContext.points[pointPixel]);
-          } else {
-            py = infNumAdd(infNumMul(eachPixHeight, y), topEdge);
-            if (infNumLe(infNumAdd(infNumMul(px, px), infNumMul(py, py)), circleRadiusSquared)) {
-              pointColor = getColor(100, 40, 90);
-            } else {
-              pointColor = black;
-            }
-            // x and y are integer (actual pixel) values, with no decimal component
-            var point = getColorPoint(parseInt(infNumToString(x)), parseInt(infNumToString(y)), pointColor);
-            privContext.points[pointPixel] = point;
-            resultPoints.push(point);
-          }
-          y = infNumAdd(y, pixelSize);
-        }
-        x = infNumAdd(x, pixelSize);
-      }
+  "computeBoundPointColor": function(privContext, x, y) {
+    if (infNumLe(infNumAdd(infNumMul(x, x), infNumMul(y, y)), privContext.circleRadiusSquared)) {
+      return getColor(100, 40, 90);
     } else {
-      var px = 0.0;
-      var py = 0.0;
-      var pointColor = getColor(0, 0, 0);
-      for (var x = 0; x < pixWidth; x+=pixelSize) {
-        px = (eachPixWidth * x) + leftEdge;
-        for (var y = 0; y < pixHeight; y+=pixelSize) {
-          py = (eachPixHeight * y) + topEdge;
-          pointColor = getColor(0, 0, 0);
-          if (Math.hypot(px, py) < 10) {
-            pointColor = getColor(100, 40, 90);
-          }
-          var point = getColorPoint(x, y, pointColor);
-          resultPoints.push(point);
-        }
-      }
+      return privContext.black;
     }
-
-    if (windowLogTiming) {
-      const durationMs = Date.now() - startTimeMs;
-      console.log("computing [" + resultPoints.length + "] points, of which [" + cachedPointsUsed + "] were cached, took [" + durationMs + "] ms");
-    }
-    return {
-      "points": resultPoints,
-    };
   },
   // these settings are auto-applied when this sequence is activated
   "forcedDefaults": {
@@ -943,35 +864,19 @@ const sequences = [{
     "offsetY": infNum(0n, 0n)
   },
   "privContext": {
-    "points": {},
-    "pointsBounds": "--"
+    "black": getColor(0, 0, 0),
+    "circleRadiusSquared": infNum(100n, 0n)
   }
 },{
   "name": "Mandelbrot-set",
   "calcFrom": "window",
   "desc": "the mandelbrot set",
-//  "computeBoundPoints": function(privContext, lineWidth, leftEdge, topEdge, rightEdge, bottomEdge) {
-//    // if the window has changed, reset the window cache
-//    const pointsBounds = infNumToString(leftEdge) + "-" + infNumToString(topEdge) + "-" + infNumToString(rightEdge) + "-" + infNumToString(bottomEdge);
-//    if (privContext.pointsBounds != pointsBounds) {
-//      privContext.pointsBounds = pointsBounds;
-//      privContext.points = {};
-//    }
-//    // regardless of the window, always reset the calculation state
-//    privContext.xPixelChunks = [];
-//    privContext.resultPoints = [];
-//
-//    // call a function to split the calculation into chunks and kick it off
-//    runWindowBoundPointsCalculators(privContext, lineWidth);
-//  },
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColor": function(privContext, x, y) {
     const maxIter = 500;
     const two = infNum(2n, 0n);
     const black = getColor(0, 0, 0);
     const boundsRadiusSquared = infNum(4n, 0n);
-
-    var pointColor = black;
 
     // the coords used for iteration
     var ix = infNum(0n, 0n);
@@ -980,8 +885,6 @@ const sequences = [{
     var iySq = infNum(0n, 0n);
     var ixTemp = infNum(0n, 0n);
     var iter = 0;
-    //var lastNPointsMax = 20;
-    //var lastNPoints = [];
     while (iter < maxIter) {
       ixSq = infNumMul(ix, ix);
       iySq = infNumMul(iy, iy);
@@ -1002,119 +905,6 @@ const sequences = [{
       return privContext.lookupColor(privContext, iter / maxIter, historyParams.lineColor);
     }
   },
-//  "computeBoundPointsOld": function(privContext, lineWidth, leftEdge, topEdge, rightEdge, bottomEdge) {
-//    const startTimeMs = Date.now();
-//    if (windowPointCaching) {
-//      const pointsBounds = infNumToString(leftEdge) + "-" + infNumToString(topEdge) + "-" + infNumToString(rightEdge) + "-" + infNumToString(bottomEdge);
-//      if (privContext.pointsBounds != pointsBounds) {
-//        privContext.pointsBounds = pointsBounds;
-//        privContext.points = {};
-//      }
-//    }
-//    var resultPoints = [];
-//
-//    var cachedPointsUsed = 0;
-//
-//    // use lineWidth to determine how large to make the calculated/displayed
-//    //   pixels, so round to integer
-//    // use Math.round(), not Math.trunc(), because we want the minimum
-//    //   lineWidth of 0.5 to result in a pixel size of 1
-//    const pixelSize = createInfNum(Math.round(lineWidth).toString());
-//    const params = historyParams;
-//
-//    // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
-//    const pixWidth = createInfNum(dContext.canvas.width.toString());
-//    const pixHeight = createInfNum(dContext.canvas.height.toString());
-//
-//    const width = infNumSub(rightEdge, leftEdge);
-//    const height = infNumSub(bottomEdge, topEdge);
-//    const eachPixWidth = infNumDiv(width, pixWidth);
-//    const eachPixHeight = infNumDiv(height, pixHeight);
-//
-//    const maxIter = 500;
-//    const two = infNum(2n, 0n);
-//    const black = getColor(0, 0, 0);
-//    const boundsRadiusSquared = infNum(4n, 0n);
-//    if (windowPointCaching) {
-//      var px = 0.0;
-//      var py = 0.0;
-//      var pointColor = black;
-//      var x = infNum(0n, 0n);
-//      while (infNumLt(x, pixWidth)) {
-//        px = infNumAdd(infNumMul(eachPixWidth, x), leftEdge);
-//        var y = infNum(0n, 0n);
-//        while (infNumLt(y, pixHeight)) {
-//          const pointPixel = infNumToString(x) + "," + infNumToString(y);
-//          if (pointPixel in privContext.points) {
-//            cachedPointsUsed++;
-//            resultPoints.push(privContext.points[pointPixel]);
-//          } else {
-//            py = infNumAdd(infNumMul(eachPixHeight, y), topEdge);
-//
-//            // the coords used for iteration
-//            var ix = infNum(0n, 0n);
-//            var iy = infNum(0n, 0n);
-//            var ixSq = infNum(0n, 0n);
-//            var iySq = infNum(0n, 0n);
-//            var ixTemp = infNum(0n, 0n);
-//            var iter = 0;
-//            //var lastNPointsMax = 20;
-//            //var lastNPoints = [];
-//            while (iter < maxIter) {
-//              ixSq = infNumMul(ix, ix);
-//              iySq = infNumMul(iy, iy);
-//              if (infNumGt(infNumAdd(ixSq, iySq), boundsRadiusSquared)) {
-//                break;
-//              }
-//              ixTemp = infNumAdd(px, infNumSub(ixSq, iySq));
-//              iy = infNumAdd(py, infNumMul(two, infNumMul(ix, iy)));
-//              ix = ixTemp;
-//              ix = infNumTruncate(ix);
-//              iy = infNumTruncate(iy);
-//              iter++
-//            }
-//
-//            if (iter == maxIter) {
-//              pointColor = black;
-//            } else {
-//              pointColor = privContext.lookupColor(privContext, iter / maxIter, params.lineColor);
-//            }
-//
-//            // x and y are integer (actual pixel) values, with no decimal component
-//            var point = getColorPoint(parseInt(infNumToString(x)), parseInt(infNumToString(y)), pointColor);
-//            privContext.points[pointPixel] = point;
-//            resultPoints.push(point);
-//          }
-//          y = infNumAdd(y, pixelSize);
-//        }
-//        x = infNumAdd(x, pixelSize);
-//      }
-//    } else {
-//      var px = 0.0;
-//      var py = 0.0;
-//      var pointColor = getColor(0, 0, 0);
-//      for (var x = 0; x < pixWidth; x+=pixelSize) {
-//        px = (eachPixWidth * x) + leftEdge;
-//        for (var y = 0; y < pixHeight; y+=pixelSize) {
-//          py = (eachPixHeight * y) + topEdge;
-//          pointColor = getColor(0, 0, 0);
-//          if (Math.hypot(px, py) < 10) {
-//            pointColor = getColor(100, 40, 90);
-//          }
-//          var point = getColorPoint(x, y, pointColor);
-//          resultPoints.push(point);
-//        }
-//      }
-//    }
-//
-//    if (windowLogTiming) {
-//      const durationMs = Date.now() - startTimeMs;
-//      console.log("computing [" + resultPoints.length + "] points, of which [" + cachedPointsUsed + "] were cached, took [" + durationMs + "] ms");
-//    }
-//    return {
-//      "points": resultPoints,
-//    };
-//  },
   // these settings are auto-applied when this sequence is activated
   "forcedDefaults": {
     "scale": infNum(40n, 0n),
@@ -1122,10 +912,6 @@ const sequences = [{
     "offsetY": infNum(0n, 0n)
   },
   "privContext": {
-    //"xPixelChunks": [],
-    //"resultPoints": [],
-    //"points": {},
-    //"pointsBounds": "--",
     "colors": {},
     "lookupColor": function(privContext, pct, lineColor) {
       var pctRound = Math.trunc(pct * 10000.0).toString();
@@ -1457,13 +1243,13 @@ function parseUrlParams() {
       }
     }
     if (urlParams.has('scale')) {
-      params.scale = createInfNum(urlParams.get('scale'));
+      params.scale = infNumTruncate(createInfNum(urlParams.get('scale')));
     }
     if (urlParams.has('offsetX')) {
-      params.offsetX = createInfNum(urlParams.get('offsetX'));
+      params.offsetX = infNumTruncate(createInfNum(urlParams.get('offsetX')));
     }
     if (urlParams.has('offsetY')) {
-      params.offsetY = createInfNum(urlParams.get('offsetY'));
+      params.offsetY = infNumTruncate(createInfNum(urlParams.get('offsetY')));
     }
     if (urlParams.has('lineColor')) {
       const color = urlParams.get('lineColor');
@@ -1783,6 +1569,8 @@ function resetWindowCalcContext() {
   windowCalc.pixelsImage = dContext.createImageData(dContext.canvas.width, dContext.canvas.height);
   windowCalc.xPixelChunks = [];
   windowCalc.resultPoints = [];
+  windowCalc.pointsBounds = "";
+  windowCalc.pointsCache = {};
   windowCalc.totalTimeMs = 0;
   windowCalc.totalPoints = 0;
   windowCalc.cachedPoints = 0;
@@ -2003,7 +1791,8 @@ function addParamPercentAndRound(fieldName, nPercent) {
   const pct = infNumMul(historyParams[fieldName], infNum(100n, 0n));
   const newPct = infNumAdd(pct, createInfNum(nPercent.toString()));
   const roundedStr = infNumToString(newPct).split('.')[0];
-  historyParams[fieldName] = infNumDiv(createInfNum(roundedStr), infNum(100n, 0n));
+  const rounded = infNumDiv(createInfNum(roundedStr), infNum(100n, 0n));
+  historyParams[fieldName] = infNumTruncate(rounded);
 }
 
 function applyParamPercentAndRound(fieldName, pctStr) {
@@ -2018,7 +1807,8 @@ function applyParamPercentAndRound(fieldName, pctStr) {
   }
   const newVal = infNumMul(historyParams[fieldName], pct);
   const roundedStr = infNumToString(infNumMul(newVal, infNum(100n, 0n))).split('.')[0];
-  historyParams[fieldName] = infNumDiv(createInfNum(roundedStr), infNum(100n, 0n));
+  const rounded = infNumDiv(createInfNum(roundedStr), infNum(100n, 0n));
+  historyParams[fieldName] = infNumTruncate(rounded);
 }
 
 function roundTo2Decimals(f) {

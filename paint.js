@@ -804,32 +804,45 @@ const sequences = [{
       return sqrt == Math.trunc(sqrt);
     }
   }
-},{
-  "name": "Circle",
-  "calcFrom": "window",
-  "desc": "Draws a purple circle, for testing the window calculation+drawing methods",
-  "computeBoundPointColor": function(privContext, x, y) {
-    if (infNumLe(infNumAdd(infNumMul(x, x), infNumMul(y, y)), privContext.circleRadiusSquared)) {
-      //return getColor(100, 40, 90);
-      return 1.0;
-    } else {
-      return -1.0;
-    }
-  },
-  // these settings are auto-applied when this sequence is activated
-  "forcedDefaults": {
-    "scale": infNum(40n, 0n),
-    "offsetX": infNum(0n, 0n),
-    "offsetY": infNum(0n, 0n)
-  },
-  "privContext": {
-    "black": getColor(0, 0, 0),
-    "circleRadiusSquared": infNum(100n, 0n)
-  }
+// },{
+//   "name": "Circle",
+//   "calcFrom": "window",
+//   "desc": "Draws a purple circle, for testing the window calculation+drawing methods",
+//   "computeBoundPointColor": function(privContext, x, y) {
+//     if (infNumLe(infNumAdd(infNumMul(x, x), infNumMul(y, y)), privContext.circleRadiusSquared)) {
+//       //return getColor(100, 40, 90);
+//       return 1.0;
+//     } else {
+//       return -1.0;
+//     }
+//   },
+//   // these settings are auto-applied when this sequence is activated
+//   "forcedDefaults": {
+//     "scale": infNum(40n, 0n),
+//     "offsetX": infNum(0n, 0n),
+//     "offsetY": infNum(0n, 0n)
+//   },
+//   "privContext": {
+//     "black": getColor(0, 0, 0),
+//     "circleRadiusSquared": infNum(100n, 0n)
+//   }
 },{
   "name": "Mandelbrot-set",
   "calcFrom": "window",
-  "desc": "the mandelbrot set",
+  "desc": "The Mandelbrot set is the set of complex numbers, that when repeatedly plugged into the following " +
+    "simple function, does <i>not</i> run away to infinity.  The function is z<sub>n+1</sub> = z<sub>n</sub><sup>2</sup> + c.<br/>" +
+    "For each plotted point <code>c</code>, we repeat the above function many times.<br/>" +
+    "If the value jumps off toward infinity after say 10 iterations, we display a color at the pixel for point <code>c</code>.<br/>" +
+    "If the value doesn't go off toward infinity until say 50 iterations, we pick a quite different color for that point.<br/>" +
+    "If, after our alloted number of iterations has been computed, the value still hasn't gone off to infinity, we color that pixel the backgrond color (defaulting to black)." +
+    "<br/><br/>Wikipedia has a terrific <a target='_blank' href='https://en.wikipedia.org/wiki/Mandelbrot_set'>article with pictures</a>." +
+    "<br/><br/>My favorite explanation I've found so far is <a target='_blank' href='https://www.youtube.com/watch?v=FFftmWSzgmk'>this Numberphile video on YouTube</a>." +
+    "<br/><br/><b>Tips for using this Mandelbrot set viewer</b>:" +
+    "<br/>- When not zoomed in very far, keep the <code>n</code> (iterations) parameter low for faster calculation (use N and M keys to decrease/increase the <code>n</code> value)." +
+    "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower." +
+    "<br/><br/><b>Known Issues:</b>" +
+    "<br/>- When zoomed in beyond a certain point, the keyboard zoom/pan keys stop working as expected.  Use the mouse to zoom and pan." +
+    "<br/>- When panning or zooming, the screen initially shows black instead of a low-resolution preview",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColor": function(privContext, x, y) {
     const maxIter = historyParams.n;
@@ -874,7 +887,7 @@ const sequences = [{
   },
   // these settings are auto-applied when this sequence is activated
   "forcedDefaults": {
-    "n": 100,
+    "n": 50,
     "scale": infNum(400n, 0n),
     "offsetX": infNum(19n, -2n),
     "offsetY": infNum(0n, 0n)
@@ -1074,6 +1087,17 @@ const presets = [{
   "scale": createInfNum("10.95"),
   "offsetX": createInfNum("-0.30847"),
   "offsetY": createInfNum("-0.96171"),
+  "lineColor": "rbgyo",
+  "bgColor": "b"
+// this worked fine for a slightly smaller than average window on my computer
+},{
+  "seq": "Mandelbrot-set",
+  "v": 1,
+  "n": 450,
+  "lineWidth": 1,
+  "scale": createInfNum("1465819.0982171979091827284292"),
+  "offsetX": createInfNum("-308.168814648192707"),
+  "offsetY": createInfNum("-12.1356456670334135"),
   "lineColor": "rbgyo",
   "bgColor": "b"
 }];
@@ -1957,6 +1981,10 @@ window.addEventListener("keydown", function(e) {
       seqNum = 0;
     }
     historyParams.seq = sequences[seqNum].name;
+    // for all plots, force application of their defaults
+    var defaults = Object.assign(historyParams, sequences[seqNum].forcedDefaults);
+    replaceHistoryWithParams(defaults);
+    parseUrlParams();
     start();
   } else if (e.keyCode == 90 /* z */) {
     // use Math.round() instead of parseInt() because, for example:
@@ -1991,6 +2019,9 @@ window.addEventListener("keydown", function(e) {
     activatePreset(presets[1]);
   } else if (e.keyCode == 51 || e.keyCode == 99 /* 3 */) {
     activatePreset(presets[2]);
+  // re-enable this preset once offsets are refactored
+  //} else if (e.keyCode == 52 || e.keyCode == 100 /* 4 */) {
+  //  activatePreset(presets[3]);
   //} else if (e.keyCode == 57 || e.keyCode == 105 /* 9 */) {
   }
 });

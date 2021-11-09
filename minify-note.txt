@@ -1,1 +1,5 @@
 as of 2021-10-22, minify with https://minify.js.org/js/ which does NOT require changing "const" to "var" :)
+
+as of 2021-11-09, https://minify.js.org/js/ no longer works with this project (check back later when it supports ES11, which may be the problem)
+
+as of 2021-11-09, minify with https://codebeautify.org/minify-js

@@ -22,7 +22,6 @@ const mandelbrotCircleHeuristic = false;
 
 const windowCalc = {
   "timeout": null,
-  //"chunkCalcTimeout": null,
   "seqName": "",
   "lineWidth": 0,
   "leftEdge": 0,
@@ -38,8 +37,12 @@ const windowCalc = {
   "cachedPoints": 0,
   "chunksComplete": 0,
   "totalChunks": 0,
-//  "scale": infNum(1n, 0n),
-  "eachPixUnits": infNum(1n, 0n)
+  "eachPixUnits": infNum(1n, 0n),
+  "leftEdge": infNum(0n, 0n),
+  "topEdge": infNum(0n, 0n),
+  "rightEdge": infNum(0n, 0n),
+  "bottomEdge": infNum(0n, 0n),
+  "n": 1
 };
 
 function infNum(value, exponent) {
@@ -88,31 +91,6 @@ console.log("trimZeroes(\"022.002200\") = [" + unitTest + "] // 22.0022");
 
 unitTest = trimZeroes("-22.002200");
 console.log("trimZeroes(\"-22.002200\") = [" + unitTest + "] // -22.0022");
-
-function createInfNumOld(stringNum) {
-  var trimmed = stringNum.trim();
-  const negative = trimmed.startsWith('-');
-  if (negative) {
-    trimmed = trimmed.substr(1);
-  }
-  while (trimmed.length > 1 && trimmed.startsWith('0')) {
-    trimmed = trimmed.substr(1);
-  }
-  if (negative) {
-    trimmed = "-" + trimmed;
-  }
-  const parts = trimmed.split('.');
-  if (parts.length == 1) {
-    return infNum(BigInt(parts[0]), 0n);
-  }
-  while (parts[1].length > 0 && parts[1].endsWith('0')) {
-    parts[1] = parts[1].slice(0, -1);
-  }
-  if (parts[1].length == 0) {
-    return infNum(BigInt(parts[0]), 0n);
-  }
-  return infNum(BigInt(parts[0] + "" + parts[1]), BigInt("-" + parts[1].length));
-}
 
 function createInfNum(stringNum) {
   var trimmed = trimZeroes(stringNum);
@@ -227,26 +205,6 @@ console.log(infNumSub(createInfNum("123"), createInfNum("0.01")));
 
 console.log("0.00001 - 50 = ... // -49.99999 (-4999999, -5)");
 console.log(infNumSub(createInfNum("0.00001"), createInfNum("50")));
-
-function infNumDivBad(argA, argB) {
-  var a = copyInfNum(argA);
-  var b = copyInfNum(argB);
-
-  var truncated = infNum(a.v / b.v, a.e - b.e);
-
-  var remainder = infNum(a.v % b.v, a.e - b.e);
-
-  if (remainder.v === 0n) {
-    return truncated;
-  }
-
-  // this may give 16 digits of precision?
-  // seems easy enough to go to 32 or 64....
-  var remInf = infNumMul(remainder, infNum(10000000000000000n, 0n));
-  var remTrunc = infNum(remInf.v / b.v, -16n);
-
-  return infNumAdd(truncated, remTrunc);
-}
 
 function infNumDiv(argA, argB) {
   const norm = normInfNum(argA, argB);
@@ -855,7 +813,6 @@ const sequences = [{
       //return getColor(100, 40, 90);
       return 1.0;
     } else {
-      //return privContext.black;
       return -1.0;
     }
   },
@@ -910,11 +867,8 @@ const sequences = [{
     }
 
     if (iter == maxIter) {
-      //return privContext.black;
       return -1.0; // background color
     } else {
-      //return privContext.lookupColor(privContext, iter / maxIter, historyParams.lineColor);
-      //return iter / maxIter;
       return privContext.applyColorCurve(iter / maxIter);
     }
   },
@@ -931,16 +885,6 @@ const sequences = [{
     "black": getColor(0, 0, 0),
     "boundsRadiusSquared": infNum(4n, 0n),
     "colors": {},
-    //"lookupColor": function(privContext, pct, lineColor) {
-    //  var pctRound = Math.trunc(pct * 10000.0).toString();
-    //  if (pctRound in privContext.colors) {
-    //    return privContext.colors[pctRound];
-    //  }
-    //  const rgba = getLineColor(pct, lineColor).substr(5).split(',');
-    //  var color = getColor(parseInt(rgba[0]),parseInt(rgba[1]),parseInt(rgba[2]));
-    //  privContext.colors[pctRound] = color;
-    //  return color;
-    //},
     "applyColorCurve": function(pct) {
       //return pct;
       ////////////////////////////////////////////////////////
@@ -999,15 +943,7 @@ function isComputationComplete() {
 //  return privContext.resultPoints;
 //}
 
-function computeBoundPoints(privContext) {//, leftEdge, topEdge, rightEdge, bottomEdge) {
-  // if the window has changed, reset the window cache
-  //const pointsBounds = infNumToString(leftEdge) + "-" + infNumToString(topEdge) + "-" + infNumToString(rightEdge) + "-" + infNumToString(bottomEdge);
-  //if (windowCalc.pointsBounds != pointsBounds) {
-  //  windowCalc.pointsBounds = pointsBounds;
-  //  windowCalc.pointsCache = {};
-  //}
-  // regardless of the window, always reset the calculation state
-
+function computeBoundPoints(privContext) {
   // call a function to split the calculation into chunks and kick it off
   runWindowBoundPointsCalculators(privContext);
 }
@@ -1074,8 +1010,6 @@ function computeBoundPointsChunk(sequence, leftEdge, topEdge, rightEdge, bottomE
 
   const width = infNumSub(rightEdge, leftEdge);
   const height = infNumSub(bottomEdge, topEdge);
-  //const eachPixWidth = infNumDiv(width, pixWidth);
-  //const eachPixHeight = infNumDiv(height, pixHeight);
 
   var px = 0.0;
   var py = 0.0;
@@ -1086,14 +1020,11 @@ function computeBoundPointsChunk(sequence, leftEdge, topEdge, rightEdge, bottomE
     px = infNumAdd(infNumMul(windowCalc.eachPixUnits, x), leftEdge);
     var y = infNum(0n, 0n);
     while (infNumLt(y, pixHeight)) {
-      //py = infNumAdd(infNumMul(windowCalc.eachPixUnits, y), topEdge);
       const pointPixel = infNumToString(x) + "," + infNumToString(y);
-      //const pointPixel = infNumToString(px) + "," + infNumToString(py);
       if (pointPixel in windowCalc.pointsCache) {
         windowCalc.cachedPoints++;
         resultPoints.push(windowCalc.pointsCache[pointPixel]);
       } else {
-        //py = infNumAdd(infNumMul(eachPixHeight, y), topEdge);
         py = infNumAdd(infNumMul(windowCalc.eachPixUnits, y), topEdge);
 
         const pointColor = sequence.computeBoundPointColor(privContext, px, py);
@@ -1650,18 +1581,8 @@ function resetWindowCalcContext() {
   }
   fillBg(dContext);
 
-  // clear points cache if the new scale is different than the previous windowCalc scale
-//  if (!infNumEq(historyParams.scale, windowCalc.scale)) {
-//    windowCalc.pointsCache = {};
-  // also clear UNUSED points from the cache if the final lineWidth was reached and
-  //   computation was completed, but we do that elsewhere
-//  } else if (Math.round(windowCalc.lineWidth) == Math.round(historyParams.lineWidth)) {
-//    if (isComputationComplete()) {
-//      windowCalc.pointsCache = {};
-//    }
-//  }
-
-//  //windowCalc.scale = historyParams.scale;
+  const params = historyParams;
+  windowCalc.seqName = params.seq;
 
   // since line width is halved each time the draw occurs, use 128 to get
   //   the initial draw to use a 64-wide pixels
@@ -1670,50 +1591,19 @@ function resetWindowCalcContext() {
   windowCalc.xPixelChunks = [];
   windowCalc.resultPoints = [];
   windowCalc.pointsBounds = "";
-  windowCalc.pointsCache = {};
   windowCalc.totalTimeMs = 0;
   windowCalc.totalPoints = 0;
   windowCalc.cachedPoints = 0;
   windowCalc.chunksComplete = 0;
   windowCalc.totalChunks = 0;
 
-  // new method of calculating edges with respect to offsets:
-  // - calculate one edge using offset
-  // - calculate pixel dimensions, in abstract units, using scale
-  // - move that one edge to an exact multiple of pixels
-  // - calculate opposite edge using pixel dimensions
-
   const fiftyPct = createInfNum("0.5");
-  const params = historyParams;
-
-//  const offsetXPct = infNumAdd(fiftyPct, params.offsetX);
-//  const offsetYPct = infNumAdd(fiftyPct, params.offsetY);
 
   const canvasWidth = createInfNum(dContext.canvas.offsetWidth.toString());
   const canvasHeight = createInfNum(dContext.canvas.offsetHeight.toString());
 
-  // since lineWidth is always set with Math.round() it will always be
-  //   an exact multiple of 1.0
-  // thus, if we ensure we pan around with a multiple of a 1-wide pixel,
-  //   then we can re-use cached pixels when panning, regardless of
-  //   the user setting for params.lineWidth
-  //windowCalc.eachPixUnits = infNumMul(canvasWidth, params.scale);
+  // rather than calculate this for each chunk, compute it once here
   windowCalc.eachPixUnits = infNumDiv(infNum(1n, 0n), params.scale);
-
-//  const scaledWidth = infNumMul(canvasWidth, windowCalc.eachPixUnits);
-//  const scaledHeight = infNumMul(canvasHeight, windowCalc.eachPixUnits);
-
-//  const rightEdge = infNumSub(scaledWidth, infNumMul(scaledWidth, offsetXPct));
-//  const leftEdge = infNumSub(rightEdge, scaledWidth);
-
-//  const bottomEdge = infNumSub(scaledHeight, infNumMul(scaledHeight, offsetYPct));
-//  const topEdge = infNumSub(bottomEdge, scaledHeight);
-
-
-  // thanks to https://stackoverflow.com/a/1232046/259456
-  points.length = 0;
-
-//  const sequence = sequencesByName[params.seq];
 
   // find the visible abstract points using offset and scale
   const scaledWidth = infNumDiv(canvasWidth, params.scale);
@@ -1726,25 +1616,21 @@ function resetWindowCalcContext() {
   const bottomEdge = infNumSub(scaledHeight, infNumMul(scaledHeight, offsetYPct));
   const topEdge = infNumSub(bottomEdge, scaledHeight);
 
-  windowCalc.seqName = params.seq;
+  // only clear cache if iterations have changed or if any edge has moved
+  // this allows cache to be re-used when changing colors
+  if ( windowCalc.n != params.n ||
+      !infNumEq(windowCalc.leftEdge, leftEdge) ||
+      !infNumEq(windowCalc.topEdge, topEdge) ||
+      !infNumEq(windowCalc.rightEdge, rightEdge) ||
+      !infNumEq(windowCalc.bottomEdge, bottomEdge)) {
+    windowCalc.pointsCache = {};
+  }
+
+  windowCalc.n = params.n;
   windowCalc.leftEdge = leftEdge;
   windowCalc.topEdge = topEdge;
   windowCalc.rightEdge = rightEdge;
   windowCalc.bottomEdge = bottomEdge;
-
-  // since lineWidth is always set with Math.round() it will always be
-  //   an exact multiple of 1.0
-  // thus, if we ensure we pan around with a multiple of a 1-wide pixel,
-  //   then we can re-use cached pixels when panning, regardless of
-  //   the user setting for params.lineWidth
-//  const pixWidth = createInfNum(dContext.canvas.width.toString());
-//  const pixHeight = createInfNum(dContext.canvas.height.toString());
-//
-//  const width = infNumSub(rightEdge, leftEdge);
-//  const height = infNumSub(bottomEdge, topEdge);
-//  windowCalc.eachPixWidth = infNumDiv(width, pixWidth);
-//  windowCalc.eachPixHeight = infNumDiv(height, pixHeight);
-
 }
 
 function calculateAndDrawWindow() {
@@ -1757,70 +1643,8 @@ function calculateAndDrawWindow() {
 
 function calculateAndDrawWindowInner() {
   const params = historyParams;
-////  if (windowResolutionTimeout != null) {
-////    window.clearTimeout(windowResolutionTimeout);
-////  }
-////  var potentialTempLineWidth = Math.round(windowTempLineWidth / 2);
-////  if (potentialTempLineWidth <= params.lineWidth) {
-////    potentialTempLineWidth = params.lineWidth;
-////    windowTempLineWidth = params.lineWidth;
-////  } else {
-////    windowResolutionTimeout = window.setTimeout(calculateAndDrawWindow, 250);
-////  }
-////  windowTempLineWidth = potentialTempLineWidth;
-//
-//  // thanks to https://stackoverflow.com/a/1232046/259456
-//  points.length = 0;
-//
-//  const fiftyPct = createInfNum("0.5");
+
   const sequence = sequencesByName[params.seq];
-//
-//  const canvasWidth = createInfNum(dContext.canvas.offsetWidth.toString());
-//  const canvasHeight = createInfNum(dContext.canvas.offsetHeight.toString());
-//
-//  // find the visible abstract points using offset and scale
-//  const scaledWidth = infNumDiv(canvasWidth, params.scale);
-//  //const scaledWidthFloat = dContext.canvas.offsetWidth/parseFloat(infNumToString(params.scale));
-//  //console.log("scaledWidth -- float [" + scaledWidthFloat + "], infNum [" + infNumToString(scaledWidth) + "]");
-//  const offsetXPct = infNumAdd(fiftyPct, params.offsetX);
-//  //const offsetXPctFloat = 0.5 + parseFloat(infNumToString(params.offsetX));
-//  const rightEdge = infNumSub(scaledWidth, infNumMul(scaledWidth, offsetXPct));
-//  //const rightEdgeFloat = scaledWidthFloat - (scaledWidthFloat * offsetXPctFloat);
-//  //console.log("rightEdge -- float [" + rightEdgeFloat + "], infNum [" + infNumToString(rightEdge) + "]");
-//  const leftEdge = infNumSub(rightEdge, scaledWidth);
-//  //const leftEdgeFloat = rightEdgeFloat - scaledWidthFloat;
-//  //console.log("leftEdge -- float [" + leftEdgeFloat + "], infNum [" + infNumToString(leftEdge) + "]");
-//
-//  const scaledHeight = infNumDiv(canvasHeight, params.scale);
-//  //const scaledHeightFloat = dContext.canvas.offsetHeight/parseFloat(infNumToString(params.scale));
-//  //console.log("scaledHeight -- float [" + scaledHeightFloat + "], infNum [" + infNumToString(scaledHeight) + "]");
-//  const offsetYPct = infNumAdd(fiftyPct, params.offsetY);
-//  //const offsetYPctFloat = 0.5 + parseFloat(infNumToString(params.offsetY));
-//  const bottomEdge = infNumSub(scaledHeight, infNumMul(scaledHeight, offsetYPct));
-//  //const bottomEdgeFloat = scaledHeightFloat - (scaledHeightFloat * offsetYPctFloat);
-//  //console.log("bottomEdge -- float [" + bottomEdgeFloat + "], infNum [" + infNumToString(bottomEdge) + "]");
-//  const topEdge = infNumSub(bottomEdge, scaledHeight);
-//  //const topEdgeFloat = bottomEdgeFloat - scaledHeightFloat;
-//  //console.log("topEdge -- float [" + topEdgeFloat + "], infNum [" + infNumToString(topEdge) + "]");
-
-  //if (windowCalc.chunkCalcTimeout != null) {
-  //  window.clearTimeout(windowCalc.chunkCalcTimeout);
-  //}
-
-  windowCalc.seqName = params.seq;
-  //windowCalc.lineWidth = windowTempLineWidth;
-//  windowCalc.leftEdge = leftEdge;
-//  windowCalc.topEdge = topEdge;
-//  windowCalc.rightEdge = rightEdge;
-//  windowCalc.bottomEdge = bottomEdge;
-  //windowCalc.xPixelChunks = [];
-  //windowCalc.resultPoints = [];
-  //windowCalc.totalTimeMs = 0;
-  //windowCalc.totalPoints = 0;
-  //windowCalc.cachedPoints = 0;
-  //windowCalc.chunksComplete = 0;
-  //windowCalc.totalChunks = 0;
-
 
   const roundedParamLineWidth =  Math.round(params.lineWidth);
   const potentialTempLineWidth = Math.round(windowCalc.lineWidth / 2);
@@ -1832,7 +1656,7 @@ function calculateAndDrawWindowInner() {
 
   // this calls some functions that will later call other functions
   //   to incrementally compute and display the results
-  computeBoundPoints(sequence.privContext);//, leftEdge, topEdge, rightEdge, bottomEdge);
+  computeBoundPoints(sequence.privContext);
 }
 
 function waitAndDrawWindow() {
@@ -1866,60 +1690,16 @@ function waitAndDrawWindow() {
       console.log("computing [" + windowCalc.totalPoints + "] points, of which [" + windowCalc.cachedPoints + "] were cached, took [" + windowCalc.totalTimeMs + "] ms");
     }
   } else {
-    //windowCalc.chunkCalcTimeout = window.setTimeout(waitAndDrawWindow, 50);
     windowCalc.timeout = window.setTimeout(waitAndDrawWindow, 25);
     return;
   }
 
-  //if (windowResolutionTimeout != null) {
-  //  window.clearTimeout(windowResolutionTimeout);
-  //}
-  // if line width just finished matches the param lineWidth, we are done
+  // if line width just finished is greater than the param lineWidth,
+  //   we have to do it again
+  // otherwise, we are done
   if (Math.round(windowCalc.lineWidth) > Math.round(historyParams.lineWidth)) {
-    //windowResolutionTimeout = window.setTimeout(calculateAndDrawWindow, 250);
     windowCalc.chunksComplete = 0;
     windowCalc.timeout = window.setTimeout(calculateAndDrawWindow, 250);
-//  } else {
-//    // now that we are done calculating and displaying the window, clear away cached points outside of the window
-//    const pointsToDelete = [];
-//    var totalCachedPoints = 0;
-//    for (pointName in windowCalc.pointsCache) {
-//      totalCachedPoints++;
-//      const split = pointName.split(',');
-//      if (split.length != 2) {
-//        console.log("cached point [" + pointName + "] is not an expected \"x,y\" string");
-//        continue;
-//      }
-//      const xPos = createInfNum(split[0])
-//      //if (infNumLt(xPos, windowCalc.leftEdge) || infNumGt(xPos, windowCalc.rightEdge)) {
-//      if (infNumLt(xPos, windowCalc.leftEdge)) {
-//        //console.log("cached point [" + pointName + "] is to the left of leftEdge [" + infNumToString(windowCalc.leftEdge) + "], so deleting it");
-//        pointsToDelete.push(pointName);
-//        continue;
-//      }
-//      if (infNumGt(xPos, windowCalc.rightEdge)) {
-//        //console.log("cached point [" + pointName + "] is to the right of rightEdge [" + infNumToString(windowCalc.leftEdge) + "], so deleting it");
-//        pointsToDelete.push(pointName);
-//        continue;
-//      }
-//      const yPos = createInfNum(split[1])
-//      //if (infNumLt(yPos, windowCalc.topEdge) || infNumGt(yPos, windowCalc.bottomEdge)) {
-//      if (infNumLt(yPos, windowCalc.topEdge)) {
-//        //console.log("cached point [" + pointName + "] is above topEdge [" + infNumToString(windowCalc.topEdge) + "], so deleting it");
-//        pointsToDelete.push(pointName);
-//        continue;
-//      }
-//      if (infNumGt(yPos, windowCalc.bottomEdge)) {
-//        //console.log("cached point [" + pointName + "] is below bottomEdge [" + infNumToString(windowCalc.bottomEdge) + "], so deleting it");
-//        pointsToDelete.push(pointName);
-//        continue;
-//      }
-//    }
-//    const deletePct = Math.round(pointsToDelete.length * 10000.0 / totalCachedPoints) / 100.0;
-//    console.log("removing [" + pointsToDelete.length + "] out-of-bounds cached points (" + deletePct + "%) since calculation is complete");
-//    for (var i = 0; i < pointsToDelete.length; i++) {
-//      delete windowCalc.pointsCache[pointsToDelete[i]];
-//    }
   }
 }
 
@@ -1935,7 +1715,6 @@ function drawColorPoints() {
   const canvas = dContext.canvas;
   const width = canvas.width;
   const height = canvas.height;
-  //var pixelsImage = dContext.createImageData(width, height);
   const pixelsImage = windowCalc.pixelsImage;
   for (var i = 0; i < points.length; i++) {
     // use lineWidth param as "resolution":
@@ -1966,11 +1745,7 @@ function drawColorPoints() {
         if (resY + y >= height) {
           break;
         }
-        //const pixelOffsetInImage = ((points[i].y * width) + points[i].x) * 4;
         pixelOffsetInImage = (((resY+y) * width) + (resX+x)) * 4;
-        //pixelsImage.data[pixelOffsetInImage+0] = points[i].c.r;
-        //pixelsImage.data[pixelOffsetInImage+1] = points[i].c.g;
-        //pixelsImage.data[pixelOffsetInImage+2] = points[i].c.b;
         pixelsImage.data[pixelOffsetInImage+0] = pointColor.r;
         pixelsImage.data[pixelOffsetInImage+1] = pointColor.g;
         pixelsImage.data[pixelOffsetInImage+2] = pointColor.b;
@@ -2016,7 +1791,7 @@ function addParamPercentAndRound(fieldName, nPercent) {
   historyParams[fieldName] = rounded;
 }
 
-function applyParamPercentAndRound(fieldName, pctStr) {
+function applyParamPercent(fieldName, pctStr) {
   if (! fieldName in historyParams) {
     console.log("unknown params field [" + fieldName + "]");
     return;
@@ -2028,10 +1803,6 @@ function applyParamPercentAndRound(fieldName, pctStr) {
   }
   const newVal = infNumMul(historyParams[fieldName], pct);
   historyParams[fieldName] = newVal;
-//  const roundedStr = infNumToString(infNumMul(newVal, infNum(100n, 0n))).split('.')[0];
-//  const rounded = infNumDiv(createInfNum(roundedStr), infNum(100n, 0n));
-//  //historyParams[fieldName] = infNumTruncate(rounded);
-//  historyParams[fieldName] = rounded;
 }
 
 function roundTo2Decimals(f) {
@@ -2105,33 +1876,19 @@ window.addEventListener("keydown", function(e) {
     addParamPercentAndRound("offsetY", -10);
     redraw();
   } else if (e.keyCode == 61 || e.keyCode == 107 /* plus */) {
-    //addParamPercentAndRound("scale", 1);
-    applyParamPercentAndRound("scale", "1.01");
-    //historyParams.scale = infNumAdd(historyParams.scale, infNum(1n, -2n)); // add 0.01
-    //if (infNumGt(historyParams.scale, infNum(500n, 0n))) {
-    //  historyParams.scale = infNum(500n, 0n);
-    //}
+    applyParamPercent("scale", "1.01");
     redraw();
   } else if (e.keyCode == 173 || e.keyCode == 109 /* minus */) {
-    //addParamPercentAndRound("scale", -1);
-    applyParamPercentAndRound("scale", "0.99");
-    //historyParams.scale = infNumSub(historyParams.scale, infNum(1n, -2n)); // subtract 0.01
+    applyParamPercent("scale", "0.99");
     if (infNumLt(historyParams.scale, infNum(1n, -2n))) {
       historyParams.scale = createInfNum("0.01");
     }
     redraw();
   } else if (e.keyCode == 69 /* e */) {
-    //addParamPercentAndRound("scale", 50);
-    applyParamPercentAndRound("scale", "1.05");
-    //historyParams.scale = infNumAdd(historyParams.scale, infNum(5n, -1n)); // add 0.5
-    //if (infNumGt(historyParams.scale, infNum(500n, 0n))) {
-    //  historyParams.scale = infNum(500n, 0n);
-    //}
+    applyParamPercent("scale", "1.05");
     redraw();
   } else if (e.keyCode == 81 /* q */) {
-    //addParamPercentAndRound("scale", -50);
-    applyParamPercentAndRound("scale", "0.95");
-    //historyParams.scale = infNumSub(historyParams.scale, infNum(5n, -1n)); // subtract 0.5
+    applyParamPercent("scale", "0.95");
     if (infNumLt(historyParams.scale, infNum(0n, 0n))) {
       historyParams.scale = createInfNum("0.01");
     }
@@ -2147,7 +1904,6 @@ window.addEventListener("keydown", function(e) {
       historyParams.n += 100;
     }
     start();
-    //drawPoints(historyParams);
   } else if (e.keyCode == 78 /* n */) {
     if (sequencesByName[historyParams.seq].calcFrom == "sequence") {
       if (historyParams.n > 100) {
@@ -2159,8 +1915,7 @@ window.addEventListener("keydown", function(e) {
       }
     }
     start();
-    //drawPoints(historyParams);
-  } else if (e.keyCode == 86 /* v */) {// && sequencesByName[historyParams.seq].calcFrom == "sequence") {
+  } else if (e.keyCode == 86 /* v */) {
     var schemeNum = -1;
     for (var i = 0; i < lineColorSchemeNames.length; i++) {
       if (lineColorSchemeNames[i] == historyParams.lineColor) {
@@ -2174,9 +1929,8 @@ window.addEventListener("keydown", function(e) {
     }
     historyParams.lineColor = lineColorSchemeNames[schemeNum];
 
-    //drawPoints(historyParams);
     redraw();
-  } else if (e.keyCode == 66 /* b */) {// && sequencesByName[historyParams.seq].calcFrom == "sequence") {
+  } else if (e.keyCode == 66 /* b */) {
     var schemeNum = -1;
     for (var i = 0; i < bgColorSchemeNames.length; i++) {
       if (bgColorSchemeNames[i] == historyParams.bgColor) {
@@ -2189,7 +1943,6 @@ window.addEventListener("keydown", function(e) {
       schemeNum = 0;
     }
     historyParams.bgColor = bgColorSchemeNames[schemeNum];
-    //drawPoints(historyParams);
     redraw();
   } else if (e.keyCode == 88 /* x */) {
     var seqNum = -1;
@@ -2205,7 +1958,6 @@ window.addEventListener("keydown", function(e) {
     }
     historyParams.seq = sequences[seqNum].name;
     start();
-    //drawPoints(historyParams);
   } else if (e.keyCode == 90 /* z */) {
     // use Math.round() instead of parseInt() because, for example:
     //   parseInt(0.29 * 100.0)   --> 28
@@ -2282,17 +2034,10 @@ var mouseMoveHandler = function(e) {
   //    to be able to pinch zoom and pan in one gesture)
   const newX = e.pageX;
   const newY = e.pageY;
-  //const diffX = Math.round((mouseDragX - newX) / dCanvas.width  * 1000.0) / 1000.0;
-  //const diffY = Math.round((mouseDragY - newY) / dCanvas.height * 1000.0) / 1000.0;
-  //historyParams.offsetX = infNumTruncate(infNumSub(historyParams.offsetX, createInfNum(diffX.toString())));
-  //historyParams.offsetY = infNumTruncate(infNumSub(historyParams.offsetY, createInfNum(diffY.toString())));
   const diffX = (mouseDragX - newX) / dCanvas.width;
   const diffY = (mouseDragY - newY) / dCanvas.height;
   historyParams.offsetX = infNumSub(historyParams.offsetX, createInfNum(diffX.toString()));
   historyParams.offsetY = infNumSub(historyParams.offsetY, createInfNum(diffY.toString()));
-  //const diffX = infNumMul(createInfNum(Math.round(mouseDragX - newX).toString()), windowCalc.eachPixUnits);
-  //const diffY = infNumMul(createInfNum(Math.round(mouseDragY - newY).toString()), windowCalc.eachPixUnits);
-  //const widthPct = infNumDiv(diffX, infNumMul(dCanvas.width));
   mouseDragX = newX;
   mouseDragY = newY;
 
@@ -2343,7 +2088,6 @@ var mouseMoveHandler = function(e) {
     historyParams.offsetY = newOffsetY;
   }
 
-  //console.log("MOUSE WAS MOVED so doing redraw()");
   redraw();
 };
 dCanvas.addEventListener("mousemove", mouseMoveHandler);

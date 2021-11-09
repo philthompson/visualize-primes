@@ -883,7 +883,7 @@ const sequences = [{
         const xDist = infNumSub(x, privContext.circles[i].centerX);
         const yDist = infNumSub(y, privContext.circles[i].centerY);
         if (infNumLe(infNumAdd(infNumMul(xDist, xDist), infNumMul(yDist, yDist)), privContext.circles[i].radSq)) {
-          return privContext.black;
+          return -1.0; // background color
         }
       }
     }
@@ -914,7 +914,8 @@ const sequences = [{
       return -1.0; // background color
     } else {
       //return privContext.lookupColor(privContext, iter / maxIter, historyParams.lineColor);
-      return iter / maxIter;
+      //return iter / maxIter;
+      return privContext.applyColorCurve(iter / maxIter);
     }
   },
   // these settings are auto-applied when this sequence is activated
@@ -930,15 +931,45 @@ const sequences = [{
     "black": getColor(0, 0, 0),
     "boundsRadiusSquared": infNum(4n, 0n),
     "colors": {},
-    "lookupColor": function(privContext, pct, lineColor) {
-      var pctRound = Math.trunc(pct * 10000.0).toString();
-      if (pctRound in privContext.colors) {
-        return privContext.colors[pctRound];
+    //"lookupColor": function(privContext, pct, lineColor) {
+    //  var pctRound = Math.trunc(pct * 10000.0).toString();
+    //  if (pctRound in privContext.colors) {
+    //    return privContext.colors[pctRound];
+    //  }
+    //  const rgba = getLineColor(pct, lineColor).substr(5).split(',');
+    //  var color = getColor(parseInt(rgba[0]),parseInt(rgba[1]),parseInt(rgba[2]));
+    //  privContext.colors[pctRound] = color;
+    //  return color;
+    //},
+    "applyColorCurve": function(pct) {
+      //return pct;
+      ////////////////////////////////////////////////////////
+      // curve 1
+      // computed using wolfram alpha:
+      // quadratic fit {0.0,0.0},{0.1,0.2},{0.5, 0.7},{0.7,0.9},{1.0,1.0}
+      // -0.851578x^2 + 1.84602x + 0.00888177
+      //const result = (-0.851578*pct*pct) + (1.84602*pct) + 0.00888177;
+      ////////////////////////////////////////////////////////
+      // curve 2
+      // quadratic fit {0.0,0.0},{0.1,0.3},{0.5, 0.75},{0.75,0.92},{1.0,1.0}
+      // -0.970592x^2 + 1.90818x + 0.0509381
+      //const result = (-0.970592*pct*pct) + (1.90818*pct) + 0.0509381;
+      ////////////////////////////////////////////////////////
+      // curve 3
+      // quadratic fit {0.01,0.01},{0.2,0.4},{0.6, 0.75},{1.0,1.0}
+      // -0.76991x^2 + 1.73351x + 0.0250757
+      const result = (-0.76991*pct*pct) + (1.73351*pct) + 0.0250757;
+      ////////////////////////////////////////////////////////
+      // curve 4
+      // log fit {0.01,0.01},{0.1,0.4},{0.4, 0.75},{0.75,0.92},{1.0,1.0}
+      // 0.21566log(88.12x)
+      if (result < 0.0) {
+        return 0.0;
       }
-      const rgba = getLineColor(pct, lineColor).substr(5).split(',');
-      var color = getColor(parseInt(rgba[0]),parseInt(rgba[1]),parseInt(rgba[2]));
-      privContext.colors[pctRound] = color;
-      return color;
+      if (result > 1.0) {
+        return 1.0;
+      }
+      return result;
     },
     "circles": [{
       "centerX": createInfNum("-0.29"),
@@ -1038,13 +1069,13 @@ function computeBoundPointsChunk(sequence, leftEdge, topEdge, rightEdge, bottomE
   const params = historyParams;
 
   // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
-  const pixWidth = createInfNum(dContext.canvas.width.toString());
+  //const pixWidth = createInfNum(dContext.canvas.width.toString());
   const pixHeight = createInfNum(dContext.canvas.height.toString());
 
   const width = infNumSub(rightEdge, leftEdge);
   const height = infNumSub(bottomEdge, topEdge);
-  const eachPixWidth = infNumDiv(width, pixWidth);
-  const eachPixHeight = infNumDiv(height, pixHeight);
+  //const eachPixWidth = infNumDiv(width, pixWidth);
+  //const eachPixHeight = infNumDiv(height, pixHeight);
 
   var px = 0.0;
   var py = 0.0;
@@ -1052,10 +1083,10 @@ function computeBoundPointsChunk(sequence, leftEdge, topEdge, rightEdge, bottomE
   for (var i = 0; i < xChunk.length; i++) {
     x = infNum(BigInt(xChunk[i]), 0n);
 
-    px = infNumAdd(infNumMul(eachPixWidth, x), leftEdge);
+    px = infNumAdd(infNumMul(windowCalc.eachPixUnits, x), leftEdge);
     var y = infNum(0n, 0n);
     while (infNumLt(y, pixHeight)) {
-      py = infNumAdd(infNumMul(eachPixHeight, y), topEdge);
+      py = infNumAdd(infNumMul(windowCalc.eachPixUnits, y), topEdge);
       //const pointPixel = infNumToString(x) + "," + infNumToString(y);
       const pointPixel = infNumToString(px) + "," + infNumToString(py);
       if (pointPixel in windowCalc.pointsCache) {
@@ -1065,6 +1096,7 @@ function computeBoundPointsChunk(sequence, leftEdge, topEdge, rightEdge, bottomE
         //py = infNumAdd(infNumMul(eachPixHeight, y), topEdge);
 
         const pointColor = sequence.computeBoundPointColor(privContext, px, py);
+        //console.log("computed point color [" + pointColor + "] for coord [" + pointPixel + "]");
 
         // x and y are integer (actual pixel) values, with no decimal component
         var point = getColorPoint(parseInt(infNumToString(x)), parseInt(infNumToString(y)), pointColor);
@@ -1289,13 +1321,16 @@ function parseUrlParams() {
       }
     }
     if (urlParams.has('scale')) {
-      params.scale = infNumTruncate(createInfNum(urlParams.get('scale')));
+      //params.scale = infNumTruncate(createInfNum(urlParams.get('scale')));
+      params.scale = createInfNum(urlParams.get('scale'));
     }
     if (urlParams.has('offsetX')) {
-      params.offsetX = infNumTruncate(createInfNum(urlParams.get('offsetX')));
+      //params.offsetX = infNumTruncate(createInfNum(urlParams.get('offsetX')));
+      params.offsetX = createInfNum(urlParams.get('offsetX'));
     }
     if (urlParams.has('offsetY')) {
-      params.offsetY = infNumTruncate(createInfNum(urlParams.get('offsetY')));
+      //params.offsetY = infNumTruncate(createInfNum(urlParams.get('offsetY')));
+      params.offsetY = createInfNum(urlParams.get('offsetY'));
     }
     if (urlParams.has('lineColor')) {
       const color = urlParams.get('lineColor');
@@ -1485,35 +1520,35 @@ const lineColorSchemes = {
     return "rgba(" + (200 - c) + "," + (200 - c) + "," + (200 - c) + ",1.0)";
   },
   "r": function c(startPercentage) { // red
-    const red = 200 - parseInt(startPercentage * 30);
+    const red = 200 - parseInt(startPercentage * 80);
     return "rgba(" + red + "," + (red * 0.2) + "," + (red * 0.2) + ",1.0)";
   },
   "o": function c(startPercentage) { // orange
-    const red = 200 - parseInt(startPercentage * 40);
+    const red = 200 - parseInt(startPercentage * 80);
     return "rgba(" + red + "," + (red * 0.5) + ",0,1.0)";
   },
   "y": function c(startPercentage) { // yellow
-    const red = 200 - parseInt(startPercentage * 40);
+    const red = 200 - parseInt(startPercentage * 80);
     return "rgba(" + red + "," + red + ",0,1.0)";
   },
   "g": function c(startPercentage) { // green
-    const green = 200 - parseInt(startPercentage * 40);
+    const green = 200 - parseInt(startPercentage * 80);
     return "rgba(" + (green * 0.1) + "," + green + "," + (green * 0.1) + ",1.0)";
   },
   "b": function c(startPercentage) { // blue
-    const blue = 200 - parseInt(startPercentage * 40);
+    const blue = 200 - parseInt(startPercentage * 80);
     return "rgba(" + (blue * 0.1) + "," + (blue * 0.1) + "," + blue + ",1.0)";
   },
   "p": function c(startPercentage) { // purple
-    const blue = 200 - parseInt(startPercentage * 40);
+    const blue = 200 - parseInt(startPercentage * 80);
     return "rgba(" + blue + "," + (blue * 0.1) + "," + blue + ",1.0)";
   },
   "dg": function c(startPercentage) { // dark gray
-    const c = 60 - parseInt(startPercentage * 20);
+    const c = 60 - parseInt(startPercentage * 30);
     return "rgba(" + c + "," + c + "," + c + ",1.0)";
   },
   "lg": function c(startPercentage) { // light gray
-    const c = 200 - parseInt(startPercentage * 40);
+    const c = 200 - parseInt(startPercentage * 80);
     return "rgba(" + c + "," + c + "," + c + ",1.0)";
   }
 };
@@ -1975,7 +2010,8 @@ function addParamPercentAndRound(fieldName, nPercent) {
   const newPct = infNumAdd(pct, createInfNum(nPercent.toString()));
   const roundedStr = infNumToString(newPct).split('.')[0];
   const rounded = infNumDiv(createInfNum(roundedStr), infNum(100n, 0n));
-  historyParams[fieldName] = infNumTruncate(rounded);
+  //historyParams[fieldName] = infNumTruncate(rounded);
+  historyParams[fieldName] = rounded;
 }
 
 function applyParamPercentAndRound(fieldName, pctStr) {
@@ -1989,9 +2025,11 @@ function applyParamPercentAndRound(fieldName, pctStr) {
     return;
   }
   const newVal = infNumMul(historyParams[fieldName], pct);
-  const roundedStr = infNumToString(infNumMul(newVal, infNum(100n, 0n))).split('.')[0];
-  const rounded = infNumDiv(createInfNum(roundedStr), infNum(100n, 0n));
-  historyParams[fieldName] = infNumTruncate(rounded);
+  historyParams[fieldName] = newVal;
+//  const roundedStr = infNumToString(infNumMul(newVal, infNum(100n, 0n))).split('.')[0];
+//  const rounded = infNumDiv(createInfNum(roundedStr), infNum(100n, 0n));
+//  //historyParams[fieldName] = infNumTruncate(rounded);
+//  historyParams[fieldName] = rounded;
 }
 
 function roundTo2Decimals(f) {
@@ -2242,10 +2280,14 @@ var mouseMoveHandler = function(e) {
   //    to be able to pinch zoom and pan in one gesture)
   const newX = e.pageX;
   const newY = e.pageY;
-  const diffX = Math.round((mouseDragX - newX) / dCanvas.width  * 1000.0) / 1000.0;
-  const diffY = Math.round((mouseDragY - newY) / dCanvas.height * 1000.0) / 1000.0;
-  historyParams.offsetX = infNumTruncate(infNumSub(historyParams.offsetX, createInfNum(diffX.toString())));
-  historyParams.offsetY = infNumTruncate(infNumSub(historyParams.offsetY, createInfNum(diffY.toString())));
+  //const diffX = Math.round((mouseDragX - newX) / dCanvas.width  * 1000.0) / 1000.0;
+  //const diffY = Math.round((mouseDragY - newY) / dCanvas.height * 1000.0) / 1000.0;
+  //historyParams.offsetX = infNumTruncate(infNumSub(historyParams.offsetX, createInfNum(diffX.toString())));
+  //historyParams.offsetY = infNumTruncate(infNumSub(historyParams.offsetY, createInfNum(diffY.toString())));
+  const diffX = (mouseDragX - newX) / dCanvas.width;
+  const diffY = (mouseDragY - newY) / dCanvas.height;
+  historyParams.offsetX = infNumSub(historyParams.offsetX, createInfNum(diffX.toString()));
+  historyParams.offsetY = infNumSub(historyParams.offsetY, createInfNum(diffY.toString()));
   //const diffX = infNumMul(createInfNum(Math.round(mouseDragX - newX).toString()), windowCalc.eachPixUnits);
   //const diffY = infNumMul(createInfNum(Math.round(mouseDragY - newY).toString()), windowCalc.eachPixUnits);
   //const widthPct = infNumDiv(diffX, infNumMul(dCanvas.width));
@@ -2337,9 +2379,10 @@ dCanvas.addEventListener("wheel", function(e) {
     } else {
       historyParams.scale = newScale;
     }
-  // for window plots, use truncated-precision scale
+  // for window plots, use full-precision scale, though truncate later when writing in the URL
   } else {
-    historyParams.scale = infNumTruncate(newScale);
+    //historyParams.scale = infNumTruncate(newScale);
+    historyParams.scale = newScale;
   }
 
   // use mouse position when scrolling to effecively zoom in/out directly on the spot where the mouse is
@@ -2414,7 +2457,8 @@ function calculateNewZoomOffset(relativeToPosition, canvasSize, oldOffset, oldSc
   const scaleDiff = infNumSub(oldScale, newScale);
   const scaleDiffX = infNumDiv(scaleDiff, canvasSize);
 
-  return infNumTruncate(infNumAdd(infNumMul(oldScaleMouseX, scaleDiffX), oldOffset));
+  //return infNumTruncate(infNumAdd(infNumMul(oldScaleMouseX, scaleDiffX), oldOffset));
+  return infNumAdd(infNumMul(oldScaleMouseX, scaleDiffX), oldOffset);
 }
 
 document.getElementById('menu-open').addEventListener("click", function(e) {

@@ -1,3 +1,5 @@
+// do linting at https://jshint.com
+/* jshint esversion: 11 */
 const points = [];
 var totalLength = 0;
 
@@ -17,17 +19,12 @@ var helpVisible = false;
 var menuVisible = false;
 
 const windowLogTiming = true;
-const windowPointCaching = true;
 const mandelbrotCircleHeuristic = false;
 
 const windowCalc = {
   "timeout": null,
   "seqName": "",
   "lineWidth": 0,
-  "leftEdge": 0,
-  "topEdge": 0,
-  "rightEdge": 0,
-  "bottomEdge": 0,
   "xPixelChunks": [],
   "resultPoints": [],
   "pointsBounds": "",
@@ -291,7 +288,7 @@ function infNumToString(n) {
     return value;
   }
   if (n.e > 0n) {
-    var i = 0n;
+    let i = 0n;
     while (i < n.e) {
       value = value + "0";
       i = i + 1n;
@@ -307,7 +304,7 @@ function infNumToString(n) {
   }
   while (i > n.e) {
     if (value.length > 0) {
-      dec = value.slice(-1) + dec
+      dec = value.slice(-1) + dec;
       value = value.slice(0, -1);
     } else {
       dec = "0" + dec;
@@ -692,15 +689,15 @@ const sequences = [{
 
     var nextPoint = getPoint(0.0, 0.0);
     if (!privContext.isNumberedSquare(privContext, nextPoint)) {
-      var testPoint = nextPoint;
+      let testPoint = nextPoint;
       privContext.trackNumberedSquare(privContext, 0, nextPoint);
 
-      var testDirection = 0;
-      var direction = 90;
+      let testDirection = 0;
+      let direction = 90;
 
       // spiral out from starting square, finding coordinates of all numbered squares
       // used trial and error to figure out how many numbered squares are needed
-      for (var i = 1; i < 3562; i+=1) {
+      for (let i = 1; i < 3562; i+=1) {
         testDirection = privContext.changeDirection(direction);
         testPoint = privContext.computeNextPoint(testDirection, 1, nextPoint.x, nextPoint.y);
         if (!privContext.isNumberedSquare(privContext, testPoint)) {
@@ -721,9 +718,9 @@ const sequences = [{
     var lowestReachableN = -1;
     var lowestReachableP = null;
 
-    for (var i = 0; i < params.n; i+=1) {
+    for (let i = 0; i < params.n; i+=1) {
       reachable = privContext.reachableSquares(lastPoint);
-      for (var j = 0; j < reachable.length; j++) {
+      for (let j = 0; j < reachable.length; j++) {
         if (lowestReachableN == -1 || privContext.getSquareNumber(privContext, reachable[j]) < lowestReachableN) {
           if (!privContext.isVisited(privContext, reachable[j])) {
             lowestReachableP = reachable[j];
@@ -876,7 +873,7 @@ const sequences = [{
       ix = ixTemp;
       ix = infNumTruncate(ix);
       iy = infNumTruncate(iy);
-      iter++
+      iter++;
     }
 
     if (iter == maxIter) {
@@ -985,7 +982,7 @@ function runWindowBoundPointsCalculators(privContext) {
   }
   var pixPerChunk = 1;
   var realPixelsPerChunk = pixWidth/numXChunks;
-  var pixPerChunk = Math.trunc(realPixelsPerChunk / pixelSize) + 1;
+  pixPerChunk = Math.trunc(realPixelsPerChunk / pixelSize) + 1;
 
   // split the x-axis, to break the computation down into interruptable chunks
   var xChunkPix = 0;
@@ -1006,7 +1003,7 @@ function runWindowBoundPointsCalculators(privContext) {
 }
 
 function computeBoundPointsChunk(sequence, leftEdge, topEdge, rightEdge, bottomEdge, xChunk) {
-  chunkStartMs = Date.now();
+  var chunkStartMs = Date.now();
   const privContext = sequence.privContext;
   var resultPoints = [];
 
@@ -1015,14 +1012,14 @@ function computeBoundPointsChunk(sequence, leftEdge, topEdge, rightEdge, bottomE
   // use Math.round(), not Math.trunc(), because we want the minimum
   //   lineWidth of 0.5 to result in a pixel size of 1
   const pixelSize = createInfNum(Math.round(windowCalc.lineWidth).toString());
-  const params = historyParams;
+  //const params = historyParams;
 
   // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
   //const pixWidth = createInfNum(dContext.canvas.width.toString());
   const pixHeight = createInfNum(dContext.canvas.height.toString());
 
-  const width = infNumSub(rightEdge, leftEdge);
-  const height = infNumSub(bottomEdge, topEdge);
+  //const width = infNumSub(rightEdge, leftEdge);
+  //const height = infNumSub(bottomEdge, topEdge);
 
   var px = 0.0;
   var py = 0.0;
@@ -1364,24 +1361,23 @@ function start() {
   } else {
     alert("Unexpected \"calcFrom\" field for the sequence: [" + sequence.calcFrom + "]");
   }
-
-};
-
-var pixelColor = function(imgData, x, y) {
-  var red = imgData.data[((width * y) + x) * 4];
-  var green = imgData.data[((width * y) + x) * 4 + 1];
-  var blue = imgData.data[((width * y) + x) * 4 + 2];
-  return [red, green, blue];
 }
+
+//var pixelColor = function(imgData, x, y) {
+//  var red = imgData.data[((width * y) + x) * 4];
+//  var green = imgData.data[((width * y) + x) * 4 + 1];
+//  var blue = imgData.data[((width * y) + x) * 4 + 2];
+//  return [red, green, blue];
+//};
 
 const bgColorSchemes = {
   "b": "rgba(0,0,0,1.0)",
   "g": "rgba(51,51,51,1.0)", //"#333333",
   "w": "rgba(255,255,255,1.0)"//"#FFFFFF"
-}
+};
 
 const bgColorSchemeNames = [];
-for (name in bgColorSchemes) {
+for (let name in bgColorSchemes) {
   bgColorSchemeNames.push(name);
 }
 
@@ -1417,7 +1413,7 @@ function replaceHistoryWithParams(params) {
   paramsCopy.offsetY = infNumToString(infNumTruncate(params.offsetY));
   history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
   replaceStateTimeout = null;
-};
+}
 
 var replaceHistory = function() {
   replaceHistoryWithParams(historyParams);
@@ -1425,9 +1421,9 @@ var replaceHistory = function() {
 
 var pushToHistory = function() {
   var paramsCopy = Object.assign({}, historyParams);
-  paramsCopy.scale = infNumToString(params.scale);
-  paramsCopy.offsetX = infNumToString(infNumTruncate(params.offsetX));
-  paramsCopy.offsetY = infNumToString(infNumTruncate(params.offsetY));
+  paramsCopy.scale = infNumToString(historyParams.scale);
+  paramsCopy.offsetX = infNumToString(infNumTruncate(historyParams.offsetX));
+  paramsCopy.offsetY = infNumToString(infNumTruncate(historyParams.offsetY));
   // no need to replaceState() here -- we'll replaceState() on param
   //   changes except for mouse dragging, which happen too fast
   history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
@@ -1510,7 +1506,7 @@ const lineColorSchemes = {
 };
 
 const lineColorSchemeNames = [];
-for (name in lineColorSchemes) {
+for (let name in lineColorSchemes) {
   lineColorSchemeNames.push(name);
 }
 
@@ -1876,7 +1872,7 @@ window.addEventListener("keydown", function(e) {
   //drawPoints(historyParams);
 
   if (e.keyCode == 39 /* right arrow */) {
-    addParamPercentAndRound("offsetX", -1)
+    addParamPercentAndRound("offsetX", -1);
     redraw();
   } else if (e.keyCode == 68 /* d */) {
     addParamPercentAndRound("offsetX", -10);
@@ -1931,17 +1927,17 @@ window.addEventListener("keydown", function(e) {
   } else if (e.keyCode == 78 /* n */) {
     if (sequencesByName[historyParams.seq].calcFrom == "sequence") {
       if (historyParams.n > 100) {
-        historyParams.n -= 100
+        historyParams.n -= 100;
       }
     } else {
       if (historyParams.n > 10) {
-        historyParams.n -= 10
+        historyParams.n -= 10;
       }
     }
     start();
   } else if (e.keyCode == 86 /* v */) {
-    var schemeNum = -1;
-    for (var i = 0; i < lineColorSchemeNames.length; i++) {
+    let schemeNum = -1;
+    for (let i = 0; i < lineColorSchemeNames.length; i++) {
       if (lineColorSchemeNames[i] == historyParams.lineColor) {
         schemeNum = i;
         break;
@@ -1955,8 +1951,8 @@ window.addEventListener("keydown", function(e) {
 
     redraw();
   } else if (e.keyCode == 66 /* b */) {
-    var schemeNum = -1;
-    for (var i = 0; i < bgColorSchemeNames.length; i++) {
+    let schemeNum = -1;
+    for (let i = 0; i < bgColorSchemeNames.length; i++) {
       if (bgColorSchemeNames[i] == historyParams.bgColor) {
         schemeNum = i;
         break;
@@ -1969,8 +1965,8 @@ window.addEventListener("keydown", function(e) {
     historyParams.bgColor = bgColorSchemeNames[schemeNum];
     redraw();
   } else if (e.keyCode == 88 /* x */) {
-    var seqNum = -1;
-    for (var i = 0; i < sequences.length; i++) {
+    let seqNum = -1;
+    for (let i = 0; i < sequences.length; i++) {
       if (sequences[i].name == historyParams.seq) {
         seqNum = i;
         break;
@@ -1982,7 +1978,7 @@ window.addEventListener("keydown", function(e) {
     }
     historyParams.seq = sequences[seqNum].name;
     // for all plots, force application of their defaults
-    var defaults = Object.assign(historyParams, sequences[seqNum].forcedDefaults);
+    let defaults = Object.assign(historyParams, sequences[seqNum].forcedDefaults);
     replaceHistoryWithParams(defaults);
     parseUrlParams();
     start();
@@ -1990,7 +1986,7 @@ window.addEventListener("keydown", function(e) {
     // use Math.round() instead of parseInt() because, for example:
     //   parseInt(0.29 * 100.0)   --> 28
     //   Math.round(0.29 * 100.0) --> 29
-    var valPct = Math.round(historyParams.lineWidth * 100.0);
+    let valPct = Math.round(historyParams.lineWidth * 100.0);
     valPct += 50;
     historyParams.lineWidth = parseFloat(valPct / 100.0);
 
@@ -2262,7 +2258,7 @@ function closeMenu() {
 function openMenu() {
   menuVisible = true;
   closeHelpMenu();
-  showFooter()
+  showFooter();
   document.getElementById('menu').style.display = 'block';
   document.getElementById('menu-open-wrap').style.display = 'none';
 }

@@ -38,7 +38,7 @@ const windowCalc = {
   "cachedPoints": 0,
   "chunksComplete": 0,
   "totalChunks": 0,
-  "scale": infNum(1n, 0n),
+//  "scale": infNum(1n, 0n),
   "eachPixUnits": infNum(1n, 0n)
 };
 
@@ -1086,14 +1086,15 @@ function computeBoundPointsChunk(sequence, leftEdge, topEdge, rightEdge, bottomE
     px = infNumAdd(infNumMul(windowCalc.eachPixUnits, x), leftEdge);
     var y = infNum(0n, 0n);
     while (infNumLt(y, pixHeight)) {
-      py = infNumAdd(infNumMul(windowCalc.eachPixUnits, y), topEdge);
-      //const pointPixel = infNumToString(x) + "," + infNumToString(y);
-      const pointPixel = infNumToString(px) + "," + infNumToString(py);
+      //py = infNumAdd(infNumMul(windowCalc.eachPixUnits, y), topEdge);
+      const pointPixel = infNumToString(x) + "," + infNumToString(y);
+      //const pointPixel = infNumToString(px) + "," + infNumToString(py);
       if (pointPixel in windowCalc.pointsCache) {
         windowCalc.cachedPoints++;
         resultPoints.push(windowCalc.pointsCache[pointPixel]);
       } else {
         //py = infNumAdd(infNumMul(eachPixHeight, y), topEdge);
+        py = infNumAdd(infNumMul(windowCalc.eachPixUnits, y), topEdge);
 
         const pointColor = sequence.computeBoundPointColor(privContext, px, py);
         //console.log("computed point color [" + pointColor + "] for coord [" + pointPixel + "]");
@@ -1650,17 +1651,17 @@ function resetWindowCalcContext() {
   fillBg(dContext);
 
   // clear points cache if the new scale is different than the previous windowCalc scale
-  if (!infNumEq(historyParams.scale, windowCalc.scale)) {
-    windowCalc.pointsCache = {};
+//  if (!infNumEq(historyParams.scale, windowCalc.scale)) {
+//    windowCalc.pointsCache = {};
   // also clear UNUSED points from the cache if the final lineWidth was reached and
   //   computation was completed, but we do that elsewhere
 //  } else if (Math.round(windowCalc.lineWidth) == Math.round(historyParams.lineWidth)) {
 //    if (isComputationComplete()) {
 //      windowCalc.pointsCache = {};
 //    }
-  }
+//  }
 
-  windowCalc.scale = historyParams.scale;
+//  //windowCalc.scale = historyParams.scale;
 
   // since line width is halved each time the draw occurs, use 128 to get
   //   the initial draw to use a 64-wide pixels
@@ -1669,6 +1670,7 @@ function resetWindowCalcContext() {
   windowCalc.xPixelChunks = [];
   windowCalc.resultPoints = [];
   windowCalc.pointsBounds = "";
+  windowCalc.pointsCache = {};
   windowCalc.totalTimeMs = 0;
   windowCalc.totalPoints = 0;
   windowCalc.cachedPoints = 0;
@@ -1684,8 +1686,8 @@ function resetWindowCalcContext() {
   const fiftyPct = createInfNum("0.5");
   const params = historyParams;
 
-  const offsetXPct = infNumAdd(fiftyPct, params.offsetX);
-  const offsetYPct = infNumAdd(fiftyPct, params.offsetY);
+//  const offsetXPct = infNumAdd(fiftyPct, params.offsetX);
+//  const offsetYPct = infNumAdd(fiftyPct, params.offsetY);
 
   const canvasWidth = createInfNum(dContext.canvas.offsetWidth.toString());
   const canvasHeight = createInfNum(dContext.canvas.offsetHeight.toString());
@@ -1698,14 +1700,14 @@ function resetWindowCalcContext() {
   //windowCalc.eachPixUnits = infNumMul(canvasWidth, params.scale);
   windowCalc.eachPixUnits = infNumDiv(infNum(1n, 0n), params.scale);
 
-  const scaledWidth = infNumMul(canvasWidth, windowCalc.eachPixUnits);
-  const scaledHeight = infNumMul(canvasHeight, windowCalc.eachPixUnits);
+//  const scaledWidth = infNumMul(canvasWidth, windowCalc.eachPixUnits);
+//  const scaledHeight = infNumMul(canvasHeight, windowCalc.eachPixUnits);
 
-  const rightEdge = infNumSub(scaledWidth, infNumMul(scaledWidth, offsetXPct));
-  const leftEdge = infNumSub(rightEdge, scaledWidth);
+//  const rightEdge = infNumSub(scaledWidth, infNumMul(scaledWidth, offsetXPct));
+//  const leftEdge = infNumSub(rightEdge, scaledWidth);
 
-  const bottomEdge = infNumSub(scaledHeight, infNumMul(scaledHeight, offsetYPct));
-  const topEdge = infNumSub(bottomEdge, scaledHeight);
+//  const bottomEdge = infNumSub(scaledHeight, infNumMul(scaledHeight, offsetYPct));
+//  const topEdge = infNumSub(bottomEdge, scaledHeight);
 
 
   // thanks to https://stackoverflow.com/a/1232046/259456
@@ -1713,16 +1715,16 @@ function resetWindowCalcContext() {
 
 //  const sequence = sequencesByName[params.seq];
 
-//  // find the visible abstract points using offset and scale
-//  const scaledWidth = infNumDiv(canvasWidth, params.scale);
-//  const offsetXPct = infNumAdd(fiftyPct, params.offsetX);
-//  const rightEdge = infNumSub(scaledWidth, infNumMul(scaledWidth, offsetXPct));
-//  const leftEdge = infNumSub(rightEdge, scaledWidth);
-//
-//  const scaledHeight = infNumDiv(canvasHeight, params.scale);
-//  const offsetYPct = infNumAdd(fiftyPct, params.offsetY);
-//  const bottomEdge = infNumSub(scaledHeight, infNumMul(scaledHeight, offsetYPct));
-//  const topEdge = infNumSub(bottomEdge, scaledHeight);
+  // find the visible abstract points using offset and scale
+  const scaledWidth = infNumDiv(canvasWidth, params.scale);
+  const offsetXPct = infNumAdd(fiftyPct, params.offsetX);
+  const rightEdge = infNumSub(scaledWidth, infNumMul(scaledWidth, offsetXPct));
+  const leftEdge = infNumSub(rightEdge, scaledWidth);
+
+  const scaledHeight = infNumDiv(canvasHeight, params.scale);
+  const offsetYPct = infNumAdd(fiftyPct, params.offsetY);
+  const bottomEdge = infNumSub(scaledHeight, infNumMul(scaledHeight, offsetYPct));
+  const topEdge = infNumSub(bottomEdge, scaledHeight);
 
   windowCalc.seqName = params.seq;
   windowCalc.leftEdge = leftEdge;
@@ -1877,47 +1879,47 @@ function waitAndDrawWindow() {
     //windowResolutionTimeout = window.setTimeout(calculateAndDrawWindow, 250);
     windowCalc.chunksComplete = 0;
     windowCalc.timeout = window.setTimeout(calculateAndDrawWindow, 250);
-  } else {
-    // now that we are done calculating and displaying the window, clear away cached points outside of the window
-    const pointsToDelete = [];
-    var totalCachedPoints = 0;
-    for (pointName in windowCalc.pointsCache) {
-      totalCachedPoints++;
-      const split = pointName.split(',');
-      if (split.length != 2) {
-        console.log("cached point [" + pointName + "] is not an expected \"x,y\" string");
-        continue;
-      }
-      const xPos = createInfNum(split[0])
-      //if (infNumLt(xPos, windowCalc.leftEdge) || infNumGt(xPos, windowCalc.rightEdge)) {
-      if (infNumLt(xPos, windowCalc.leftEdge)) {
-        //console.log("cached point [" + pointName + "] is to the left of leftEdge [" + infNumToString(windowCalc.leftEdge) + "], so deleting it");
-        pointsToDelete.push(pointName);
-        continue;
-      }
-      if (infNumGt(xPos, windowCalc.rightEdge)) {
-        //console.log("cached point [" + pointName + "] is to the right of rightEdge [" + infNumToString(windowCalc.leftEdge) + "], so deleting it");
-        pointsToDelete.push(pointName);
-        continue;
-      }
-      const yPos = createInfNum(split[1])
-      //if (infNumLt(yPos, windowCalc.topEdge) || infNumGt(yPos, windowCalc.bottomEdge)) {
-      if (infNumLt(yPos, windowCalc.topEdge)) {
-        //console.log("cached point [" + pointName + "] is above topEdge [" + infNumToString(windowCalc.topEdge) + "], so deleting it");
-        pointsToDelete.push(pointName);
-        continue;
-      }
-      if (infNumGt(yPos, windowCalc.bottomEdge)) {
-        //console.log("cached point [" + pointName + "] is below bottomEdge [" + infNumToString(windowCalc.bottomEdge) + "], so deleting it");
-        pointsToDelete.push(pointName);
-        continue;
-      }
-    }
-    const deletePct = Math.round(pointsToDelete.length * 10000.0 / totalCachedPoints) / 100.0;
-    console.log("removing [" + pointsToDelete.length + "] out-of-bounds cached points (" + deletePct + "%) since calculation is complete");
-    for (var i = 0; i < pointsToDelete.length; i++) {
-      delete windowCalc.pointsCache[pointsToDelete[i]];
-    }
+//  } else {
+//    // now that we are done calculating and displaying the window, clear away cached points outside of the window
+//    const pointsToDelete = [];
+//    var totalCachedPoints = 0;
+//    for (pointName in windowCalc.pointsCache) {
+//      totalCachedPoints++;
+//      const split = pointName.split(',');
+//      if (split.length != 2) {
+//        console.log("cached point [" + pointName + "] is not an expected \"x,y\" string");
+//        continue;
+//      }
+//      const xPos = createInfNum(split[0])
+//      //if (infNumLt(xPos, windowCalc.leftEdge) || infNumGt(xPos, windowCalc.rightEdge)) {
+//      if (infNumLt(xPos, windowCalc.leftEdge)) {
+//        //console.log("cached point [" + pointName + "] is to the left of leftEdge [" + infNumToString(windowCalc.leftEdge) + "], so deleting it");
+//        pointsToDelete.push(pointName);
+//        continue;
+//      }
+//      if (infNumGt(xPos, windowCalc.rightEdge)) {
+//        //console.log("cached point [" + pointName + "] is to the right of rightEdge [" + infNumToString(windowCalc.leftEdge) + "], so deleting it");
+//        pointsToDelete.push(pointName);
+//        continue;
+//      }
+//      const yPos = createInfNum(split[1])
+//      //if (infNumLt(yPos, windowCalc.topEdge) || infNumGt(yPos, windowCalc.bottomEdge)) {
+//      if (infNumLt(yPos, windowCalc.topEdge)) {
+//        //console.log("cached point [" + pointName + "] is above topEdge [" + infNumToString(windowCalc.topEdge) + "], so deleting it");
+//        pointsToDelete.push(pointName);
+//        continue;
+//      }
+//      if (infNumGt(yPos, windowCalc.bottomEdge)) {
+//        //console.log("cached point [" + pointName + "] is below bottomEdge [" + infNumToString(windowCalc.bottomEdge) + "], so deleting it");
+//        pointsToDelete.push(pointName);
+//        continue;
+//      }
+//    }
+//    const deletePct = Math.round(pointsToDelete.length * 10000.0 / totalCachedPoints) / 100.0;
+//    console.log("removing [" + pointsToDelete.length + "] out-of-bounds cached points (" + deletePct + "%) since calculation is complete");
+//    for (var i = 0; i < pointsToDelete.length; i++) {
+//      delete windowCalc.pointsCache[pointsToDelete[i]];
+//    }
   }
 }
 

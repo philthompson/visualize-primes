@@ -1654,11 +1654,18 @@ function resetWindowCalcContext() {
 }
 
 function calculateAndDrawWindow() {
-  drawCalculatingNotice(dContext);
-  // thanks to https://stackoverflow.com/a/5521412/259456
-  // hand control back to the browser to allow canvas to actually show
-  //   the "calculating" text
-  window.setTimeout(calculateAndDrawWindowInner, 50);
+  // if lineWidth is 128, then we are starting with a fresh drawing
+  // in this case, drawing will be fast (64-wide pixels) so don't bother
+  //   drawing the "Calculating ..." notice text
+  if (windowCalc.lineWidth == 128) {
+    calculateAndDrawWindowInner();
+  } else {
+    drawCalculatingNotice(dContext);
+    // thanks to https://stackoverflow.com/a/5521412/259456
+    // hand control back to the browser to allow canvas to actually show
+    //   the "calculating" text
+    window.setTimeout(calculateAndDrawWindowInner, 50);
+  }
 }
 
 function calculateAndDrawWindowInner() {
@@ -1688,13 +1695,8 @@ function waitAndDrawWindow() {
   if (nextXChunk) {
     const out = computeBoundPointsChunk(sequence, windowCalc.leftEdge, windowCalc.topEdge, windowCalc.rightEdge, windowCalc.bottomEdge, nextXChunk);
 
-    // copy the results
-    for (var i = 0; i < out.points.length; i++) {
-      points.push(out.points[i]);
-    }
-
     // draw the results
-    drawColorPoints();
+    drawColorPoints(out.points);
     if (!isFinished) {
       drawCalculatingNotice(dContext);
     }
@@ -1707,7 +1709,7 @@ function waitAndDrawWindow() {
   // if the calculation is not finished, schedule another chunk to be calculated
   if (isFinished) {
     if (windowLogTiming) {
-      console.log("computing [" + windowCalc.totalPoints + "] points, of which [" + windowCalc.cachedPoints + "] were cached, took [" + windowCalc.totalTimeMs + "] ms");
+      console.log("computing [" + windowCalc.totalPoints + "] points of width [" + windowCalc.lineWidth + "], of which [" + windowCalc.cachedPoints + "] were cached, took [" + windowCalc.totalTimeMs + "] ms");
     }
   } else {
     windowCalc.timeout = window.setTimeout(waitAndDrawWindow, 25);
@@ -1723,7 +1725,7 @@ function waitAndDrawWindow() {
   }
 }
 
-function drawColorPoints() {
+function drawColorPoints(windowPoints) {
   // change URL bar to reflect current params, only if no params change
   //   for 1/4 second
   if (replaceStateTimeout != null) {
@@ -1736,29 +1738,29 @@ function drawColorPoints() {
   const width = canvas.width;
   const height = canvas.height;
   const pixelsImage = windowCalc.pixelsImage;
-  for (var i = 0; i < points.length; i++) {
+  for (let i = 0; i < windowPoints.length; i++) {
     // use lineWidth param as "resolution":
     //   1 = 1  pixel  drawn per point
     //   2 = 2  pixels drawn per point
     //  10 = 10 pixels drawn per point
-    const resX = points[i].x;
-    const resY = points[i].y;
-    const colorPct = points[i].c;
-    var pointColor = getBgColor();
+    const resX = windowPoints[i].x;
+    const resY = windowPoints[i].y;
+    const colorPct = windowPoints[i].c;
+    let pointColor = getBgColor();
     if (colorPct >= 0) {
       pointColor = getLineColor(colorPct, historyParams.lineColor);
     }
     const rgba = pointColor.substr(5).split(',');
     pointColor = getColor(parseInt(rgba[0]),parseInt(rgba[1]),parseInt(rgba[2]));
-    var pixelOffsetInImage = 0;
-    for (var x = 0; x < pixelSize; x++) {
+    let pixelOffsetInImage = 0;
+    for (let x = 0; x < pixelSize; x++) {
       // there may be a more efficient way to break early when pixels
       //   would extend beyond the edge of the canvas, other than
       //   checking every single pixel
       if (resX + x >= width) {
         break;
       }
-      for (var y = 0; y < pixelSize; y++) {
+      for (let y = 0; y < pixelSize; y++) {
         // there may be a more efficient way to break early when pixels
         //   would extend beyond the edge of the canvas, other than
         //   checking every single pixel

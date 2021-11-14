@@ -839,7 +839,7 @@ const sequences = [{
     "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower." +
     "<br/><br/><b>Known Issues:</b>" +
     "<br/>- When zoomed in beyond a certain point, the keyboard zoom/pan keys stop working as expected.  Use the mouse to zoom and pan." +
-    "<br/>- When panning or zooming, the screen initially shows black instead of a low-resolution preview",
+    "<br/>- Opening a link may not center the view on the expected region, depending on the window size",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColor": function(privContext, x, y) {
     const maxIter = historyParams.n;
@@ -1087,16 +1087,16 @@ const presets = [{
   "lineColor": "rbgyo",
   "bgColor": "b"
 // this worked fine for a slightly smaller than average window on my computer
-},{
-  "seq": "Mandelbrot-set",
-  "v": 1,
-  "n": 450,
-  "lineWidth": 1,
-  "scale": createInfNum("1465819.0982171979091827284292"),
-  "offsetX": createInfNum("-308.168814648192707"),
-  "offsetY": createInfNum("-12.1356456670334135"),
-  "lineColor": "rbgyo",
-  "bgColor": "b"
+//},{
+//  "seq": "Mandelbrot-set",
+//  "v": 1,
+//  "n": 450,
+//  "lineWidth": 1,
+//  "scale": createInfNum("1465819.0982171979091827284292"),
+//  "offsetX": createInfNum("-308.168814648192707"),
+//  "offsetY": createInfNum("-12.1356456670334135"),
+//  "lineColor": "rbgyo",
+//  "bgColor": "b"
 }];
 
 var menuHtml =

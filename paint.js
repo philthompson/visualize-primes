@@ -10,6 +10,7 @@ var mouseDragX = 0;
 var mouseDragY = 0;
 var pinch = false;
 var pinchStartDist = 0;
+var showMousePosition = false;
 
 var historyParams = {};
 var replaceStateTimeout = null;
@@ -39,6 +40,8 @@ const windowCalc = {
   "topEdge": infNum(0n, 0n),
   "rightEdge": infNum(0n, 0n),
   "bottomEdge": infNum(0n, 0n),
+  "leftEdgeFloat": 0.0,
+  "topEdgeFloat": 0.0,
   "n": 1
 };
 
@@ -396,11 +399,10 @@ const sequences = [{
   },
   // these settings are auto-applied when this sequence is activated
   "forcedDefaults": {
-    "v": 1,
     "n": 60000,
     "scale": createInfNum("1.2"),
-    "offsetX": createInfNum("0.2"),
-    "offsetY": createInfNum("-0.3")
+    "centerX": createInfNum("-240"),
+    "centerY": createInfNum("288")
   },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
@@ -453,11 +455,10 @@ const sequences = [{
   },
   // these settings are auto-applied when this sequence is activated
   "forcedDefaults": {
-    "v": 1,
     "n": 60000,
     "scale": createInfNum("0.85"),
-    "offsetX": createInfNum("-0.07"),
-    "offsetY": createInfNum("-0.32")
+    "centerX": infNum(0n, 0n),
+    "centerY": infNum(0n, 0n)
   },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
@@ -507,11 +508,10 @@ const sequences = [{
   },
   // these settings are auto-applied when this sequence is activated
   "forcedDefaults": {
-    "v": 1,
     "n": 5000,
     "scale": createInfNum("6.5"),
-    "offsetX": infNum(0n, 0n),
-    "offsetY": infNum(0n, 0n)
+    "centerX": infNum(0n, 0n),
+    "centerY": infNum(0n, 0n)
   },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
@@ -570,8 +570,8 @@ const sequences = [{
     "v": 1,
     "n": 5000,
     "scale": createInfNum("2.3"),
-    "offsetX": infNum(0n, 0n),
-    "offsetY": infNum(0n, 0n)
+    "centerX": infNum(0n, 0n),
+    "centerY": infNum(0n, 0n)
   },
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
@@ -662,8 +662,8 @@ const sequences = [{
     "v": 1,
     "n": 5000,
     "scale": createInfNum("0.08"),
-    "offsetX": infNum(0n, 0n),
-    "offsetY": infNum(0n, 0n)
+    "centerX": infNum(0n, 0n),
+    "centerY": infNum(0n, 0n)
   },
   "privContext": {
   }
@@ -749,8 +749,8 @@ const sequences = [{
     "v": 1,
     "n": 2016,
     "scale": infNum(15n, 0n),
-    "offsetX": infNum(0n, 0n),
-    "offsetY": infNum(0n, 0n)
+    "centerX": infNum(0n, 0n),
+    "centerY": infNum(0n, 0n)
   },
   "privContext": {
     // by "x-y" coordinates, store chessboard square numbers, starting with center square at "0-0"
@@ -838,8 +838,7 @@ const sequences = [{
     "<br/>- When not zoomed in very far, keep the <code>n</code> (iterations) parameter low for faster calculation (use N and M keys to decrease/increase the <code>n</code> value)." +
     "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower." +
     "<br/><br/><b>Known Issues:</b>" +
-    "<br/>- When zoomed in beyond a certain point, the keyboard zoom/pan keys stop working as expected.  Use the mouse to zoom and pan." +
-    "<br/>- Opening a link may not center the view on the expected region, depending on the window size",
+    "<br/>- When zoomed in beyond a certain point, the keyboard zoom/pan keys stop working as expected.  Use the mouse to zoom and pan.",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColor": function(privContext, x, y) {
     const maxIter = historyParams.n;
@@ -886,8 +885,8 @@ const sequences = [{
   "forcedDefaults": {
     "n": 50,
     "scale": infNum(400n, 0n),
-    "offsetX": infNum(19n, -2n),
-    "offsetY": infNum(0n, 0n)
+    "centerX": infNum(0n, 0n),
+    "centerY": infNum(0n, 0n)
   },
   "privContext": {
     //"purple": getColor(255, 40, 255),
@@ -1058,45 +1057,44 @@ function computeBoundPointsChunk(sequence, leftEdge, topEdge, rightEdge, bottomE
 
 const presets = [{
   "seq": "Primes-1-Step-90-turn",
-  "v": 1,
+  "v": 2,
   "n": 60000,
   "lineWidth": 1,
   "scale": createInfNum("1.35"),
-  "offsetX": createInfNum("0.22"),
-  "offsetY": createInfNum("-0.34"),
+  "centerX": createInfNum("-240"),
+  "centerY": createInfNum("288.4"),
   "lineColor": "rbgyo",
   "bgColor": "b"
 },{
   "seq": "Trapped-Knight",
-  "v": 1,
+  "v": 2,
   "n": 2016,
   "lineWidth": 1.5,
   "scale": createInfNum("15.0"),
-  "offsetX": createInfNum("0"),
-  "offsetY": createInfNum("0"),
+  "centerX": createInfNum("0"),
+  "centerY": createInfNum("0"),
   "lineColor": "rbgyo",
   "bgColor": "b"
 },{
   "seq": "Primes-1-Step-45-turn",
-  "v": 1,
+  "v": 2,
   "n": 32400,
   "lineWidth": 2,
   "scale": createInfNum("10.95"),
-  "offsetX": createInfNum("-0.30847"),
-  "offsetY": createInfNum("-0.96171"),
+  "centerX": createInfNum("35"),
+  "centerY": createInfNum("100"),
   "lineColor": "rbgyo",
   "bgColor": "b"
-// this worked fine for a slightly smaller than average window on my computer
-//},{
-//  "seq": "Mandelbrot-set",
-//  "v": 1,
-//  "n": 450,
-//  "lineWidth": 1,
-//  "scale": createInfNum("1465819.0982171979091827284292"),
-//  "offsetX": createInfNum("-308.168814648192707"),
-//  "offsetY": createInfNum("-12.1356456670334135"),
-//  "lineColor": "rbgyo",
-//  "bgColor": "b"
+},{
+  "seq": "Mandelbrot-set",
+  "v": 2,
+  "n": 400,
+  "lineWidth": 1,
+  "scale": createInfNum("1640000"),
+  "centerX": createInfNum("0.273210669156851807493494"),
+  "centerY": createInfNum("0.00588612373984032474800031"),
+  "lineColor": "rbgyo",
+  "bgColor": "b"
 }];
 
 var menuHtml =
@@ -1242,23 +1240,18 @@ function parseUrlParams() {
   // default settings are basically preset 1
   var params = {
     "seq": "Primes-1-Step-90-turn",
-    "v": 1,
+    "v": 2,
     "n": 60000,
     "lineWidth": 1.0,
     "scale": createInfNum("1.35"),
-    "offsetX": createInfNum("0.22"),
-    "offsetY": createInfNum("-0.34"),
+    "centerX": createInfNum("-240"),
+    "centerY": createInfNum("288.4"),
     "lineColor": "rbgyo",
     "bgColor": "b"
   };
 
-  // on my monitor, good test settings for 60,000 points
-  //params = {"v": 1, "n": 60000, "lineWidth": 1.0, "scale": 1.5, "offsetX": 0.3, "offsetY": 0.37};
-  // on my monitor, good test settings for 500 points
-  //params = {"v": 1, "n": 500, "lineWidth": 3.0, "scale": 20.0, "offsetX": 0.3, "offsetY": -0.2};
-
   // only change default settings if a known version of settings is given
-  if (urlParams.has('v') && urlParams.get('v') == 1) {
+  if (urlParams.has('v') && (urlParams.get('v') == 1 || urlParams.get('v') == 2)) {
     if (urlParams.has('seq')) {
       const seq = urlParams.get('seq');
       if (seq in sequencesByName) {
@@ -1273,17 +1266,19 @@ function parseUrlParams() {
         params.n = 100;
       }
     }
-    if (urlParams.has('scale')) {
-      //params.scale = infNumTruncate(createInfNum(urlParams.get('scale')));
-      params.scale = createInfNum(urlParams.get('scale'));
+    if (urlParams.has("scale")) {
+      params.scale = createInfNum(urlParams.get("scale"));
     }
-    if (urlParams.has('offsetX')) {
-      //params.offsetX = infNumTruncate(createInfNum(urlParams.get('offsetX')));
-      params.offsetX = createInfNum(urlParams.get('offsetX'));
-    }
-    if (urlParams.has('offsetY')) {
-      //params.offsetY = infNumTruncate(createInfNum(urlParams.get('offsetY')));
-      params.offsetY = createInfNum(urlParams.get('offsetY'));
+    if (urlParams.get('v') == 1) {
+      params.centerX = createInfNum(0n, 0n);
+      params.centerY = createInfNum(0n, 0n);
+    } else if (urlParams.get('v') == 2) {
+      if (urlParams.has("centerX")) {
+        params.centerX = createInfNum(urlParams.get("centerX"));
+      }
+      if (urlParams.has("centerY")) {
+        params.centerY = createInfNum(urlParams.get("centerY"));
+      }
     }
     if (urlParams.has('lineColor')) {
       const color = urlParams.get('lineColor');
@@ -1353,6 +1348,7 @@ function start() {
       points.push(out.points[i]);
     }
 
+    resetWindowCalcContext();
     drawPoints(params);
   } else if (sequence.calcFrom == "window") {
     resetWindowCalcCache();
@@ -1408,9 +1404,9 @@ function setDScaleVars(dCtx) {
 //   and the rest will be populated with standard values as part of parseUrlParams()
 function replaceHistoryWithParams(params) {
   var paramsCopy = Object.assign({}, params);
-  paramsCopy.scale = infNumToString(params.scale);
-  paramsCopy.offsetX = infNumToString(infNumTruncate(params.offsetX));
-  paramsCopy.offsetY = infNumToString(infNumTruncate(params.offsetY));
+  paramsCopy.scale = infNumToString(infNumTruncate(params.scale));
+  paramsCopy.centerX = infNumToString(infNumTruncate(params.centerX));
+  paramsCopy.centerY = infNumToString(infNumTruncate(params.centerY));
   history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
   replaceStateTimeout = null;
 }
@@ -1421,9 +1417,9 @@ var replaceHistory = function() {
 
 var pushToHistory = function() {
   var paramsCopy = Object.assign({}, historyParams);
-  paramsCopy.scale = infNumToString(historyParams.scale);
-  paramsCopy.offsetX = infNumToString(infNumTruncate(historyParams.offsetX));
-  paramsCopy.offsetY = infNumToString(infNumTruncate(historyParams.offsetY));
+  paramsCopy.scale = infNumToString(infNumTruncate(historyParams.scale));
+  paramsCopy.centerX = infNumToString(infNumTruncate(historyParams.centerX));
+  paramsCopy.centerY = infNumToString(infNumTruncate(historyParams.centerY));
   // no need to replaceState() here -- we'll replaceState() on param
   //   changes except for mouse dragging, which happen too fast
   history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
@@ -1518,12 +1514,12 @@ function getLineColor(startPercentage, colorScheme) {
 }
 
 function redraw() {
+  resetWindowCalcContext();
   const sequence = sequencesByName[historyParams.seq];
   if (sequence.calcFrom == "sequence") {
     drawPoints(historyParams);
   } else if (sequence.calcFrom == "window") {
-    //console.log("resetting windowCalc...");
-    resetWindowCalcContext();
+    //resetWindowCalcContext();
     calculateAndDrawWindow();
   }
 }
@@ -1544,28 +1540,24 @@ function drawPoints(params) {
   const lineWidth = params.lineWidth;
   // this function is only used for drawing sequence plots,
   //   so lots of precision for scale and offset isn't needed,
-  // convert scale, offsetX, and offsetY to float
+  // convert scale to float, and below use float version of left/top edges
   const scale = infNumToFloat(params.scale);
-  const offsetX = canvas.width * (0.5 + infNumToFloat(params.offsetX));
-  const offsetY = canvas.height * (0.5 + infNumToFloat(params.offsetY));
 
   fillBg(dContext);
   console.log("drawing [" + points.length + "] points with a total length of [" + totalLength + "]");
 
   var drawnLength = 0.0;
   var totalLengthScaled = totalLength * scale;
-  var lastX = 1.0 * offsetX;
-  var lastY = 1.0 * offsetY;
+  var lastX = (0.0 - windowCalc.leftEdgeFloat) * scale;
+  var lastY = (0.0 - windowCalc.topEdgeFloat) * scale;
   var segmentX = 0.0;
   var segmentY = 0.0;
   dContext.lineWidth = lineWidth;
   dContext.lineCap = "round";
   dContext.lineJoin = "round";
-  dContext.beginPath();
-  dContext.moveTo(offsetX, offsetY);
   for (var i = 0; i < points.length; i++) {
-    var x = (points[i].x * scale) + offsetX;
-    var y = (points[i].y * scale) + offsetY;
+    var x = (points[i].x - windowCalc.leftEdgeFloat) * scale;
+    var y = (points[i].y - windowCalc.topEdgeFloat) * scale;
     // use previous point to determine how much of the overall length
     //   we have drawn and therefore which part much of the overall
     //   line gradient this segment should be drawn with
@@ -1617,7 +1609,7 @@ function resetWindowCalcContext() {
   windowCalc.chunksComplete = 0;
   windowCalc.totalChunks = 0;
 
-  const fiftyPct = createInfNum("0.5");
+  const two = infNum(2n, 0n);
 
   const canvasWidth = createInfNum(dContext.canvas.offsetWidth.toString());
   const canvasHeight = createInfNum(dContext.canvas.offsetHeight.toString());
@@ -1627,14 +1619,12 @@ function resetWindowCalcContext() {
 
   // find the visible abstract points using offset and scale
   const scaledWidth = infNumDiv(canvasWidth, params.scale);
-  const offsetXPct = infNumAdd(fiftyPct, params.offsetX);
-  const rightEdge = infNumSub(scaledWidth, infNumMul(scaledWidth, offsetXPct));
-  const leftEdge = infNumSub(rightEdge, scaledWidth);
+  const leftEdge = infNumSub(params.centerX, infNumDiv(infNumDiv(canvasWidth, two), params.scale));
+  const rightEdge = infNumAdd(leftEdge, scaledWidth);
 
   const scaledHeight = infNumDiv(canvasHeight, params.scale);
-  const offsetYPct = infNumAdd(fiftyPct, params.offsetY);
-  const bottomEdge = infNumSub(scaledHeight, infNumMul(scaledHeight, offsetYPct));
-  const topEdge = infNumSub(bottomEdge, scaledHeight);
+  const topEdge = infNumSub(params.centerY, infNumDiv(infNumDiv(canvasHeight, two), params.scale));
+  const bottomEdge = infNumAdd(topEdge, scaledHeight);
 
   // only clear cache if iterations have changed or if any edge has moved
   // this allows cache to be re-used when changing colors
@@ -1651,6 +1641,8 @@ function resetWindowCalcContext() {
   windowCalc.topEdge = topEdge;
   windowCalc.rightEdge = rightEdge;
   windowCalc.bottomEdge = bottomEdge;
+  windowCalc.leftEdgeFloat = infNumToFloat(leftEdge);
+  windowCalc.topEdgeFloat = infNumToFloat(topEdge);
 }
 
 function calculateAndDrawWindow() {
@@ -1780,7 +1772,7 @@ function drawColorPoints(windowPoints) {
 
 function drawCalculatingNotice(ctx) {
   const canvas = ctx.canvas;
-  ctx.fillStyle = "rgba(100,100,100,0.7)";
+  ctx.fillStyle = "rgba(100,100,100,1.0)";
   const noticeHeight = Math.max(24, canvas.height * 0.03);
   const textHeight = Math.round(noticeHeight * 0.6);
   const noticeWidth = Math.max(200, textHeight * 18);
@@ -1789,6 +1781,21 @@ function drawCalculatingNotice(ctx) {
   ctx.fillStyle = "rgba(0,0,0,0.9)";
   const percentComplete = Math.round(windowCalc.chunksComplete * 100.0 / windowCalc.totalChunks);
   ctx.fillText("Calculating " + windowCalc.lineWidth + "-wide pixels (" + percentComplete + "%) ...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
+}
+
+function drawMousePosNotice(x, y) {
+  const canvas = dCanvas;
+  const ctx = dContext;
+  ctx.fillStyle = "rgba(100,100,100,1.0)";
+  const noticeHeight = Math.max(24, canvas.height * 0.03);
+  const textHeight = Math.round(noticeHeight * 0.6);
+  const noticeWidth = Math.max(200, textHeight * 18);
+  ctx.fillRect(0,canvas.height-noticeHeight,noticeWidth, noticeHeight);
+  ctx.font = textHeight + "px system-ui";
+  ctx.fillStyle = "rgba(0,0,0,0.9)";
+  let xRound = Math.round(x * 100.0) / 100.0;
+  let yRound = Math.round(y * 100.0) / 100.0;
+  ctx.fillText("(" + xRound + ", " + yRound + ")", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
 }
 
 // apparently using float math to add 0.01 to 0.06 doesn't result in 0.07
@@ -1874,28 +1881,28 @@ window.addEventListener("keydown", function(e) {
   //drawPoints(historyParams);
 
   if (e.keyCode == 39 /* right arrow */) {
-    addParamPercentAndRound("offsetX", -1);
+    addParamPercentAndRound("centerX", -1);
     redraw();
   } else if (e.keyCode == 68 /* d */) {
-    addParamPercentAndRound("offsetX", -10);
+    addParamPercentAndRound("centerX", -10);
     redraw();
   } else if (e.keyCode == 37 /* left arrow */) {
-    addParamPercentAndRound("offsetX", 1);
+    addParamPercentAndRound("centerX", 1);
     redraw();
   } else if (e.keyCode == 65 /* a */) {
-    addParamPercentAndRound("offsetX", 10);
+    addParamPercentAndRound("centerX", 10);
     redraw();
   } else if (e.keyCode == 38 /* up arrow */) {
-    addParamPercentAndRound("offsetY", 1);
+    addParamPercentAndRound("centerY", 1);
     redraw();
   } else if (e.keyCode == 87 /* w */) {
-    addParamPercentAndRound("offsetY", 10);
+    addParamPercentAndRound("centerY", 10);
     redraw();
   } else if (e.keyCode == 40 /* down arrow */) {
-    addParamPercentAndRound("offsetY", -1);
+    addParamPercentAndRound("centerY", -1);
     redraw();
   } else if (e.keyCode == 83 /* s */) {
-    addParamPercentAndRound("offsetY", -10);
+    addParamPercentAndRound("centerY", -10);
     redraw();
   } else if (e.keyCode == 61 || e.keyCode == 107 /* plus */) {
     applyParamPercent("scale", "1.01");
@@ -1916,8 +1923,8 @@ window.addEventListener("keydown", function(e) {
     }
     redraw();
   } else if (e.keyCode == 67 /* c */) {
-    historyParams.offsetX = createInfNum("0");
-    historyParams.offsetY = createInfNum("0");
+    historyParams.centerX = createInfNum("0");
+    historyParams.centerY = createInfNum("0");
     redraw();
   } else if (e.keyCode == 77 /* m */) {
     if (sequencesByName[historyParams.seq].calcFrom == "sequence") {
@@ -2017,9 +2024,8 @@ window.addEventListener("keydown", function(e) {
     activatePreset(presets[1]);
   } else if (e.keyCode == 51 || e.keyCode == 99 /* 3 */) {
     activatePreset(presets[2]);
-  // re-enable this preset once offsets are refactored
-  //} else if (e.keyCode == 52 || e.keyCode == 100 /* 4 */) {
-  //  activatePreset(presets[3]);
+  } else if (e.keyCode == 52 || e.keyCode == 100 /* 4 */) {
+    activatePreset(presets[3]);
   //} else if (e.keyCode == 57 || e.keyCode == 105 /* 9 */) {
   }
 });
@@ -2056,6 +2062,22 @@ var mouseMoveHandler = function(e) {
   // this might help prevent strange ios/mobile weirdness
   e.preventDefault();
   if (!mouseDrag) {
+    if (showMousePosition) {
+      //const two = infNum(2n, 0n);
+      let pixX = createInfNum(e.pageX.toString());
+      let pixY = createInfNum(e.pageY.toString());
+      // this all works, to re-compute left/top edges here
+      //const canvasWidth = createInfNum(dCanvas.width.toString());
+      //const canvasHeight = createInfNum(dCanvas.height.toString());
+      //const leftEdge = infNumSub(historyParams.centerX, infNumDiv(infNumDiv(canvasWidth, two), historyParams.scale));
+      //const topEdge = infNumSub(historyParams.centerY, infNumDiv(infNumDiv(canvasHeight, two), historyParams.scale));
+      //const posX = infNumAdd(infNumDiv(pixX, historyParams.scale), leftEdge);
+      //const posY = infNumAdd(infNumDiv(pixY, historyParams.scale), topEdge);
+      // these do work, using pre-computed left/top edges
+      let posX = infNumAdd(infNumDiv(pixX, historyParams.scale), windowCalc.leftEdge);
+      let posY = infNumAdd(infNumDiv(pixY, historyParams.scale), windowCalc.topEdge);
+      drawMousePosNotice(infNumToFloat(posX), infNumToFloat(posY));
+    }
     return;
   }
 
@@ -2063,10 +2085,10 @@ var mouseMoveHandler = function(e) {
   //    to be able to pinch zoom and pan in one gesture)
   const newX = e.pageX;
   const newY = e.pageY;
-  const diffX = (mouseDragX - newX) / dCanvas.width;
-  const diffY = (mouseDragY - newY) / dCanvas.height;
-  historyParams.offsetX = infNumSub(historyParams.offsetX, createInfNum(diffX.toString()));
-  historyParams.offsetY = infNumSub(historyParams.offsetY, createInfNum(diffY.toString()));
+  const diffX = infNumDiv(createInfNum((mouseDragX - newX).toString()), historyParams.scale);
+  const diffY = infNumDiv(createInfNum((mouseDragY - newY).toString()), historyParams.scale);
+  historyParams.centerX = infNumAdd(historyParams.centerX, diffX);
+  historyParams.centerY = infNumAdd(historyParams.centerY, diffY);
   mouseDragX = newX;
   mouseDragY = newY;
 
@@ -2106,15 +2128,11 @@ var mouseMoveHandler = function(e) {
     }
 
     // see "wheel" event below for explanation of centering the zoom in/out from the mouse/pinch point
-//    const newOffsetX = ((midX-(dCanvas.width  * (0.5 + historyParams.offsetX)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.width)  + historyParams.offsetX;
-//    const newOffsetY = ((midY-(dCanvas.height * (0.5 + historyParams.offsetY)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.height) + historyParams.offsetY;
-//    historyParams.offsetX = roundTo5Decimals(newOffsetX);
-//    historyParams.offsetY = roundTo5Decimals(newOffsetY);
 
-    const newOffsetX = calculateNewZoomOffset(createInfNum(midX.toString()), createInfNum(dCanvas.width.toString()),  historyParams.offsetX, oldScale, historyParams.scale);
-    const newOffsetY = calculateNewZoomOffset(createInfNum(midY.toString()), createInfNum(dCanvas.height.toString()), historyParams.offsetY, oldScale, historyParams.scale);
-    historyParams.offsetX = newOffsetX;
-    historyParams.offsetY = newOffsetY;
+    const newCenterX = calculateNewZoomCenter(createInfNum(midX.toString()), createInfNum(dCanvas.width.toString()),  historyParams.centerX, oldScale, historyParams.scale);
+    const newCenterY = calculateNewZoomCenter(createInfNum(midY.toString()), createInfNum(dCanvas.height.toString()), historyParams.centerY, oldScale, historyParams.scale);
+    historyParams.centerX = newCenterX;
+    historyParams.centerY = newCenterY;
   }
 
   redraw();
@@ -2156,84 +2174,53 @@ dCanvas.addEventListener("wheel", function(e) {
     }
   // for window plots, use full-precision scale, though truncate later when writing in the URL
   } else {
-    //historyParams.scale = infNumTruncate(newScale);
     historyParams.scale = newScale;
   }
 
   // use mouse position when scrolling to effecively zoom in/out directly on the spot where the mouse is
-  //
-  // points are placed with:
-  //
-  // (points[i].x * scale) + (canvas.width * (0.5 + params.offsetX))
-  // any point directly under cursor, after zooming in/out, should remain exactly in place
-  //
-  // also, if the offsets are 0 and cursor is exactly over the (0,0) point, the new offsets should remain at 0
-  //
-  // algebra...
-  // (points[i].x * newScale) + (canvas.width * (0.5 + params.newOffsetX)) = (points[i].x * oldScale) + (canvas.width * (0.5 + params.oldOffsetX))
-  // (points[i].x * newScale) + (0.5*canvas.width) + (canvas.width*params.newOffsetX) = (points[i].x * oldScale) + (0.5*canvas.width) + (canvas.width*params.oldOffsetX)
-  // (points[i].x * newScale) + (canvas.width*params.newOffsetX) = (points[i].x * oldScale) + (canvas.width*params.oldOffsetX)
-  // canvas.width*params.newOffsetX = (points[i].x * oldScale) - (points[i].x * newScale) + (canvas.width*params.oldOffsetX)
-  // canvas.width*params.newOffsetX = points[i].x * (oldScale - newScale) + (canvas.width*params.oldOffsetX)
-  // params.newOffsetX = points[i].x * ((oldScale - newScale)/canvas.width) + params.oldOffsetX
-  //
-  // algebra to find the point in terms of scale, offset, and mouse position (e.g. e.pageX)
-  // (pt_x * scale) + (canvas.width * (0.5 + params.offsetX)) = mouse_x
-  // pt_x = (mouse_x - (canvas.width * (0.5 + params.offsetX)))/scale
 
-  // this is a mess, but it works (for default javascript floating point math)
-  // replaced with infNum implementation below
-  //const newOffsetX = ((e.pageX-(dCanvas.width  * (0.5 + historyParams.offsetX)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.width)  + historyParams.offsetX;
-  //const newOffsetY = ((e.pageY-(dCanvas.height * (0.5 + historyParams.offsetY)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.height) + historyParams.offsetY;
+  const newCenterX = calculateNewZoomCenter(createInfNum(e.pageX.toString()), createInfNum(dCanvas.width.toString()),  historyParams.centerX, oldScale, historyParams.scale);
+  const newCenterY = calculateNewZoomCenter(createInfNum(e.pageY.toString()), createInfNum(dCanvas.height.toString()), historyParams.centerY, oldScale, historyParams.scale);
 
-//  const offsetXPct = infNumAdd(createInfNum("0.5"), historyParams.offsetX);
-//  const offsetYPct = infNumAdd(createInfNum("0.5"), historyParams.offsetY);
-//
-//  const offsetXCanvas = infNumMul(createInfNum(dCanvas.width.toString()), offsetXPct);
-//  const offsetYCanvas = infNumMul(createInfNum(dCanvas.height.toString()), offsetYPct);
-//
-//  const mouseXCanvas = infNumSub(createInfNum(e.pageX.toString()), offsetXCanvas);
-//  const mouseYCanvas = infNumSub(createInfNum(e.pageY.toString()), offsetYCanvas);
-//
-//  const oldScaleMouseX = infNumDiv(mouseXCanvas, oldScale);
-//  const oldScaleMouseY = infNumDiv(mouseYCanvas, oldScale);
-//
-//  const scaleDiff = infNumSub(oldScale, historyParams.scale);
-//  const scaleDiffX = infNumDiv(scaleDiff, createInfNum(dCanvas.width.toString()));
-//  const scaleDiffY = infNumDiv(scaleDiff, createInfNum(dCanvas.height.toString()));
-//
-//  const newOffsetX = infNumAdd(infNumMul(oldScaleMouseX, scaleDiffX), historyParams.offsetX);
-//  const newOffsetY = infNumAdd(infNumMul(oldScaleMouseY, scaleDiffY), historyParams.offsetY);
-
-  const newOffsetX = calculateNewZoomOffset(createInfNum(e.pageX.toString()), createInfNum(dCanvas.width.toString()),  historyParams.offsetX, oldScale, historyParams.scale);
-  const newOffsetY = calculateNewZoomOffset(createInfNum(e.pageY.toString()), createInfNum(dCanvas.height.toString()), historyParams.offsetY, oldScale, historyParams.scale);
-
-  //historyParams.offsetX = roundTo5Decimals(newOffsetX);
-  //historyParams.offsetY = roundTo5Decimals(newOffsetY);
-  historyParams.offsetX = newOffsetX;
-  historyParams.offsetY = newOffsetY;
+  historyParams.centerX = newCenterX;
+  historyParams.centerY = newCenterY;
 
   redraw();
 });
 
 // all arguments must be infNum
-//
-//const newOffsetY = ((e.pageY-(dCanvas.height * (0.5 + historyParams.offsetY)))/oldScale) * ((oldScale - historyParams.scale)/dCanvas.height) + historyParams.offsetY;
-function calculateNewZoomOffset(relativeToPosition, canvasSize, oldOffset, oldScale, newScale) {
-  const fiftyPct = createInfNum("0.5");
-  const offsetXPct = infNumAdd(fiftyPct, oldOffset);
+function calculateNewZoomCenter(pixelPosition, canvasSize, oldCenter, oldScale, newScale) {
+  // since the point directly under the mouse while zooming (or under
+  //   the middle point of the two-finger zoom action) will stay
+  //   in the same position after the new zoom and center are applied,
+  //   we can use that fact to set the old and new position equal to
+  //   each other and algebraically solve for the new centerX/Y
 
-  const offsetXCanvas = infNumMul(canvasSize, offsetXPct);
+  // beforeZoomX = (xPos - oldLeftEdge) * oldScale
+  // oldLeftEdge = oldCenterX - ((width / 2) / oldScale)
+  // therefore
+  // beforeZoomX = (xPos - (oldCenterX - ((width / 2) / oldScale))) * oldScale
+  // beforeZoomX = (xPos * oldScale) - (oldCenterX * oldScale) + (width/2)
+  //
+  // since beforeZoomX == afterZoomX
+  // (xPos * newScale) - (newCenterX * newScale) + (width/2) = (xPos * oldScale) - (oldCenterX * oldScale) + (width/2)
+  // (xPos * newScale) - (newCenterX * newScale) = (xPos * oldScale) - (oldCenterX * oldScale)
+  // (xPos * newScale) = (xPos * oldScale) - (oldCenterX * oldScale) + (newCenterX * newScale)
+  // (xPos * newScale) - (xPos * oldScale) + (oldCenterX * oldScale) = (newCenterX * newScale)
+  // flip
+  // (newCenterX * newScale) = (xPos * newScale) - (xPos * oldScale) + (oldCenterX * oldScale)
+  // newCenterX = xPos - (xPos * oldScale / newScale) + (oldCenterX * oldScale / newScale)
 
-  const mouseXCanvas = infNumSub(relativeToPosition, offsetXCanvas);
+  // calculate the position using the given pixelPosition
+  // pixelX = (xPos - leftEdge) * oldScale
+  // xPos = (pixelX / oldScale) + leftEdge
 
-  const oldScaleMouseX = infNumDiv(mouseXCanvas, oldScale);
+  // this was the algebraic solution, but doesn't work
+  const edge = infNumSub(oldCenter, infNumDiv(infNumDiv(canvasSize, infNum(2n, 0n)), oldScale));
+  const pos = infNumAdd(infNumDiv(pixelPosition, oldScale), edge);
+  const scaleRatio = infNumDiv(oldScale, newScale);
+  return infNumAdd(infNumSub(pos, infNumMul(pos, scaleRatio)), infNumMul(oldCenter, scaleRatio));
 
-  const scaleDiff = infNumSub(oldScale, newScale);
-  const scaleDiffX = infNumDiv(scaleDiff, canvasSize);
-
-  //return infNumTruncate(infNumAdd(infNumMul(oldScaleMouseX, scaleDiffX), oldOffset));
-  return infNumAdd(infNumMul(oldScaleMouseX, scaleDiffX), oldOffset);
 }
 
 document.getElementById('menu-open').addEventListener("click", function(e) {

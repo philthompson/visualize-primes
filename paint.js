@@ -885,7 +885,7 @@ const sequences = [{
   "forcedDefaults": {
     "n": 50,
     "scale": infNum(400n, 0n),
-    "centerX": infNum(0n, 0n),
+    "centerX": createInfNum("-0.56"),
     "centerY": infNum(0n, 0n)
   },
   "privContext": {
@@ -1270,8 +1270,8 @@ function parseUrlParams() {
       params.scale = createInfNum(urlParams.get("scale"));
     }
     if (urlParams.get('v') == 1) {
-      params.centerX = createInfNum(0n, 0n);
-      params.centerY = createInfNum(0n, 0n);
+      params.centerX = infNum(0n, 0n);
+      params.centerY = infNum(0n, 0n);
     } else if (urlParams.get('v') == 2) {
       if (urlParams.has("centerX")) {
         params.centerX = createInfNum(urlParams.get("centerX"));
@@ -1536,7 +1536,6 @@ function drawPoints(params) {
   }
   replaceStateTimeout = window.setTimeout(replaceHistory, 250);
 
-  const canvas = dContext.canvas;
   const lineWidth = params.lineWidth;
   // this function is only used for drawing sequence plots,
   //   so lots of precision for scale and offset isn't needed,

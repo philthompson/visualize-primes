@@ -30,7 +30,10 @@ const windowCalc = {
   "resultPoints": [],
   "pointsBounds": "",
   "pointsCache": {},
+  "passTimeMs": 0,
   "totalTimeMs": 0,
+  "startTimeMs": 0,
+  "endTimeMs": 0,
   "totalPoints": 0,
   "cachedPoints": 0,
   "chunksComplete": 0,
@@ -1047,7 +1050,7 @@ function computeBoundPointsChunk(sequence, leftEdge, topEdge, rightEdge, bottomE
       y = infNumAdd(y, pixelSize);
     }
   }
-  windowCalc.totalTimeMs += (Date.now() - chunkStartMs);
+  windowCalc.passTimeMs += (Date.now() - chunkStartMs);
   windowCalc.totalPoints += resultPoints.length;
   windowCalc.chunksComplete++;
   return {
@@ -1602,7 +1605,10 @@ function resetWindowCalcContext() {
   windowCalc.xPixelChunks = [];
   windowCalc.resultPoints = [];
   windowCalc.pointsBounds = "";
+  windowCalc.passTimeMs = 0;
   windowCalc.totalTimeMs = 0;
+  windowCalc.startTimeMs = Date.now();
+  windowCalc.endTimeMs = 0;
   windowCalc.totalPoints = 0;
   windowCalc.cachedPoints = 0;
   windowCalc.chunksComplete = 0;
@@ -1698,13 +1704,15 @@ function waitAndDrawWindow() {
   }
 
   // if the calculation is not finished, schedule another chunk to be calculated
-  if (isFinished) {
-    if (windowLogTiming) {
-      console.log("computing [" + windowCalc.totalPoints + "] points of width [" + windowCalc.lineWidth + "], of which [" + windowCalc.cachedPoints + "] were cached, took [" + windowCalc.totalTimeMs + "] ms");
-    }
-  } else {
+  if (!isFinished) {
     windowCalc.timeout = window.setTimeout(waitAndDrawWindow, 25);
     return;
+  }
+
+  // log timing of this pass (a single lineWidth)
+  if (windowLogTiming) {
+    windowCalc.totalTimeMs += windowCalc.passTimeMs;
+    console.log("computing [" + windowCalc.totalPoints + "] points of width [" + windowCalc.lineWidth + "], of which [" + windowCalc.cachedPoints + "] were cached, took [" + windowCalc.passTimeMs + "] ms");
   }
 
   // if line width just finished is greater than the param lineWidth,
@@ -1713,6 +1721,25 @@ function waitAndDrawWindow() {
   if (Math.round(windowCalc.lineWidth) > Math.round(historyParams.lineWidth)) {
     windowCalc.chunksComplete = 0;
     windowCalc.timeout = window.setTimeout(calculateAndDrawWindow, 250);
+    return;
+  }
+
+  if (windowLogTiming) {
+    windowCalc.endTimeMs = Date.now();
+    const overallTimeMs = windowCalc.endTimeMs - windowCalc.startTimeMs;
+    // output overall timing info
+    console.log("COMPLETED image [" +
+      "w:" + dCanvas.width + ", " +
+      "h:" + dCanvas.height + ", " +
+      "lineWidth:" + Math.round(historyParams.lineWidth) + ", " +
+      "n:" + historyParams.n + ", " +
+      "centerX:" + infNumToString(infNumTruncate(historyParams.centerX)) + ", " +
+      "centerY:" + infNumToString(infNumTruncate(historyParams.centerY)) + ", " +
+      "scale:" + infNumToString(infNumTruncate(historyParams.scale)) +
+      "] took: " +
+      "[" + overallTimeMs + "] ms of overall time, " +
+      "[" + windowCalc.totalTimeMs + "] ms of compute/draw time, " +
+      "[" + (overallTimeMs - windowCalc.totalTimeMs) + "] ms of idle/wait time");
   }
 }
 

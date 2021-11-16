@@ -47,6 +47,7 @@ const windowCalc = {
   "topEdgeFloat": 0.0,
   "n": 1
 };
+var windowCalcRepeat = 0;
 
 function infNum(value, exponent) {
   return {"v": value, "e": exponent};
@@ -1638,7 +1639,7 @@ function resetWindowCalcContext() {
       !infNumEq(windowCalc.topEdge, topEdge) ||
       !infNumEq(windowCalc.rightEdge, rightEdge) ||
       !infNumEq(windowCalc.bottomEdge, bottomEdge)) {
-    windowCalc.pointsCache = {};
+    resetWindowCalcCache();
   }
 
   windowCalc.n = params.n;
@@ -1740,6 +1741,11 @@ function waitAndDrawWindow() {
       "[" + overallTimeMs + "] ms of overall time, " +
       "[" + windowCalc.totalTimeMs + "] ms of compute/draw time, " +
       "[" + (overallTimeMs - windowCalc.totalTimeMs) + "] ms of idle/wait time");
+    windowCalcRepeat -= 1;
+    if (windowCalcRepeat > 0) {
+      resetWindowCalcCache();
+      redraw();
+    }
   }
 }
 

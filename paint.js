@@ -48,6 +48,7 @@ const windowCalc = {
   "n": 1
 };
 var windowCalcRepeat = 0;
+var windowCalcTimes = [];
 
 function infNum(value, exponent) {
   return {"v": value, "e": exponent};
@@ -1741,10 +1742,35 @@ function waitAndDrawWindow() {
       "[" + overallTimeMs + "] ms of overall time, " +
       "[" + windowCalc.totalTimeMs + "] ms of compute/draw time, " +
       "[" + (overallTimeMs - windowCalc.totalTimeMs) + "] ms of idle/wait time");
-    windowCalcRepeat -= 1;
-    if (windowCalcRepeat > 0) {
+    if (windowCalcRepeat > 1) {
+      windowCalcTimes.push(overallTimeMs);
+      windowCalcRepeat -= 1;
       resetWindowCalcCache();
       redraw();
+    } else {
+      windowCalcTimes.push(overallTimeMs);
+      let maxTime = 0;
+      let minTime = 0;
+      for (let i = 0; i < windowCalcTimes.length; i++) {
+        if (windowCalcTimes[i] > maxTime) {
+          maxTime = windowCalcTimes[i];
+        }
+        if (minTime == 0 || windowCalcTimes[i] < minTime) {
+          minTime = windowCalcTimes[i];
+        }
+      }
+      let sum = 0;
+      let num = 0;
+      for (let i = 0; i < windowCalcTimes.length; i++) {
+        if (windowCalcTimes[i] == maxTime || windowCalcTimes[i] == minTime) {
+          continue;
+        }
+        sum += windowCalcTimes[i];
+        num++;
+      }
+      if (num > 0) {
+        console.log("excluding max [" + maxTime + "] and min [" + minTime + "], the average overall time of [" + num + "] images was [" + (sum/num) + "] ms");
+      }
     }
   }
 }

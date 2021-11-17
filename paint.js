@@ -11,6 +11,7 @@ var mouseDragY = 0;
 var pinch = false;
 var pinchStartDist = 0;
 var showMousePosition = false;
+var shiftPressed = false;
 
 var historyParams = {};
 var replaceStateTimeout = null;
@@ -1935,6 +1936,12 @@ function sanityCheckLineWidth(w, circular, sequence) {
   return w;
 }
 
+window.addEventListener("keyup", function(e) {
+  if (e.keyCode == 16 /* shift */) {
+    shiftPressed = false;
+  }
+});
+
 // thanks to https://stackoverflow.com/a/3396805/259456
 window.addEventListener("keydown", function(e) {
   //console.log(e.type + " - " + e.keyCode);
@@ -1944,7 +1951,9 @@ window.addEventListener("keydown", function(e) {
   // otherwise, use
   //drawPoints(historyParams);
 
-  if (e.keyCode == 39 /* right arrow */) {
+  if (e.keyCode == 16 /* shift */) {
+    shiftPressed = true;
+  } else if (e.keyCode == 39 /* right arrow */) {
     addParamPercentAndRound("centerX", -1);
     redraw();
   } else if (e.keyCode == 68 /* d */) {
@@ -2110,6 +2119,16 @@ window.addEventListener("resize", function() {
 var mouseDownHandler = function(e) {
   // this might help prevent strange ios/mobile weirdness
   e.preventDefault();
+  if (shiftPressed) {
+    let pixX = createInfNum(e.pageX.toString());
+    let pixY = createInfNum(e.pageY.toString());
+    let posX = infNumAdd(infNumDiv(pixX, historyParams.scale), windowCalc.leftEdge);
+    let posY = infNumSub(windowCalc.topEdge, infNumDiv(pixY, historyParams.scale));
+    historyParams.centerX = posX;
+    historyParams.centerY = posY;
+    redraw();
+    return;
+  }
   // if 2 or more fingers touched
   if ("touches" in e && "1" in e.touches) {
     pinch = true;

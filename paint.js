@@ -27,7 +27,7 @@ const windowCalcIgnorePointColor = -2;
 
 const windowCalc = {
   "timeout": null,
-  "seqName": "",
+  "plotName": "",
   "lineWidth": 0,
   "xPixelChunks": [],
   "resultPoints": [],
@@ -485,472 +485,9 @@ function infNumTruncate(n) {
   return a;
 }
 
-
-// each "sequence" has its own "privContext" that can contain whatever data/functions
+// each "plot" has its own "privContext" that can contain whatever data/functions
 //   it needs to compute points
-const sequences = [{
-  "name": "Primes-1-Step-90-turn",
-  "calcFrom": "sequence",
-  "desc": "Move 1 step forward per integer, but for primes, turn 90 degrees clockwise before moving.",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-
-    // 5 million steps takes a while to compute, at least with this
-    //   method of computing primes and drawing points
-    if (historyParams.n > 5000000) {
-      historyParams.n = 5000000;
-    }
-    const params = historyParams;
-
-    var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = 0;
-
-    for (var i = 1.0; i < params.n; i+=1.0) {
-      if (isPrime(i)) {
-        //console.log(i + " is prime");
-        // only add points right before we change direction, and once at the end
-        resultPoints.push(nextPoint);
-        privContext.direction = privContext.changeDirection(privContext.direction);
-      }
-      // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
-      resultLength += 1;
-    }
-    // add the last point
-    resultPoints.push(nextPoint);
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this sequence is activated
-  "forcedDefaults": {
-    "n": 60000,
-    "scale": createInfNum("1.2"),
-    "centerX": createInfNum("-240"),
-    "centerY": createInfNum("288")
-  },
-  "privContext": {
-    // degrees clockwise, 0 is right (3 o'clock)
-    "direction": 0,
-    // turn "right"
-    "changeDirection": function(dir) {
-      return changeDirectionDegrees(dir, 90);
-    },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, 1, x, y);
-    }
-  }
-},{
-  "name": "Primes-1-Step-45-turn",
-  "calcFrom": "sequence",
-  "desc": "Move 1 step forward per integer, but for primes, turn 45 degrees clockwise before moving.  " +
-          "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
-          "moving ~1.414 steps diagonally.",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-
-    // 5 million steps takes a while to compute, at least with this
-    //   imethod of computing primes and drawing points
-    if (historyParams.n > 5000000) {
-      historyParams.n = 5000000;
-    }
-    const params = historyParams;
-
-    var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = 315;
-
-    for (var i = 1.0; i < params.n; i+=1.0) {
-      if (isPrime(i)) {
-        //console.log(i + " is prime");
-        // only add points right before we change direction, and once at the end
-        resultPoints.push(nextPoint);
-        privContext.direction = privContext.changeDirection(privContext.direction);
-      }
-      // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
-      resultLength += 1;
-    }
-    // add the last point
-    resultPoints.push(nextPoint);
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this sequence is activated
-  "forcedDefaults": {
-    "n": 60000,
-    "scale": createInfNum("0.85"),
-    "centerX": infNum(0n, 0n),
-    "centerY": infNum(0n, 0n)
-  },
-  "privContext": {
-    // degrees clockwise, 0 is right (3 o'clock)
-    "direction": 0,
-    // turn "right"
-    "changeDirection": function(dir) {
-      return changeDirectionDegrees(dir, 45);
-    },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, 1, x, y);
-    }
-  }
-},{
-  "name": "Squares-1-Step-90-turn",
-  "calcFrom": "sequence",
-  "desc": "Move 1 step forward per integer, but for perfect squares, turn 90 degrees clockwise before moving.",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-
-    // this is a straightforward predictable plot, so there's no point in
-    //   going beyond a few thousand points let alone a million
-    if (historyParams.n > 1000000) {
-      historyParams.n = 1000000;
-    }
-    const params = historyParams;
-
-    var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
-
-    for (var i = 1.0; i < params.n; i+=1.0) {
-      if (privContext.isSquare(i)) {
-        // only add points right before we change direction, and once at the end
-        resultPoints.push(nextPoint);
-        privContext.direction = privContext.changeDirection(privContext.direction);
-      }
-      // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
-      resultLength += 1;
-    }
-    // add the last point
-    resultPoints.push(nextPoint);
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this sequence is activated
-  "forcedDefaults": {
-    "n": 5000,
-    "scale": createInfNum("6.5"),
-    "centerX": infNum(0n, 0n),
-    "centerY": infNum(0n, 0n)
-  },
-  "privContext": {
-    // degrees clockwise, 0 is right (3 o'clock)
-    "direction": 0,
-    // turn "right"
-    "changeDirection": function(dir) {
-      return changeDirectionDegrees(dir, 90);
-    },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, 1, x, y);
-    },
-    "isSquare": function(n) {
-      const sqrt = Math.sqrt(n);
-      return sqrt == Math.trunc(sqrt);
-    }
-  }
-},{
-  "name": "Squares-1-Step-45-turn",
-  "calcFrom": "sequence",
-  "desc": "Move 1 step forward per integer, but for perfect squares, turn 45 degrees clockwise before moving.  " +
-          "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
-          "moving ~1.414 steps diagonally.",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-
-    // this is a straightforward predictable plot, so there's no point in
-    //   going beyond a few thousand points let alone a million
-    if (historyParams.n > 1000000) {
-      historyParams.n = 1000000;
-    }
-    const params = historyParams;
-
-    var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
-
-    for (var i = 1.0; i < params.n; i+=1.0) {
-      if (privContext.isSquare(i)) {
-        // only add points right before we change direction, and once at the end
-        resultPoints.push(nextPoint);
-        privContext.direction = privContext.changeDirection(privContext.direction);
-      }
-      // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
-      resultLength += 1;
-    }
-    // add the last point
-    resultPoints.push(nextPoint);
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this sequence is activated
-  "forcedDefaults": {
-    "v": 1,
-    "n": 5000,
-    "scale": createInfNum("2.3"),
-    "centerX": infNum(0n, 0n),
-    "centerY": infNum(0n, 0n)
-  },
-  "privContext": {
-    // degrees clockwise, 0 is right (3 o'clock)
-    "direction": 0,
-    // turn "right"
-    "changeDirection": function(dir) {
-      return changeDirectionDegrees(dir, 45);
-    },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, 1, x, y);
-    },
-    "isSquare": function(n) {
-      const sqrt = Math.sqrt(n);
-      return sqrt == Math.trunc(sqrt);
-    }
-  }
-},{
-  "name": "Primes-X-Y-neg-mod-3",
-  "calcFrom": "sequence",
-  "desc": "Where each plotted point <code>(x,y)</code> consists of the primes, in order.  " +
-          "Those points are (2,3), (5,7), (11,13), and so on.<br/><br/>" +
-          "Then we take the sum of the digits of both the <code>x</code> and <code>y</code> of each point.<br/>" +
-          "If that sum, mod 3, is 1, the <code>x</code> is negated.<br/>" +
-          "If that sum, mod 3, is 2, the <code>y</code> is negated.<br/><br/>" +
-          "After applying the negation rule, the first three plotted points become:<br/>" +
-          "<code>(2,3)&nbsp;&nbsp;→ sum digits = 5&nbsp;&nbsp;mod 3 = 2 → -y → (2,-3)</code><br/>" +
-          "<code>(5,7)&nbsp;&nbsp;→ sum digits = 12 mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (5,7)</code><br/>" +
-          "<code>(11,13)→ sum digits = 6&nbsp;&nbsp;mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (11,13)</code>",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-
-    // this is a straightforward predictable plot, so there's no point in
-    //   going beyond a few thousand points let alone a million
-    if (historyParams.n > 1000000) {
-      historyParams.n = 1000000;
-    }
-    const params = historyParams;
-
-    var lastX = -1;
-    var lastPoint = getPoint(0.0, 0.0);
-    resultPoints.push(lastPoint);
-
-    for (var i = 1; i < params.n; i+=1) {
-      if (!isPrime(i)) {
-        continue;
-      }
-      if (lastX == -1) {
-        lastX = i;
-      } else {
-        var thisY = i;
-        const digits = (lastX.toString() + thisY.toString()).split("");
-        var digitsSum = 0;
-        for (var j = 0; j < digits.length; j++) {
-          digitsSum += digits[j];
-        }
-        // makes a pyramid
-        // const digitsSumMod4 = digitsSum % 4;
-        // if (digitsSumMod4 == 1) {
-        //   lastX = lastX * -1;
-        // } else if (digitsSumMod4 == 2) {
-        //   thisY = thisY * -1;
-        // } else if (digitsSumMod4 == 3) {
-        //   lastX = lastX * -1;
-        //   thisY = thisY * -1;
-        // }
-        const digitsSumMod4 = digitsSum % 3;
-        if (digitsSumMod4 == 1) {
-          lastX = lastX * -1;
-        } else if (digitsSumMod4 == 2) {
-          thisY = thisY * -1;
-        }
-        const nextPoint = getPoint(parseFloat(lastX), parseFloat(thisY));
-        resultLength += Math.hypot(nextPoint.x - lastPoint.x, nextPoint.y - lastPoint.y);
-        resultPoints.push(nextPoint);
-        //console.log("point [" + i + "]: (" + nextPoint.x + ", " + nextPoint.y + ")");
-        lastX = -1;
-        lastPoint = nextPoint;
-      }
-    }
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this sequence is activated
-  "forcedDefaults": {
-    "v": 1,
-    "n": 5000,
-    "scale": createInfNum("0.08"),
-    "centerX": infNum(0n, 0n),
-    "centerY": infNum(0n, 0n)
-  },
-  "privContext": {
-  }
-},{
-  "name": "Trapped-Knight",
-  "calcFrom": "sequence",
-  "desc": "On a chessboard, where the squares are numbered in a spiral, " +
-          "find the squares a knight can jump to in sequence where the " +
-          "smallest-numbered square must always be taken.  Previously-" +
-          "visited squares cannot be returned to again.  After more than " +
-          "2,000 jumps the knight has no valid squares to jump to, so the " +
-          "sequence ends.<br/><br/>" +
-          "Credit to The Online Encyclopedia of Integer Sequences:<br/>" +
-          "<a target='_blank' href='https://oeis.org/A316667'>https://oeis.org/A316667</a><br/>" +
-          "and to Numberphile:<br/>" +
-          "<a target='_blank' href='https://www.youtube.com/watch?v=RGQe8waGJ4w'>https://www.youtube.com/watch?v=RGQe8waGJ4w</a>",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-    privContext.visitedSquares = {};
-
-    const params = historyParams;
-
-    var nextPoint = getPoint(0.0, 0.0);
-    if (!privContext.isNumberedSquare(privContext, nextPoint)) {
-      let testPoint = nextPoint;
-      privContext.trackNumberedSquare(privContext, 0, nextPoint);
-
-      let testDirection = 0;
-      let direction = 90;
-
-      // spiral out from starting square, finding coordinates of all numbered squares
-      // used trial and error to figure out how many numbered squares are needed
-      for (let i = 1; i < 3562; i+=1) {
-        testDirection = privContext.changeDirection(direction);
-        testPoint = privContext.computeNextPoint(testDirection, 1, nextPoint.x, nextPoint.y);
-        if (!privContext.isNumberedSquare(privContext, testPoint)) {
-          direction = testDirection;
-          nextPoint = testPoint;
-        } else {
-          nextPoint = privContext.computeNextPoint(direction, 1, nextPoint.x, nextPoint.y);
-        }
-        privContext.trackNumberedSquare(privContext, i, nextPoint);
-      }
-    }
-
-    var lastPoint = getPoint(0.0, 0.0);
-    resultPoints.push(lastPoint);
-    privContext.visitSquare(privContext, 0, lastPoint);
-
-    var reachable = [];
-    var lowestReachableN = -1;
-    var lowestReachableP = null;
-
-    for (let i = 0; i < params.n; i+=1) {
-      reachable = privContext.reachableSquares(lastPoint);
-      for (let j = 0; j < reachable.length; j++) {
-        if (lowestReachableN == -1 || privContext.getSquareNumber(privContext, reachable[j]) < lowestReachableN) {
-          if (!privContext.isVisited(privContext, reachable[j])) {
-            lowestReachableP = reachable[j];
-            lowestReachableN = privContext.getSquareNumber(privContext, lowestReachableP);
-          }
-        }
-      }
-      if (lowestReachableN == -1) {
-        break;
-      }
-      resultLength += Math.hypot(lowestReachableP.x - lastPoint.x, lowestReachableP.y - lastPoint.y);
-
-      lastPoint = lowestReachableP;
-      resultPoints.push(getPoint(lastPoint.x, -1 * lastPoint.y));
-      privContext.visitSquare(privContext, lowestReachableN, lastPoint);
-      lowestReachableN = -1;
-    }
-
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this sequence is activated
-  "forcedDefaults": {
-    "v": 1,
-    "n": 2016,
-    "scale": infNum(15n, 0n),
-    "centerX": infNum(0n, 0n),
-    "centerY": infNum(0n, 0n)
-  },
-  "privContext": {
-    // by "x-y" coordinates, store chessboard square numbers, starting with center square at "0-0"
-    "boardPoints": {},
-    "visitedSquares": {},
-    "trackNumberedSquare": function(privContext, n, point) {
-      privContext.boardPoints[point.x + "-" + point.y] = n;
-    },
-    "isNumberedSquare": function(privContext, point) {
-      return (point.x + "-" + point.y) in privContext.boardPoints;
-    },
-    "getSquareNumber": function(privContext, point) {
-      const id = point.x + "-" + point.y;
-      if (! id in privContext.boardPoints) {
-        console.log("MISSING SQUARE - " + id);
-      }
-      return privContext.boardPoints[id];
-    },
-    "visitSquare": function(privContext, n, point) {
-      privContext.visitedSquares[point.x + "-" + point.y] = n;
-    },
-    "isVisited": function(privContext, point) {
-      return (point.x + "-" + point.y) in privContext.visitedSquares;
-    },
-    // turn "left"
-    "changeDirection": function(dir) {
-      return changeDirectionDegrees(dir, -90);
-    },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, n, x, y);
-    },
-    // from a square at point s, return the 8 squares that
-    //   a knight could jump to
-    "reachableSquares": function(s) {
-      return [
-        getPoint(s.x + 1, s.y - 2),
-        getPoint(s.x + 2, s.y - 1),
-        getPoint(s.x + 2, s.y + 1),
-        getPoint(s.x + 1, s.y + 2),
-        getPoint(s.x - 1, s.y - 2),
-        getPoint(s.x - 2, s.y - 1),
-        getPoint(s.x - 2, s.y + 1),
-        getPoint(s.x - 1, s.y + 2)
-      ];
-    },
-    "isSquare": function(n) {
-      const sqrt = Math.sqrt(n);
-      return sqrt == Math.trunc(sqrt);
-    }
-  }
-// },{
-//   "name": "Circle",
-//   "calcFrom": "window",
-//   "desc": "Draws a purple circle, for testing the window calculation+drawing methods",
-//   "computeBoundPointColor": function(privContext, x, y) {
-//     if (infNumLe(infNumAdd(infNumMul(x, x), infNumMul(y, y)), privContext.circleRadiusSquared)) {
-//       //return getColor(100, 40, 90);
-//       return 1.0;
-//     } else {
-//       return -1.0;
-//     }
-//   },
-//   // these settings are auto-applied when this sequence is activated
-//   "forcedDefaults": {
-//     "scale": infNum(40n, 0n),
-//     "offsetX": infNum(0n, 0n),
-//     "offsetY": infNum(0n, 0n)
-//   },
-//   "privContext": {
-//     "black": getColor(0, 0, 0),
-//     "circleRadiusSquared": infNum(100n, 0n)
-//   }
-},{
+const plots = [{
   "name": "Mandelbrot-set",
   "calcFrom": "window",
   "desc": "The Mandelbrot set is the set of complex numbers, that when repeatedly plugged into the following " +
@@ -1074,7 +611,7 @@ const sequences = [{
       return windowCalcIgnorePointColor; // special color value that will not be displayed
     }
   },
-  // these settings are auto-applied when this sequence is activated
+  // these settings are auto-applied when this plot is activated
   "forcedDefaults": {
     "n": 50,
     "scale": infNum(400n, 0n),
@@ -1147,6 +684,465 @@ const sequences = [{
       console.log("set truncateLength to [" + truncateLength + "]");
     }
   }
+},{
+  "name": "Primes-1-Step-90-turn",
+  "calcFrom": "sequence",
+  "desc": "Move 1 step forward per integer, but for primes, turn 90 degrees clockwise before moving.",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+
+    // 5 million steps takes a while to compute, at least with this
+    //   method of computing primes and drawing points
+    if (historyParams.n > 5000000) {
+      historyParams.n = 5000000;
+    }
+    const params = historyParams;
+
+    var nextPoint = getPoint(0.0, 0.0);
+    privContext.direction = 0;
+
+    for (var i = 1.0; i < params.n; i+=1.0) {
+      if (isPrime(i)) {
+        //console.log(i + " is prime");
+        // only add points right before we change direction, and once at the end
+        resultPoints.push(nextPoint);
+        privContext.direction = privContext.changeDirection(privContext.direction);
+      }
+      // find the next point according to direction and current location
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      resultLength += 1;
+    }
+    // add the last point
+    resultPoints.push(nextPoint);
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  // these settings are auto-applied when this plot is activated
+  "forcedDefaults": {
+    "n": 60000,
+    "scale": createInfNum("1.2"),
+    "centerX": createInfNum("-240"),
+    "centerY": createInfNum("288")
+  },
+  "privContext": {
+    // degrees clockwise, 0 is right (3 o'clock)
+    "direction": 0,
+    // turn "right"
+    "changeDirection": function(dir) {
+      return changeDirectionDegrees(dir, 90);
+    },
+    "computeNextPoint": function(dir, n, x, y) {
+      return computeNextPointDegrees(dir, 1, x, y);
+    }
+  }
+},{
+  "name": "Primes-1-Step-45-turn",
+  "calcFrom": "sequence",
+  "desc": "Move 1 step forward per integer, but for primes, turn 45 degrees clockwise before moving.  " +
+          "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
+          "moving ~1.414 steps diagonally.",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+
+    // 5 million steps takes a while to compute, at least with this
+    //   imethod of computing primes and drawing points
+    if (historyParams.n > 5000000) {
+      historyParams.n = 5000000;
+    }
+    const params = historyParams;
+
+    var nextPoint = getPoint(0.0, 0.0);
+    privContext.direction = 315;
+
+    for (var i = 1.0; i < params.n; i+=1.0) {
+      if (isPrime(i)) {
+        //console.log(i + " is prime");
+        // only add points right before we change direction, and once at the end
+        resultPoints.push(nextPoint);
+        privContext.direction = privContext.changeDirection(privContext.direction);
+      }
+      // find the next point according to direction and current location
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      resultLength += 1;
+    }
+    // add the last point
+    resultPoints.push(nextPoint);
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  // these settings are auto-applied when this plot is activated
+  "forcedDefaults": {
+    "n": 60000,
+    "scale": createInfNum("0.85"),
+    "centerX": infNum(0n, 0n),
+    "centerY": infNum(0n, 0n)
+  },
+  "privContext": {
+    // degrees clockwise, 0 is right (3 o'clock)
+    "direction": 0,
+    // turn "right"
+    "changeDirection": function(dir) {
+      return changeDirectionDegrees(dir, 45);
+    },
+    "computeNextPoint": function(dir, n, x, y) {
+      return computeNextPointDegrees(dir, 1, x, y);
+    }
+  }
+},{
+  "name": "Squares-1-Step-90-turn",
+  "calcFrom": "sequence",
+  "desc": "Move 1 step forward per integer, but for perfect squares, turn 90 degrees clockwise before moving.",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+
+    // this is a straightforward predictable plot, so there's no point in
+    //   going beyond a few thousand points let alone a million
+    if (historyParams.n > 1000000) {
+      historyParams.n = 1000000;
+    }
+    const params = historyParams;
+
+    var nextPoint = getPoint(0.0, 0.0);
+    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
+
+    for (var i = 1.0; i < params.n; i+=1.0) {
+      if (privContext.isSquare(i)) {
+        // only add points right before we change direction, and once at the end
+        resultPoints.push(nextPoint);
+        privContext.direction = privContext.changeDirection(privContext.direction);
+      }
+      // find the next point according to direction and current location
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      resultLength += 1;
+    }
+    // add the last point
+    resultPoints.push(nextPoint);
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  // these settings are auto-applied when this plot is activated
+  "forcedDefaults": {
+    "n": 5000,
+    "scale": createInfNum("6.5"),
+    "centerX": infNum(0n, 0n),
+    "centerY": infNum(0n, 0n)
+  },
+  "privContext": {
+    // degrees clockwise, 0 is right (3 o'clock)
+    "direction": 0,
+    // turn "right"
+    "changeDirection": function(dir) {
+      return changeDirectionDegrees(dir, 90);
+    },
+    "computeNextPoint": function(dir, n, x, y) {
+      return computeNextPointDegrees(dir, 1, x, y);
+    },
+    "isSquare": function(n) {
+      const sqrt = Math.sqrt(n);
+      return sqrt == Math.trunc(sqrt);
+    }
+  }
+},{
+  "name": "Squares-1-Step-45-turn",
+  "calcFrom": "sequence",
+  "desc": "Move 1 step forward per integer, but for perfect squares, turn 45 degrees clockwise before moving.  " +
+          "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
+          "moving ~1.414 steps diagonally.",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+
+    // this is a straightforward predictable plot, so there's no point in
+    //   going beyond a few thousand points let alone a million
+    if (historyParams.n > 1000000) {
+      historyParams.n = 1000000;
+    }
+    const params = historyParams;
+
+    var nextPoint = getPoint(0.0, 0.0);
+    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
+
+    for (var i = 1.0; i < params.n; i+=1.0) {
+      if (privContext.isSquare(i)) {
+        // only add points right before we change direction, and once at the end
+        resultPoints.push(nextPoint);
+        privContext.direction = privContext.changeDirection(privContext.direction);
+      }
+      // find the next point according to direction and current location
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      resultLength += 1;
+    }
+    // add the last point
+    resultPoints.push(nextPoint);
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  // these settings are auto-applied when this plot is activated
+  "forcedDefaults": {
+    "n": 5000,
+    "scale": createInfNum("2.3"),
+    "centerX": infNum(0n, 0n),
+    "centerY": infNum(0n, 0n)
+  },
+  "privContext": {
+    // degrees clockwise, 0 is right (3 o'clock)
+    "direction": 0,
+    // turn "right"
+    "changeDirection": function(dir) {
+      return changeDirectionDegrees(dir, 45);
+    },
+    "computeNextPoint": function(dir, n, x, y) {
+      return computeNextPointDegrees(dir, 1, x, y);
+    },
+    "isSquare": function(n) {
+      const sqrt = Math.sqrt(n);
+      return sqrt == Math.trunc(sqrt);
+    }
+  }
+},{
+  "name": "Primes-X-Y-neg-mod-3",
+  "calcFrom": "sequence",
+  "desc": "Where each plotted point <code>(x,y)</code> consists of the primes, in order.  " +
+          "Those points are (2,3), (5,7), (11,13), and so on.<br/><br/>" +
+          "Then we take the sum of the digits of both the <code>x</code> and <code>y</code> of each point.<br/>" +
+          "If that sum, mod 3, is 1, the <code>x</code> is negated.<br/>" +
+          "If that sum, mod 3, is 2, the <code>y</code> is negated.<br/><br/>" +
+          "After applying the negation rule, the first three plotted points become:<br/>" +
+          "<code>(2,3)&nbsp;&nbsp;→ sum digits = 5&nbsp;&nbsp;mod 3 = 2 → -y → (2,-3)</code><br/>" +
+          "<code>(5,7)&nbsp;&nbsp;→ sum digits = 12 mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (5,7)</code><br/>" +
+          "<code>(11,13)→ sum digits = 6&nbsp;&nbsp;mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (11,13)</code>",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+
+    // this is a straightforward predictable plot, so there's no point in
+    //   going beyond a few thousand points let alone a million
+    if (historyParams.n > 1000000) {
+      historyParams.n = 1000000;
+    }
+    const params = historyParams;
+
+    var lastX = -1;
+    var lastPoint = getPoint(0.0, 0.0);
+    resultPoints.push(lastPoint);
+
+    for (var i = 1; i < params.n; i+=1) {
+      if (!isPrime(i)) {
+        continue;
+      }
+      if (lastX == -1) {
+        lastX = i;
+      } else {
+        var thisY = i;
+        const digits = (lastX.toString() + thisY.toString()).split("");
+        var digitsSum = 0;
+        for (var j = 0; j < digits.length; j++) {
+          digitsSum += digits[j];
+        }
+        // makes a pyramid
+        // const digitsSumMod4 = digitsSum % 4;
+        // if (digitsSumMod4 == 1) {
+        //   lastX = lastX * -1;
+        // } else if (digitsSumMod4 == 2) {
+        //   thisY = thisY * -1;
+        // } else if (digitsSumMod4 == 3) {
+        //   lastX = lastX * -1;
+        //   thisY = thisY * -1;
+        // }
+        const digitsSumMod4 = digitsSum % 3;
+        if (digitsSumMod4 == 1) {
+          lastX = lastX * -1;
+        } else if (digitsSumMod4 == 2) {
+          thisY = thisY * -1;
+        }
+        const nextPoint = getPoint(parseFloat(lastX), parseFloat(thisY));
+        resultLength += Math.hypot(nextPoint.x - lastPoint.x, nextPoint.y - lastPoint.y);
+        resultPoints.push(nextPoint);
+        //console.log("point [" + i + "]: (" + nextPoint.x + ", " + nextPoint.y + ")");
+        lastX = -1;
+        lastPoint = nextPoint;
+      }
+    }
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  // these settings are auto-applied when this plot is activated
+  "forcedDefaults": {
+    "n": 5000,
+    "scale": createInfNum("0.08"),
+    "centerX": infNum(0n, 0n),
+    "centerY": infNum(0n, 0n)
+  },
+  "privContext": {
+  }
+},{
+  "name": "Trapped-Knight",
+  "calcFrom": "sequence",
+  "desc": "On a chessboard, where the squares are numbered in a spiral, " +
+          "find the squares a knight can jump to in sequence where the " +
+          "smallest-numbered square must always be taken.  Previously-" +
+          "visited squares cannot be returned to again.  After more than " +
+          "2,000 jumps the knight has no valid squares to jump to, so the " +
+          "sequence ends.<br/><br/>" +
+          "Credit to The Online Encyclopedia of Integer Sequences:<br/>" +
+          "<a target='_blank' href='https://oeis.org/A316667'>https://oeis.org/A316667</a><br/>" +
+          "and to Numberphile:<br/>" +
+          "<a target='_blank' href='https://www.youtube.com/watch?v=RGQe8waGJ4w'>https://www.youtube.com/watch?v=RGQe8waGJ4w</a>",
+  "computePointsAndLength": function(privContext) {
+    var resultPoints = [];
+    var resultLength = 0;
+    privContext.visitedSquares = {};
+
+    const params = historyParams;
+
+    var nextPoint = getPoint(0.0, 0.0);
+    if (!privContext.isNumberedSquare(privContext, nextPoint)) {
+      let testPoint = nextPoint;
+      privContext.trackNumberedSquare(privContext, 0, nextPoint);
+
+      let testDirection = 0;
+      let direction = 90;
+
+      // spiral out from starting square, finding coordinates of all numbered squares
+      // used trial and error to figure out how many numbered squares are needed
+      for (let i = 1; i < 3562; i+=1) {
+        testDirection = privContext.changeDirection(direction);
+        testPoint = privContext.computeNextPoint(testDirection, 1, nextPoint.x, nextPoint.y);
+        if (!privContext.isNumberedSquare(privContext, testPoint)) {
+          direction = testDirection;
+          nextPoint = testPoint;
+        } else {
+          nextPoint = privContext.computeNextPoint(direction, 1, nextPoint.x, nextPoint.y);
+        }
+        privContext.trackNumberedSquare(privContext, i, nextPoint);
+      }
+    }
+
+    var lastPoint = getPoint(0.0, 0.0);
+    resultPoints.push(lastPoint);
+    privContext.visitSquare(privContext, 0, lastPoint);
+
+    var reachable = [];
+    var lowestReachableN = -1;
+    var lowestReachableP = null;
+
+    for (let i = 0; i < params.n; i+=1) {
+      reachable = privContext.reachableSquares(lastPoint);
+      for (let j = 0; j < reachable.length; j++) {
+        if (lowestReachableN == -1 || privContext.getSquareNumber(privContext, reachable[j]) < lowestReachableN) {
+          if (!privContext.isVisited(privContext, reachable[j])) {
+            lowestReachableP = reachable[j];
+            lowestReachableN = privContext.getSquareNumber(privContext, lowestReachableP);
+          }
+        }
+      }
+      if (lowestReachableN == -1) {
+        break;
+      }
+      resultLength += Math.hypot(lowestReachableP.x - lastPoint.x, lowestReachableP.y - lastPoint.y);
+
+      lastPoint = lowestReachableP;
+      resultPoints.push(getPoint(lastPoint.x, -1 * lastPoint.y));
+      privContext.visitSquare(privContext, lowestReachableN, lastPoint);
+      lowestReachableN = -1;
+    }
+
+    return {
+      "points": resultPoints,
+      "length": resultLength
+    };
+  },
+  // these settings are auto-applied when this plot is activated
+  "forcedDefaults": {
+    "n": 2016,
+    "scale": infNum(15n, 0n),
+    "centerX": infNum(0n, 0n),
+    "centerY": infNum(0n, 0n)
+  },
+  "privContext": {
+    // by "x-y" coordinates, store chessboard square numbers, starting with center square at "0-0"
+    "boardPoints": {},
+    "visitedSquares": {},
+    "trackNumberedSquare": function(privContext, n, point) {
+      privContext.boardPoints[point.x + "-" + point.y] = n;
+    },
+    "isNumberedSquare": function(privContext, point) {
+      return (point.x + "-" + point.y) in privContext.boardPoints;
+    },
+    "getSquareNumber": function(privContext, point) {
+      const id = point.x + "-" + point.y;
+      if (! id in privContext.boardPoints) {
+        console.log("MISSING SQUARE - " + id);
+      }
+      return privContext.boardPoints[id];
+    },
+    "visitSquare": function(privContext, n, point) {
+      privContext.visitedSquares[point.x + "-" + point.y] = n;
+    },
+    "isVisited": function(privContext, point) {
+      return (point.x + "-" + point.y) in privContext.visitedSquares;
+    },
+    // turn "left"
+    "changeDirection": function(dir) {
+      return changeDirectionDegrees(dir, -90);
+    },
+    "computeNextPoint": function(dir, n, x, y) {
+      return computeNextPointDegrees(dir, n, x, y);
+    },
+    // from a square at point s, return the 8 squares that
+    //   a knight could jump to
+    "reachableSquares": function(s) {
+      return [
+        getPoint(s.x + 1, s.y - 2),
+        getPoint(s.x + 2, s.y - 1),
+        getPoint(s.x + 2, s.y + 1),
+        getPoint(s.x + 1, s.y + 2),
+        getPoint(s.x - 1, s.y - 2),
+        getPoint(s.x - 2, s.y - 1),
+        getPoint(s.x - 2, s.y + 1),
+        getPoint(s.x - 1, s.y + 2)
+      ];
+    },
+    "isSquare": function(n) {
+      const sqrt = Math.sqrt(n);
+      return sqrt == Math.trunc(sqrt);
+    }
+  }
+// },{
+//   "name": "Circle",
+//   "calcFrom": "window",
+//   "desc": "Draws a purple circle, for testing the window calculation+drawing methods",
+//   "computeBoundPointColor": function(privContext, x, y) {
+//     if (infNumLe(infNumAdd(infNumMul(x, x), infNumMul(y, y)), privContext.circleRadiusSquared)) {
+//       //return getColor(100, 40, 90);
+//       return 1.0;
+//     } else {
+//       return -1.0;
+//     }
+//   },
+//   // these settings are auto-applied when this plot is activated
+//   "forcedDefaults": {
+//     "scale": infNum(40n, 0n),
+//     "offsetX": infNum(0n, 0n),
+//     "offsetY": infNum(0n, 0n)
+//   },
+//   "privContext": {
+//     "black": getColor(0, 0, 0),
+//     "circleRadiusSquared": infNum(100n, 0n)
+//   }
 }];
 
 function isComputationComplete() {
@@ -1205,9 +1201,9 @@ function runWindowBoundPointsCalculators(privContext) {
   waitAndDrawWindow();
 }
 
-function computeBoundPointsChunk(sequence, xChunk) {
+function computeBoundPointsChunk(plot, xChunk) {
   var chunkStartMs = Date.now();
-  const privContext = sequence.privContext;
+  const privContext = plot.privContext;
   var resultPoints = [];
 
   // use lineWidth to determine how large to make the calculated/displayed
@@ -1237,7 +1233,7 @@ function computeBoundPointsChunk(sequence, xChunk) {
       } else {
         py = infNumSub(windowCalc.topEdge, infNumMul(windowCalc.eachPixUnits, y));
 
-        const pointColor = sequence.computeBoundPointColor(privContext, px, py);
+        const pointColor = plot.computeBoundPointColor(privContext, px, py);
         //console.log("computed point color [" + pointColor + "] for coord [" + pointPixel + "]");
 
         // x and y are integer (actual pixel) values, with no decimal component
@@ -1257,8 +1253,18 @@ function computeBoundPointsChunk(sequence, xChunk) {
 }
 
 const presets = [{
-  "seq": "Primes-1-Step-90-turn",
-  "v": 3,
+  "plot": "Mandelbrot-set",
+  "v": 4,
+  "n": 400,
+  "lineWidth": 1,
+  "scale": createInfNum("1640000"),
+  "centerX": createInfNum("0.273210669156851807493494"),
+  "centerY": createInfNum("-0.00588612373984032474800031"),
+  "lineColor": "rbgyo",
+  "bgColor": "b"
+},{
+  "plot": "Primes-1-Step-90-turn",
+  "v": 4,
   "n": 60000,
   "lineWidth": 1,
   "scale": createInfNum("1.35"),
@@ -1267,8 +1273,8 @@ const presets = [{
   "lineColor": "rbgyo",
   "bgColor": "b"
 },{
-  "seq": "Trapped-Knight",
-  "v": 3,
+  "plot": "Trapped-Knight",
+  "v": 4,
   "n": 2016,
   "lineWidth": 1.5,
   "scale": createInfNum("15.0"),
@@ -1277,8 +1283,8 @@ const presets = [{
   "lineColor": "rbgyo",
   "bgColor": "b"
 },{
-  "seq": "Primes-1-Step-45-turn",
-  "v": 3,
+  "plot": "Primes-1-Step-45-turn",
+  "v": 4,
   "n": 32400,
   "lineWidth": 2,
   "scale": createInfNum("10.95"),
@@ -1286,57 +1292,45 @@ const presets = [{
   "centerY": createInfNum("100"),
   "lineColor": "rbgyo",
   "bgColor": "b"
-},{
-  "seq": "Mandelbrot-set",
-  "v": 3,
-  "n": 400,
-  "lineWidth": 1,
-  "scale": createInfNum("1640000"),
-  "centerX": createInfNum("0.273210669156851807493494"),
-  "centerY": createInfNum("-0.00588612373984032474800031"),
-  "lineColor": "rbgyo",
-  "bgColor": "b"
 }];
 
 var menuHtml =
-  "<div class='sequence-desc'>" +
+  "<div class='plot-desc'>" +
     "<b>Presets:</b>";
 for (var i = 0; i < presets.length; i++) {
   menuHtml += "<button style='float:none; margin:0.5rem; width:2.0rem;' class='preset-view-btn' id='preset-view-btn-" + (i+1) + "'>" + (i+1) +"</button>";
 }
 menuHtml += "</div>";
-const sequencesByName = {};
-for (var i = 0; i < sequences.length; i++) {
-  sequencesByName[sequences[i].name] = sequences[i];
+const plotsByName = {};
+for (var i = 0; i < plots.length; i++) {
+  plotsByName[plots[i].name] = plots[i];
 
   menuHtml +=
-    "<div class='sequence-desc'>" +
-      "<button class='seq-view-btn' id='seq-view-btn-" + i + "'>View</button>" +
-      "<b>" + sequences[i].name + "</b><br/>" +
-      sequences[i].desc +
+    "<div class='plot-desc'>" +
+      "<button class='plot-view-btn' id='plot-view-btn-" + i + "'>View</button>" +
+      "<b>" + plots[i].name + "</b><br/>" +
+      plots[i].desc +
     "</div>";
 }
 document.getElementById("menu-contents").innerHTML = menuHtml;
-const viewButtons = document.getElementsByClassName("seq-view-btn");
-var activateSequenceHandler = function(e) {
+const viewButtons = document.getElementsByClassName("plot-view-btn");
+var activatePlotHandler = function(e) {
   var clickedId = parseInt(e.target.id.split("-")[3]);
-  if (clickedId >= sequences.length) {
+  if (clickedId >= plots.length) {
     clickedId = 0;
   }
-  const newSeq = sequences[clickedId].name;
-  if (newSeq == historyParams.seq) {
+  const newPlot = plots[clickedId].name;
+  if (newPlot == historyParams.plot) {
     return;
   }
-  //historyParams.seq = newSeq;
-  var defaults = Object.assign(historyParams, sequences[clickedId].forcedDefaults);
-  defaults.seq = newSeq;
+  var defaults = Object.assign(historyParams, plots[clickedId].forcedDefaults);
+  defaults.plot = newPlot;
   replaceHistoryWithParams(defaults);
   parseUrlParams();
   start();
-  //drawPoints(historyParams);
 };
 for (var i = 0; i < viewButtons.length; i++) {
-  viewButtons[i].addEventListener("click", activateSequenceHandler);
+  viewButtons[i].addEventListener("click", activatePlotHandler);
 }
 
 function activatePreset(presetParams) {
@@ -1351,18 +1345,6 @@ var activatePresetHandler = function(e) {
     clickedId = 0;
   }
   activatePreset(presets[clickedId]);
-
-  // const newSeq = sequences[clickedId].name;
-  // if (newSeq == historyParams.seq) {
-  //   return;
-  // }
-  // //historyParams.seq = newSeq;
-  // var defaults = Object.assign(historyParams, sequences[clickedId].forcedDefaults);
-  // defaults.seq = newSeq;
-  // replaceHistoryWithParams(defaults);
-  // parseUrlParams();
-  // start();
-  // drawPoints(historyParams);
 };
 for (var i = 0; i < presetButtons.length; i++) {
   presetButtons[i].addEventListener('click', activatePresetHandler);
@@ -1438,28 +1420,31 @@ function parseUrlParams() {
   //   up-to-date with what is being drawn without reloading the page)
   var urlParams = new URLSearchParams(document.location.search);
 
-  // default settings are basically preset 1
+  // default params are mandelbrot defaults
   var params = {
-    "seq": "Primes-1-Step-90-turn",
-    "v": 3,
-    "n": 60000,
-    "lineWidth": 1.0,
-    "scale": createInfNum("1.35"),
-    "centerX": createInfNum("-240"),
-    "centerY": createInfNum("288.4"),
+    "plot": "Mandelbrot-set",
+    "v": 4,
+    "lineWidth": 1,
+    "n": 40,
+    "scale": infNum(400n, 0n),
+    "centerX": createInfNum("-0.65"),
+    "centerY": infNum(0n, 0n),
     "lineColor": "rbgyo",
     "bgColor": "b"
   };
 
   // only change default settings if a known version of settings is given
-  if (urlParams.has('v') && ["1","2","3"].includes(urlParams.get('v'))) {
-    if (urlParams.has('seq')) {
-      const seq = urlParams.get('seq');
-      if (seq in sequencesByName) {
-        params.seq = seq;
-      } else {
-        alert("no such sequence [" + seq + "]");
-      }
+  if (urlParams.has('v') && ["1","2","3","4"].includes(urlParams.get('v'))) {
+    let plot = params.plot;
+    if (["1","2","3"].includes(urlParams.get('v')) && urlParams.has('seq')) {
+      plot = urlParams.get('seq');
+    } else if (["4"].includes(urlParams.get('v')) && urlParams.has('plot')) {
+      plot = urlParams.get('plot');
+    }
+    if (plot in plotsByName) {
+      params.plot = plot;
+    } else {
+      alert("no such plot [" + plot + "]");
     }
     if (urlParams.has('n')) {
       params.n = parseInt(urlParams.get('n').replaceAll(",", ""));
@@ -1477,7 +1462,7 @@ function parseUrlParams() {
     if (urlParams.get('v') == 1) {
       params.centerX = infNum(0n, 0n);
       params.centerY = infNum(0n, 0n);
-    } else if (["2","3"].includes(urlParams.get('v'))) {
+    } else {
       if (urlParams.has("centerX")) {
         params.centerX = createInfNum(urlParams.get("centerX").replaceAll(",", ""));
       }
@@ -1507,7 +1492,7 @@ function parseUrlParams() {
       }
     }
     if (urlParams.has('lineWidth')) {
-      params.lineWidth = sanityCheckLineWidth(parseFloat(urlParams.get('lineWidth')) || 1.0, false, sequencesByName[params.seq]);
+      params.lineWidth = sanityCheckLineWidth(parseFloat(urlParams.get('lineWidth')) || 1.0, false, plotsByName[params.plot]);
     }
   }
   console.log(params);
@@ -1515,15 +1500,15 @@ function parseUrlParams() {
   historyParams = params;
 }
 
-function indicateActiveSequence() {
-  const buttons = document.getElementsByClassName('seq-view-btn');
+function indicateActivePlot() {
+  const buttons = document.getElementsByClassName('plot-view-btn');
   for (var i = 0; i < buttons.length; i++) {
-    if (sequences[i].name == historyParams.seq) {
+    if (plots[i].name == historyParams.plot) {
       buttons[i].innerHTML = 'Active';
-      buttons[i].parentNode.classList.add('active-seq');
+      buttons[i].parentNode.classList.add('active-plot');
     } else {
       buttons[i].innerHTML = 'View';
-      buttons[i].parentNode.classList.remove('active-seq');
+      buttons[i].parentNode.classList.remove('active-plot');
     }
   }
 }
@@ -1538,19 +1523,19 @@ function start() {
 
   const params = historyParams;
 
-  if (! params.seq in sequencesByName) {
-    console.log("invalid seq parameter: no such sequence [" + params.seq + "]");
+  if (! params.plot in plotsByName) {
+    console.log("invalid plot parameter: no such plot [" + params.plot + "]");
     return;
   }
 
-  indicateActiveSequence();
+  indicateActivePlot();
 
   setDScaleVars(dContext);
 
-  // run the selected sequence
-  const sequence = sequencesByName[params.seq];
-  if (sequence.calcFrom == "sequence") {
-    const out = sequence.computePointsAndLength(sequence.privContext);
+  // run the selected plot
+  const plot = plotsByName[params.plot];
+  if (plot.calcFrom == "sequence") {
+    const out = plot.computePointsAndLength(plot.privContext);
 
     // copy the results
     totalLength = out.length;
@@ -1560,12 +1545,12 @@ function start() {
 
     resetWindowCalcContext();
     drawPoints(params);
-  } else if (sequence.calcFrom == "window") {
+  } else if (plot.calcFrom == "window") {
     resetWindowCalcCache();
     resetWindowCalcContext();
     calculateAndDrawWindow();
   } else {
-    alert("Unexpected \"calcFrom\" field for the sequence: [" + sequence.calcFrom + "]");
+    alert("Unexpected \"calcFrom\" field for the plot: [" + plot.calcFrom + "]");
   }
 }
 
@@ -1725,10 +1710,10 @@ function getLineColor(startPercentage, colorScheme) {
 
 function redraw() {
   resetWindowCalcContext();
-  const sequence = sequencesByName[historyParams.seq];
-  if (sequence.calcFrom == "sequence") {
+  const plot = plotsByName[historyParams.plot];
+  if (plot.calcFrom == "sequence") {
     drawPoints(historyParams);
-  } else if (sequence.calcFrom == "window") {
+  } else if (plot.calcFrom == "window") {
     //resetWindowCalcContext();
     calculateAndDrawWindow();
   }
@@ -1803,10 +1788,10 @@ function resetWindowCalcContext() {
   fillBg(dContext);
 
   const params = historyParams;
-  windowCalc.seqName = params.seq;
+  windowCalc.plotName = params.plot;
 
-  if ("adjustTruncate" in sequencesByName[params.seq].privContext) {
-    sequencesByName[params.seq].privContext.adjustTruncate();
+  if ("adjustTruncate" in plotsByName[params.plot].privContext) {
+    plotsByName[params.plot].privContext.adjustTruncate();
   }
 
   // since line width is halved each time the draw occurs, use 128 to get
@@ -1866,8 +1851,8 @@ function resetWindowCalcContext() {
 
 function resetGoToBoundsValues() {
   var imaginaryCoordinates = false;
-  if ("usesImaginaryCoordinates" in sequencesByName[historyParams.seq].privContext) {
-    imaginaryCoordinates = sequencesByName[historyParams.seq].privContext.usesImaginaryCoordinates;
+  if ("usesImaginaryCoordinates" in plotsByName[historyParams.plot].privContext) {
+    imaginaryCoordinates = plotsByName[historyParams.plot].privContext.usesImaginaryCoordinates;
   }
   inputGotoTopLeftX.value = windowCalc.leftEdgeFloat;
   inputGotoTopLeftY.value = windowCalc.topEdgeFloat + (imaginaryCoordinates ? "i" : "");
@@ -1876,8 +1861,8 @@ function resetGoToBoundsValues() {
 }
 function resetGoToCenterValues() {
   var imaginaryCoordinates = false;
-  if ("usesImaginaryCoordinates" in sequencesByName[historyParams.seq].privContext) {
-    imaginaryCoordinates = sequencesByName[historyParams.seq].privContext.usesImaginaryCoordinates;
+  if ("usesImaginaryCoordinates" in plotsByName[historyParams.plot].privContext) {
+    imaginaryCoordinates = plotsByName[historyParams.plot].privContext.usesImaginaryCoordinates;
   }
   inputGotoCenterX.value = infNumToFloat(historyParams.centerX);
   inputGotoCenterY.value = infNumToFloat(historyParams.centerY) + (imaginaryCoordinates ? "i" : "");
@@ -1999,7 +1984,7 @@ function calculateAndDrawWindow() {
 function calculateAndDrawWindowInner() {
   const params = historyParams;
 
-  const sequence = sequencesByName[params.seq];
+  const plot = plotsByName[params.plot];
 
   const roundedParamLineWidth =  Math.round(params.lineWidth);
   const potentialTempLineWidth = Math.round(windowCalc.lineWidth / 2);
@@ -2011,18 +1996,18 @@ function calculateAndDrawWindowInner() {
 
   // this calls some functions that will later call other functions
   //   to incrementally compute and display the results
-  computeBoundPoints(sequence.privContext);
+  computeBoundPoints(plot.privContext);
 }
 
 function waitAndDrawWindow() {
   //console.log("waitAndDrawWindow() at " + new Error().stack.split('\n')[1]);
-  const sequence = sequencesByName[windowCalc.seqName];
+  const plot = plotsByName[windowCalc.plotName];
 
   var nextXChunk = windowCalc.xPixelChunks.shift();
   const isFinished = isComputationComplete();
   
   if (nextXChunk) {
-    const out = computeBoundPointsChunk(sequence, nextXChunk);
+    const out = computeBoundPointsChunk(plot, nextXChunk);
 
     // draw the results
     drawColorPoints(out.points);
@@ -2235,14 +2220,14 @@ function roundTo5Decimals(f) {
   return parseFloat(val / 100000.0);
 }
 
-function sanityCheckLineWidth(w, circular, sequence) {
+function sanityCheckLineWidth(w, circular, plot) {
   // window plots use lineWidth to determine how many pixels to
   //  display for each calculated pixel, so allow larger values
   //  for that
   if (w < 0.5) {
     return 0.5;
   }
-  if (sequence.calcFrom == "window") {
+  if (plot.calcFrom == "window") {
     if (w > 64.0) {
       if (circular) {
         return 0.5;
@@ -2329,14 +2314,14 @@ window.addEventListener("keydown", function(e) {
     historyParams.centerY = createInfNum("0");
     redraw();
   } else if (e.keyCode == 77 /* m */) {
-    if (sequencesByName[historyParams.seq].calcFrom == "sequence") {
+    if (plotsByName[historyParams.plot].calcFrom == "sequence") {
       historyParams.n += 500;
     } else {
       historyParams.n += 100;
     }
     start();
   } else if (e.keyCode == 78 /* n */) {
-    if (sequencesByName[historyParams.seq].calcFrom == "sequence") {
+    if (plotsByName[historyParams.plot].calcFrom == "sequence") {
       if (historyParams.n > 100) {
         historyParams.n -= 100;
       }
@@ -2376,20 +2361,20 @@ window.addEventListener("keydown", function(e) {
     historyParams.bgColor = bgColorSchemeNames[schemeNum];
     redraw();
   } else if (e.keyCode == 88 /* x */) {
-    let seqNum = -1;
-    for (let i = 0; i < sequences.length; i++) {
-      if (sequences[i].name == historyParams.seq) {
-        seqNum = i;
+    let plotNum = -1;
+    for (let i = 0; i < plots.length; i++) {
+      if (plots[i].name == historyParams.plot) {
+        plotNum = i;
         break;
       }
     }
-    seqNum += 1;
-    if (seqNum >= sequences.length) {
-      seqNum = 0;
+    plotNum += 1;
+    if (plotNum >= plots.length) {
+      plotNum = 0;
     }
-    historyParams.seq = sequences[seqNum].name;
+    historyParams.plot = plots[plotNum].name;
     // for all plots, force application of their defaults
-    let defaults = Object.assign(historyParams, sequences[seqNum].forcedDefaults);
+    let defaults = Object.assign(historyParams, plots[plotNum].forcedDefaults);
     replaceHistoryWithParams(defaults);
     parseUrlParams();
     start();
@@ -2401,8 +2386,8 @@ window.addEventListener("keydown", function(e) {
     valPct += 50;
     historyParams.lineWidth = parseFloat(valPct / 100.0);
 
-    historyParams.lineWidth = sanityCheckLineWidth(historyParams.lineWidth, true, sequencesByName[historyParams.seq]);
-    if (sequencesByName[historyParams.seq].calcFrom == "window") {
+    historyParams.lineWidth = sanityCheckLineWidth(historyParams.lineWidth, true, plotsByName[historyParams.plot]);
+    if (plotsByName[historyParams.plot].calcFrom == "window") {
       // changing the lineWidth for a window plot means we need to re-calculate
       start();
     } else {
@@ -2526,7 +2511,7 @@ var mouseMoveHandler = function(e) {
 
     const maxSeqScale = createInfNum("500");
     const minSeqScale = createInfNum("0.00005");
-    if (sequencesByName[historyParams.seq].calcFrom == "sequence") {
+    if (plotsByName[historyParams.plot].calcFrom == "sequence") {
       if (infNumLt(newScale, minSeqScale)) {
         historyParams.scale = minSeqScale;
       } else if (infNumGt(newScale, maxSeqScale)) {
@@ -2576,7 +2561,7 @@ dCanvas.addEventListener("wheel", function(e) {
 
   const maxSeqScale = createInfNum("500");
   const minSeqScale = createInfNum("0.00005");
-  if (sequencesByName[historyParams.seq].calcFrom == "sequence") {
+  if (plotsByName[historyParams.plot].calcFrom == "sequence") {
     if (infNumLt(newScale, minSeqScale)) {
       historyParams.scale = minSeqScale;
     } else if (infNumGt(newScale, maxSeqScale)) {

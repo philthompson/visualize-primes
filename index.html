@@ -5,8 +5,8 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="description" content="visualizer for prime numbers and other mathematical sequences">
-    <meta name="keywords" content="math, charts, graphs, interactive, prime numbers, trapped knight, javascript">
+    <meta name="description" content="visualizer for the Mandelbrot set, prime numbers, and other mathematical sequences">
+    <meta name="keywords" content="Mandelbrot, Mandelbrot set, math, charts, graphs, interactive, prime numbers, trapped knight, javascript">
     <meta name="robots" content="all">
     <meta name="revisit-after" content="30 days">
     <link rel="apple-touch-icon-precomposed" sizes="144×144" href="../icon-ipad-144x144.png">
@@ -94,7 +94,7 @@
     }
     #menu-contents {
     }
-    .sequence-desc {
+    .plot-desc {
       padding-top: 0.7rem;
       padding-left: 0.5rem;
       padding-right: 0.5rem;
@@ -104,13 +104,13 @@
       border-top: 0.1rem solid rgba(200,200,200,0.3);
       /* display: grid; */
     }
-    .sequence-desc button {
+    .plot-desc button {
       margin-right: 1.5rem;
       margin-left: 0.5rem;
       float: left;
       padding: 0.25rem;
     }
-    .sequence-desc.active-seq {
+    .plot-desc.active-plot {
       background-color: rgba(50, 50, 50, 0.5);
       border: 0.1rem solid rgba(200,200,200,0.6);
       color: #ccc;
@@ -172,7 +172,7 @@
     </div>
     <div id="menu">
         <span style="position: fixed; right: 2.0rem; top: 2.0rem;" id="menu-close">×</span>
-        <p style="padding-right: 4rem;"c>Use a "View" button below to select a sequence.  Or, use the
+        <p style="padding-right: 4rem;"c>Use a "View" button below to select a plot.  Or, use the
         buttons below or the number keys <kbd>1</kbd>&nbsp;to&nbsp;<kbd>4</kbd>
         to view presets.
         <div id="menu-contents"></div>

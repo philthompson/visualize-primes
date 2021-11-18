@@ -181,6 +181,95 @@ console.log(normInfNum(createInfNum("0.0321"), createInfNum("5")));
 console.log("22 and 5"); // (22, 0) and (5, 0)
 console.log(normInfNum(createInfNum("22"), createInfNum("5")));
 
+// more optimized way to normalize this number of InfNums with each other
+// no loops, and minimum number of if statements
+// the first arg, only, is copied and returned
+function normInPlaceInfNum(argA, b, c, d, e, f) {
+  let a = copyInfNum(argA);
+  // assume they do not already all have same the exponent to save all the checking
+  let smallestExponent = a.e;
+  if (b.e < smallestExponent) {
+    smallestExponent = b.e;
+  }
+  if (c.e < smallestExponent) {
+    smallestExponent = c.e;
+  }
+  if (d.e < smallestExponent) {
+    smallestExponent = d.e;
+  }
+  if (e.e < smallestExponent) {
+    smallestExponent = e.e;
+  }
+  if (f.e < smallestExponent) {
+    smallestExponent = f.e;
+  }
+  // multiply all values by 10^diff, and reduce each exponent accordingly,
+  //   to get all matching exponents
+  let expDiff = a.e - smallestExponent;
+  a.v = a.v * (10n ** expDiff);
+  a.e = a.e - expDiff;
+  expDiff = b.e - smallestExponent;
+  b.v = b.v * (10n ** expDiff);
+  b.e = b.e - expDiff;
+  expDiff = c.e - smallestExponent;
+  c.v = c.v * (10n ** expDiff);
+  c.e = c.e - expDiff;
+  expDiff = d.e - smallestExponent;
+  d.v = d.v * (10n ** expDiff);
+  d.e = d.e - expDiff;
+  expDiff = e.e - smallestExponent;
+  e.v = e.v * (10n ** expDiff);
+  e.e = e.e - expDiff;
+  expDiff = f.e - smallestExponent;
+  f.v = f.v * (10n ** expDiff);
+  f.e = f.e - expDiff;
+
+  return a;
+}
+
+let testA = infNum(5n, -2n);
+let testB = infNum(5n, -1n);
+let testC = infNum(5n, 0n);
+let testD = infNum(5n, 1n);
+let testE = infNum(5n, 2n);
+let testF = infNum(5n, 3n);
+let normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
+console.log("testA -> (" + normA.v + " ," + normA.e + ")");
+console.log("testB -> (" + testB.v + " ," + testB.e + ")");
+console.log("testC -> (" + testC.v + " ," + testC.e + ")");
+console.log("testD -> (" + testD.v + " ," + testD.e + ")");
+console.log("testE -> (" + testE.v + " ," + testE.e + ")");
+console.log("testF -> (" + testF.v + " ," + testF.e + ")");
+
+testA = infNum(5n, -2n);
+testB = infNum(5n, -11n);
+testC = infNum(5n, -3n);
+testD = infNum(5n, -22n);
+testE = infNum(5n, -2n);
+testF = infNum(5n, -5n);
+normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
+console.log("testA -> (" + normA.v + " ," + normA.e + ")");
+console.log("testB -> (" + testB.v + " ," + testB.e + ")");
+console.log("testC -> (" + testC.v + " ," + testC.e + ")");
+console.log("testD -> (" + testD.v + " ," + testD.e + ")");
+console.log("testE -> (" + testE.v + " ," + testE.e + ")");
+console.log("testF -> (" + testF.v + " ," + testF.e + ")");
+
+testA = infNum(5n, 2n);
+testB = infNum(5n, 11n);
+testC = infNum(5n, 3n);
+testD = infNum(5n, 22n);
+testE = infNum(5n, 2n);
+testF = infNum(5n, 5n);
+normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
+console.log("testA -> (" + normA.v + " ," + normA.e + ")");
+console.log("testB -> (" + testB.v + " ," + testB.e + ")");
+console.log("testC -> (" + testC.v + " ," + testC.e + ")");
+console.log("testD -> (" + testD.v + " ," + testD.e + ")");
+console.log("testE -> (" + testE.v + " ," + testE.e + ")");
+console.log("testF -> (" + testF.v + " ," + testF.e + ")");
+
+
 // copies values from a and b, so the given objects are never modified
 function infNumAdd(a, b) {
   const norm = normInfNum(a, b);
@@ -196,6 +285,10 @@ console.log(infNumAdd(createInfNum("123"), createInfNum("0.456")));
 console.log("0.00001 + 5.05 = ... // 5.05001 (505001, -5)");
 console.log(infNumAdd(createInfNum("0.00001"), createInfNum("5.05")));
 
+// assumes arguments have the same exponent
+function infNumAddNorm(a, b) {
+  return infNum(a.v + b.v, a.e);
+}
 
 // copies values from a and b, so the given objects are not modified
 function infNumSub(a, b) {
@@ -211,6 +304,11 @@ console.log(infNumSub(createInfNum("123"), createInfNum("0.01")));
 
 console.log("0.00001 - 50 = ... // -49.99999 (-4999999, -5)");
 console.log(infNumSub(createInfNum("0.00001"), createInfNum("50")));
+
+// assumes arguments have the same exponent
+function infNumSubNorm(a, b) {
+  return infNum(a.v - b.v, a.e);
+}
 
 function infNumDiv(argA, argB) {
   const norm = normInfNum(argA, argB);
@@ -271,6 +369,11 @@ function infNumGt(a, b) {
 function infNumGe(a, b) {
   const normalized = normInfNum(a, b);
   return normalized[0].v >= normalized[1].v;
+}
+
+// assumes the argumments have the same exponent
+function infNumGtNorm(a, b) {
+  return a.v > b.v;
 }
 
 console.log("100 < 123.456 // true");
@@ -846,7 +949,7 @@ const sequences = [{
     "<br/><br/><b>Known Issues:</b>" +
     "<br/>- When zoomed in beyond a certain point, the keyboard zoom/pan keys stop working as expected.  Use the mouse to zoom and pan.",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeBoundPointColor": function(privContext, x, y) {
+  "computeBoundPointColorOriginal": function(privContext, x, y) {
     const maxIter = historyParams.n;
 
     // circle heuristics to speed up zoomed-out viewing
@@ -884,6 +987,60 @@ const sequences = [{
     if (iter == maxIter) {
       return -1.0; // background color
     } else {
+      //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
+      return privContext.applyColorCurve(iter / maxIter);
+    }
+  },
+  // version using normInPlaceInfNum
+  // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
+  "computeBoundPointColor": function(privContext, x, y) {
+    const maxIter = historyParams.n;
+
+    // circle heuristics to speed up zoomed-out viewing
+    //if (mandelbrotCircleHeuristic) {
+    //  for (var i = 0; i < privContext.circles.length; i++) {
+    //    const xDist = infNumSub(x, privContext.circles[i].centerX);
+    //    const yDist = infNumSub(y, privContext.circles[i].centerY);
+    //    if (infNumLe(infNumAdd(infNumMul(xDist, xDist), infNumMul(yDist, yDist)), privContext.circles[i].radSq)) {
+    //      return -1.0; // background color
+    //    }
+    //  }
+    //}
+
+    // the coords used for iteration
+    var ix = infNum(0n, 0n);
+    var iy = infNum(0n, 0n);
+    // temporary things needed multiple times per iteration
+    var ixSq = null;//infNum(0n, 0n);
+    var iySq = null;//infNum(0n, 0n);
+    var ixiy = null;
+    var boundsRadiusSquaredNorm = null;
+    var ixTemp = null;//infNum(0n, 0n);
+    var xNorm = null;
+    var yNorm = null;
+    var iter = 0;
+    while (iter < maxIter) {
+      ixSq = infNumMul(ix, ix);
+      iySq = infNumMul(iy, iy);
+      ixiy = infNumMul(ix, iy);
+      xNorm = copyInfNum(x);
+      yNorm = copyInfNum(y);
+      boundsRadiusSquaredNorm = normInPlaceInfNum(privContext.boundsRadiusSquared, ixSq, iySq, xNorm, yNorm, ixiy);
+      if (infNumGtNorm(infNumAddNorm(ixSq, iySq), boundsRadiusSquaredNorm)) {
+        break;
+      }
+      ixTemp = infNumAddNorm(xNorm, infNumSubNorm(ixSq, iySq));
+      // multiplying by 2 (v=2n, e=0n) does not affect the exponent, so no need to normalize afterwards
+      iy = infNumAddNorm(yNorm, infNumMul(privContext.two, ixiy));
+      ix = infNumTruncate(ixTemp);
+      iy = infNumTruncate(iy);
+      iter++;
+    }
+
+    if (iter == maxIter) {
+      return -1.0; // background color
+    } else {
+      //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
       return privContext.applyColorCurve(iter / maxIter);
     }
   },

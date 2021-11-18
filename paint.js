@@ -740,7 +740,7 @@ const sequences = [{
       resultLength += Math.hypot(lowestReachableP.x - lastPoint.x, lowestReachableP.y - lastPoint.y);
 
       lastPoint = lowestReachableP;
-      resultPoints.push(lastPoint);
+      resultPoints.push(getPoint(lastPoint.x, -1 * lastPoint.y));
       privContext.visitSquare(privContext, lowestReachableN, lastPoint);
       lowestReachableN = -1;
     }

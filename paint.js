@@ -1242,7 +1242,7 @@ function computeBoundPointsChunk(sequence, xChunk) {
 
 const presets = [{
   "seq": "Primes-1-Step-90-turn",
-  "v": 2,
+  "v": 3,
   "n": 60000,
   "lineWidth": 1,
   "scale": createInfNum("1.35"),
@@ -1252,7 +1252,7 @@ const presets = [{
   "bgColor": "b"
 },{
   "seq": "Trapped-Knight",
-  "v": 2,
+  "v": 3,
   "n": 2016,
   "lineWidth": 1.5,
   "scale": createInfNum("15.0"),
@@ -1262,7 +1262,7 @@ const presets = [{
   "bgColor": "b"
 },{
   "seq": "Primes-1-Step-45-turn",
-  "v": 2,
+  "v": 3,
   "n": 32400,
   "lineWidth": 2,
   "scale": createInfNum("10.95"),
@@ -1272,12 +1272,12 @@ const presets = [{
   "bgColor": "b"
 },{
   "seq": "Mandelbrot-set",
-  "v": 2,
+  "v": 3,
   "n": 400,
   "lineWidth": 1,
   "scale": createInfNum("1640000"),
   "centerX": createInfNum("0.273210669156851807493494"),
-  "centerY": createInfNum("0.00588612373984032474800031"),
+  "centerY": createInfNum("-0.00588612373984032474800031"),
   "lineColor": "rbgyo",
   "bgColor": "b"
 }];
@@ -1430,7 +1430,7 @@ function parseUrlParams() {
     "lineWidth": 1.0,
     "scale": createInfNum("1.35"),
     "centerX": createInfNum("-240"),
-    "centerY": createInfNum("-288.4"),
+    "centerY": createInfNum("288.4"),
     "lineColor": "rbgyo",
     "bgColor": "b"
   };

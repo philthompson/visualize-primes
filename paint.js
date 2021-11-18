@@ -22,6 +22,8 @@ var menuVisible = false;
 
 const windowLogTiming = true;
 const mandelbrotCircleHeuristic = false;
+var truncateLength = 24;
+const windowCalcIgnorePointColor = -2;
 
 const windowCalc = {
   "timeout": null,
@@ -459,11 +461,11 @@ console.log(infNumToString(infNum(-22n, -4n)));
 function infNumTruncate(n) {
   var a = copyInfNum(n);
   const orig = a.v.toString();
-  if (orig.length <= 24) {
+  if (orig.length <= truncateLength) {
     return a;
   }
-  a.v = BigInt(a.v.toString().substring(0,24));
-  a.e = a.e + BigInt(orig.length - 24);
+  a.v = BigInt(a.v.toString().substring(0,truncateLength));
+  a.e = a.e + BigInt(orig.length - truncateLength);
   return a;
 }
 
@@ -949,7 +951,7 @@ const sequences = [{
     "<br/><br/><b>Known Issues:</b>" +
     "<br/>- When zoomed in beyond a certain point, the keyboard zoom/pan keys stop working as expected.  Use the mouse to zoom and pan.",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeBoundPointColorOriginal": function(privContext, x, y) {
+  "computeBoundPointColor": function(privContext, x, y) {
     const maxIter = historyParams.n;
 
     // circle heuristics to speed up zoomed-out viewing
@@ -970,30 +972,36 @@ const sequences = [{
     var iySq = infNum(0n, 0n);
     var ixTemp = infNum(0n, 0n);
     var iter = 0;
-    while (iter < maxIter) {
-      ixSq = infNumMul(ix, ix);
-      iySq = infNumMul(iy, iy);
-      if (infNumGt(infNumAdd(ixSq, iySq), privContext.boundsRadiusSquared)) {
-        break;
+    try {
+      while (iter < maxIter) {
+        ixSq = infNumMul(ix, ix);
+        iySq = infNumMul(iy, iy);
+        if (infNumGt(infNumAdd(ixSq, iySq), privContext.boundsRadiusSquared)) {
+          break;
+        }
+        ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
+        iy = infNumAdd(y, infNumMul(privContext.two, infNumMul(ix, iy)));
+        ix = ixTemp;
+        ix = infNumTruncate(ix);
+        iy = infNumTruncate(iy);
+        iter++;
       }
-      ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
-      iy = infNumAdd(y, infNumMul(privContext.two, infNumMul(ix, iy)));
-      ix = ixTemp;
-      ix = infNumTruncate(ix);
-      iy = infNumTruncate(iy);
-      iter++;
-    }
 
-    if (iter == maxIter) {
-      return -1.0; // background color
-    } else {
-      //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-      return privContext.applyColorCurve(iter / maxIter);
+      if (iter == maxIter) {
+        return -1.0; // background color
+      } else {
+        //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
+        return privContext.applyColorCurve(iter / maxIter);
+      }
+    } catch (e) {
+      console.log("ERROR CAUGHT when processing point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
+      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+      return windowCalcIgnorePointColor; // special color value that will not be displayed
     }
   },
   // version using normInPlaceInfNum
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeBoundPointColor": function(privContext, x, y) {
+  "computeBoundPointColorNew": function(privContext, x, y) {
     const maxIter = historyParams.n;
 
     // circle heuristics to speed up zoomed-out viewing
@@ -1019,36 +1027,42 @@ const sequences = [{
     var xNorm = null;
     var yNorm = null;
     var iter = 0;
-    while (iter < maxIter) {
-      ixSq = infNumMul(ix, ix);
-      iySq = infNumMul(iy, iy);
-      ixiy = infNumMul(ix, iy);
-      xNorm = copyInfNum(x);
-      yNorm = copyInfNum(y);
-      boundsRadiusSquaredNorm = normInPlaceInfNum(privContext.boundsRadiusSquared, ixSq, iySq, xNorm, yNorm, ixiy);
-      if (infNumGtNorm(infNumAddNorm(ixSq, iySq), boundsRadiusSquaredNorm)) {
-        break;
+    try {
+      while (iter < maxIter) {
+        ixSq = infNumMul(ix, ix);
+        iySq = infNumMul(iy, iy);
+        ixiy = infNumMul(ix, iy);
+        xNorm = copyInfNum(x);
+        yNorm = copyInfNum(y);
+        boundsRadiusSquaredNorm = normInPlaceInfNum(privContext.boundsRadiusSquared, ixSq, iySq, xNorm, yNorm, ixiy);
+        if (infNumGtNorm(infNumAddNorm(ixSq, iySq), boundsRadiusSquaredNorm)) {
+          break;
+        }
+        ixTemp = infNumAddNorm(xNorm, infNumSubNorm(ixSq, iySq));
+        // multiplying by 2 (v=2n, e=0n) does not affect the exponent, so no need to normalize afterwards
+        iy = infNumAddNorm(yNorm, infNumMul(privContext.two, ixiy));
+        ix = infNumTruncate(ixTemp);
+        iy = infNumTruncate(iy);
+        iter++;
       }
-      ixTemp = infNumAddNorm(xNorm, infNumSubNorm(ixSq, iySq));
-      // multiplying by 2 (v=2n, e=0n) does not affect the exponent, so no need to normalize afterwards
-      iy = infNumAddNorm(yNorm, infNumMul(privContext.two, ixiy));
-      ix = infNumTruncate(ixTemp);
-      iy = infNumTruncate(iy);
-      iter++;
-    }
 
-    if (iter == maxIter) {
-      return -1.0; // background color
-    } else {
-      //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-      return privContext.applyColorCurve(iter / maxIter);
+      if (iter == maxIter) {
+        return -1.0; // background color
+      } else {
+        //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
+        return privContext.applyColorCurve(iter / maxIter);
+      }
+    } catch (e) {
+      console.log("ERROR CAUGHT when processing point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
+      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+      return windowCalcIgnorePointColor; // special color value that will not be displayed
     }
   },
   // these settings are auto-applied when this sequence is activated
   "forcedDefaults": {
     "n": 50,
     "scale": infNum(400n, 0n),
-    "centerX": createInfNum("-0.56"),
+    "centerX": createInfNum("-0.65"),
     "centerY": infNum(0n, 0n)
   },
   "privContext": {
@@ -1103,7 +1117,19 @@ const sequences = [{
       "centerX": createInfNum("-1.0"),
       "centerY": createInfNum("0.0"),
       "radSq": createInfNum("0.04")
-    }]
+    }],
+    "adjustTruncate": function() {
+      // these values need more testing to ensure they create pixel-identical images
+      //   to higher-precision images
+      if (infNumLt(historyParams.scale, createInfNum("1000"))) {
+        truncateLength = 12;
+      } else if (infNumLt(historyParams.scale, createInfNum("10000"))) {
+        truncateLength = 20;
+      } else {
+        truncateLength = 24;
+      }
+      console.log("set truncateLength to [" + truncateLength + "]");
+    }
   }
 }];
 
@@ -1763,6 +1789,10 @@ function resetWindowCalcContext() {
   const params = historyParams;
   windowCalc.seqName = params.seq;
 
+  if ("adjustTruncate" in sequencesByName[params.seq].privContext) {
+    sequencesByName[params.seq].privContext.adjustTruncate();
+  }
+
   // since line width is halved each time the draw occurs, use 128 to get
   //   the initial draw to use a 64-wide pixels
   windowCalc.lineWidth = 128;
@@ -1961,7 +1991,10 @@ function drawColorPoints(windowPoints) {
     const resY = windowPoints[i].y;
     const colorPct = windowPoints[i].c;
     let pointColor = getBgColor();
-    if (colorPct >= 0) {
+    // just completely skip points with this special color "value"
+    if (colorPct == windowCalcIgnorePointColor) {
+      continue;
+    } else if (colorPct >= 0) {
       pointColor = getLineColor(colorPct, historyParams.lineColor);
     }
     const rgba = pointColor.substr(5).split(',');

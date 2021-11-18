@@ -71,10 +71,24 @@
     #help-menu {
       font-family: monospace;
       padding-left: 2.0rem;
+      max-height: 95%;
     }
-    #help-menu div {
+    #help-menu details>div div, #keyboard-keycaps div {
       float: left;
       margin-right: 4.0rem;
+    }
+    #help-menu button {
+      padding: 0.4rem 1.5rem 0.4rem 1.5rem;
+    }
+    #help-menu summary {
+      cursor: pointer;
+      padding-bottom: 1.0rem;
+    }
+    #help-menu details>div {
+      padding: 0.5rem 0 1.5rem 1.5rem;
+    }
+    #help-menu  input {
+      text-align:  right;
     }
     #menu-contents {
     }
@@ -163,26 +177,48 @@
     </div>
     <div id="help-menu">
         <span style="position: fixed; right: 2.0rem; top: 2.0rem;" id="help-menu-close">×</span>
-        <p style="margin-left: -1.0rem">mouse</p>
+        <details>
+          <summary>go to location by center and scale</summary>
+          <div>
+            <div>center: <label>x<input id="go-to-c-x"/></label>, <label>y<input id="go-to-c-y"/></label></div><br/>
+            <div>&nbsp;scale:&nbsp;&nbsp;<input id="go-to-scale" type="" name="" /></div><br/>
+            <p style="clear: both;">scale is (pixels/unit)</p>
+            <button id="go-to-c-go">Go</button>
+            <button id="go-to-c-reset">Reset to Current Window</button>
+          </div>
+        </details>
+        <details>
+          <summary>go to location by bounds</summary>
+          <div>
+            <div>top left: <label>x<input id="go-to-tl-x"/></label>, <label>y<input id="go-to-tl-y"/></label></div><br/>
+            <div>bot right:<label>x<input id="go-to-br-x"/></label>, <label>y<input id="go-to-br-y"/></label></div>
+            <p style="clear: both;"></p>
+            <button id="go-to-b-go">Go</button>
+            <button id="go-to-b-reset">Reset to Current Window</button>
+          </div>
+        </details>
+        <p style="clear: both; margin-left: -1.0rem">mouse</p>
         <p>drag mouse to move &mdash; scroll mouse wheel to zoom</p>
         <p>hold shift and click to re-center (good for slow-to-draw plots)</p>
-        <p style="margin-left: -1.0rem">keyboard</p>
-        <div>help<br/>&nbsp;<kbd>H</kbd></div>
-        <div>menu<br/>&nbsp;<kbd>P</kbd></div>
-        <div>presets<br/>&nbsp;<kbd>1</kbd>&nbsp;-&nbsp;<kbd>4</kbd></div>
-        <div>center&nbsp;at (0,0)<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<kbd>C</kbd></div>
-        <p style="clear: both"></p>
-        <div>move<br/>&nbsp;<kbd>W</kbd><br/><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
-        <div>move&nbsp;less<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>↑</kbd><br/>&nbsp;&nbsp;<kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></div>
-        <div>zoom<br/><kbd>Q</kbd>&nbsp;&nbsp;<kbd>E</kbd></div>
-        <div>zoom&nbsp;less<br/>&nbsp;&nbsp;&nbsp;<kbd>−</kbd>&nbsp;<kbd>+</kbd></div>
-        <p style="clear: both"></p>
-        <div>line&nbsp;width<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>Z</kbd></div>
-        <div>fewer/more&nbsp;points<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>N</kbd>&nbsp;<kbd>M</kbd></div>
-        <p style="clear: both"></p>
-        <div>change plot<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>X</kbd></div>
-        <div>line&nbsp;color<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>V</kbd></div>
-        <div>bg&nbsp;color<br/>&nbsp;&nbsp;&nbsp;<kbd>B</kbd></div>
+        <p style="clear: both; margin-left: -1.0rem">keyboard</p>
+        <div id="keyboard-keycaps">
+          <div>help<br/>&nbsp;<kbd>H</kbd></div>
+          <div>plots<br/>&nbsp;<kbd>P</kbd></div>
+          <div>presets<br/>&nbsp;<kbd>1</kbd>&nbsp;-&nbsp;<kbd>4</kbd></div>
+          <div>center&nbsp;at (0,0)<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<kbd>C</kbd></div>
+          <p style="clear: both"></p>
+          <div>move<br/>&nbsp;<kbd>W</kbd><br/><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
+          <div>move&nbsp;less<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>↑</kbd><br/>&nbsp;&nbsp;<kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></div>
+          <div>zoom<br/><kbd>Q</kbd>&nbsp;&nbsp;<kbd>E</kbd></div>
+          <div>zoom&nbsp;less<br/>&nbsp;&nbsp;&nbsp;<kbd>−</kbd>&nbsp;<kbd>+</kbd></div>
+          <p style="clear: both"></p>
+          <div>line&nbsp;width<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>Z</kbd></div>
+          <div>fewer/more&nbsp;points<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>N</kbd>&nbsp;<kbd>M</kbd></div>
+          <p style="clear: both"></p>
+          <div>change plot<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>X</kbd></div>
+          <div>line&nbsp;color<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>V</kbd></div>
+          <div>bg&nbsp;color<br/>&nbsp;&nbsp;&nbsp;<kbd>B</kbd></div>
+        </div>
     </div>
     <div id="footer">
         <span style="float:left; pointer-events: visible"><a target="_blank" href="https://philthompson.me/2021/Very-Plotter.html">What is this?</a></span>

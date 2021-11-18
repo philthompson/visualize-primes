@@ -53,6 +53,22 @@ const windowCalc = {
 var windowCalcRepeat = 0;
 var windowCalcTimes = [];
 
+const inputGotoTopLeftX = document.getElementById("go-to-tl-x");
+const inputGotoTopLeftY = document.getElementById("go-to-tl-y");
+const inputGotoBotRightX = document.getElementById("go-to-br-x");
+const inputGotoBotRightY = document.getElementById("go-to-br-y");
+const inputGotoCenterX = document.getElementById("go-to-c-x");
+const inputGotoCenterY = document.getElementById("go-to-c-y");
+const inputGotoScale = document.getElementById("go-to-scale");
+const btnGotoBoundsGo = document.getElementById("go-to-b-go");
+const btnGotoBoundsReset = document.getElementById("go-to-b-reset");
+const btnGotoCenterGo = document.getElementById("go-to-c-go");
+const btnGotoCenterReset = document.getElementById("go-to-c-reset");
+
+// this is checked each time a key is pressed, so keep it
+//   here so we don't have to do a DOM query every time
+const inputFields = document.getElementsByTagName("input");
+
 function infNum(value, exponent) {
   return {"v": value, "e": exponent};
 }
@@ -1066,7 +1082,7 @@ const sequences = [{
     "centerY": infNum(0n, 0n)
   },
   "privContext": {
-    //"purple": getColor(255, 40, 255),
+    "usesImaginaryCoordinates": true,
     "two": infNum(2n, 0n),
     "black": getColor(0, 0, 0),
     "boundsRadiusSquared": infNum(4n, 0n),
@@ -1123,8 +1139,8 @@ const sequences = [{
       //   to higher-precision images
       if (infNumLt(historyParams.scale, createInfNum("1000"))) {
         truncateLength = 12;
-      } else if (infNumLt(historyParams.scale, createInfNum("10000"))) {
-        truncateLength = 20;
+      } else if (infNumLt(historyParams.scale, createInfNum("1000000"))) {
+        truncateLength = 18;
       } else {
         truncateLength = 24;
       }
@@ -1300,7 +1316,7 @@ for (var i = 0; i < sequences.length; i++) {
       sequences[i].desc +
     "</div>";
 }
-document.getElementById('menu-contents').innerHTML = menuHtml;
+document.getElementById("menu-contents").innerHTML = menuHtml;
 const viewButtons = document.getElementsByClassName("seq-view-btn");
 var activateSequenceHandler = function(e) {
   var clickedId = parseInt(e.target.id.split("-")[3]);
@@ -1320,7 +1336,7 @@ var activateSequenceHandler = function(e) {
   //drawPoints(historyParams);
 };
 for (var i = 0; i < viewButtons.length; i++) {
-  viewButtons[i].addEventListener('click', activateSequenceHandler);
+  viewButtons[i].addEventListener("click", activateSequenceHandler);
 }
 
 function activatePreset(presetParams) {
@@ -1843,7 +1859,127 @@ function resetWindowCalcContext() {
   windowCalc.bottomEdge = bottomEdge;
   windowCalc.leftEdgeFloat = infNumToFloat(leftEdge);
   windowCalc.topEdgeFloat = infNumToFloat(topEdge);
+
+  resetGoToBoundsValues();
+  resetGoToCenterValues();
 }
+
+function resetGoToBoundsValues() {
+  var imaginaryCoordinates = false;
+  if ("usesImaginaryCoordinates" in sequencesByName[historyParams.seq].privContext) {
+    imaginaryCoordinates = sequencesByName[historyParams.seq].privContext.usesImaginaryCoordinates;
+  }
+  inputGotoTopLeftX.value = windowCalc.leftEdgeFloat;
+  inputGotoTopLeftY.value = windowCalc.topEdgeFloat + (imaginaryCoordinates ? "i" : "");
+  inputGotoBotRightX.value = infNumToFloat(windowCalc.rightEdge);
+  inputGotoBotRightY.value = infNumToFloat(windowCalc.bottomEdge) + (imaginaryCoordinates ? "i" : "");
+}
+function resetGoToCenterValues() {
+  var imaginaryCoordinates = false;
+  if ("usesImaginaryCoordinates" in sequencesByName[historyParams.seq].privContext) {
+    imaginaryCoordinates = sequencesByName[historyParams.seq].privContext.usesImaginaryCoordinates;
+  }
+  inputGotoCenterX.value = infNumToFloat(historyParams.centerX);
+  inputGotoCenterY.value = infNumToFloat(historyParams.centerY) + (imaginaryCoordinates ? "i" : "");
+  inputGotoScale.value = infNumToFloat(historyParams.scale);
+}
+
+function applyGoToBoundsValues() {
+  let leftX, rightX, topY, bottomY;
+  try {
+    leftX = createInfNum(inputGotoTopLeftX.value.replaceAll(",", ""));
+  } catch (e) {
+    alert("Invalid top left x value");
+    return;
+  }
+  try {
+    rightX = createInfNum(inputGotoBotRightX.value.replaceAll(",", ""));
+  } catch (e) {
+    alert("Invalid bottom right x value");
+    return;
+  }
+  if (infNumGe(leftX, rightX)) {
+    alert("Top left x value must be less than bottom right x value");
+    return;
+  }
+  try {
+    topY = createInfNum(inputGotoTopLeftY.value.replaceAll(",", "").replaceAll("i", "").replaceAll("I", ""));
+  } catch (e) {
+    alert("Invalid top left x value");
+    return;
+  }
+  try {
+    bottomY = createInfNum(inputGotoBotRightY.value.replaceAll(",", "").replaceAll("i", "").replaceAll("I", ""));
+  } catch (e) {
+    alert("Invalid bottom right x value");
+    return;
+  }
+  if (infNumGe(bottomY, topY)) {
+    alert("Bottom left y value must be less than top left y value");
+    return;
+  }
+  const diffX = infNumSub(rightX,   leftX);
+  const diffY = infNumSub(  topY, bottomY);
+  const newCenterX = infNumAdd(  leftX, infNumDiv(diffX, infNum(2n, 0n)));
+  const newCenterY = infNumAdd(bottomY, infNumDiv(diffY, infNum(2n, 0n)));
+
+  const scaleX = infNumDiv(createInfNum(dCanvas.width.toString()), diffX);
+  const scaleY = infNumDiv(createInfNum(dCanvas.height.toString()), diffY);
+
+  console.log("X spans [" + infNumToString(diffX) + "] units, thus [" + infNumToString(scaleX) + "] pixels/unit");
+  console.log("Y spans [" + infNumToString(diffY) + "] units, thus [" + infNumToString(scaleY) + "] pixels/unit");
+
+  var smaller = scaleX;
+  if (infNumLt(scaleY, scaleX)) {
+    smaller = scaleY;
+  }
+
+  console.log("going with scale of [" + infNumToString(smaller) + "]");
+
+  historyParams.centerX = newCenterX;
+  historyParams.centerY = newCenterY;
+  historyParams.scale = smaller;
+
+  redraw();
+}
+function applyGoToCenterValues() {
+  try {
+    historyParams.centerX = createInfNum(inputGotoCenterX.value.replaceAll(",", ""));
+  } catch (e) {
+    alert("Invalid center x value");
+    return;
+  }
+  try {
+    historyParams.centerY = createInfNum(inputGotoCenterY.value.replaceAll(",", "").replaceAll("i", "").replaceAll("I", ""));
+  } catch (e) {
+    alert("Invalid center y value");
+    return;
+  }
+  try {
+    historyParams.scale = createInfNum(inputGotoScale.value.replaceAll(",", ""));
+  } catch (e) {
+    alert("Invalid scale value");
+    return;
+  }
+  redraw();
+}
+
+function textInputHasFocus() {
+  var anyHasFocus = false;
+  for (let i = 0; i < inputFields.length; i++) {
+    // thanks to https://stackoverflow.com/a/30714894/259456
+    if (inputFields[i] === document.activeElement) {
+      anyHasFocus = true;
+      break;
+    }
+  }
+  return anyHasFocus;
+}
+
+btnGotoBoundsGo.addEventListener("click", applyGoToBoundsValues);
+btnGotoBoundsReset.addEventListener("click", resetGoToBoundsValues);
+btnGotoCenterGo.addEventListener("click", applyGoToCenterValues);
+btnGotoCenterReset.addEventListener("click", resetGoToCenterValues);
 
 function calculateAndDrawWindow() {
   // if lineWidth is 128, then we are starting with a fresh drawing
@@ -2134,6 +2270,9 @@ window.addEventListener("keyup", function(e) {
 
 // thanks to https://stackoverflow.com/a/3396805/259456
 window.addEventListener("keydown", function(e) {
+  if (textInputHasFocus()) {
+    return;
+  }
   //console.log(e.type + " - " + e.keyCode);
 
   // for keys that change the number of points or the position of points, use

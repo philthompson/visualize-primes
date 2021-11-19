@@ -500,9 +500,7 @@ const plots = [{
     "<br/><br/>My favorite explanation I've found so far is <a target='_blank' href='https://www.youtube.com/watch?v=FFftmWSzgmk'>this Numberphile video on YouTube</a>." +
     "<br/><br/><b>Tips for using this Mandelbrot set viewer</b>:" +
     "<br/>- When not zoomed in very far, keep the <code>n</code> (iterations) parameter low for faster calculation (use N and M keys to decrease/increase the <code>n</code> value)." +
-    "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower." +
-    "<br/><br/><b>Known Issues:</b>" +
-    "<br/>- When zoomed in beyond a certain point, the keyboard zoom/pan keys stop working as expected.  Use the mouse to zoom and pan.",
+    "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower.",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColor": function(privContext, x, y) {
     const maxIter = historyParams.n;
@@ -2182,26 +2180,25 @@ function drawMousePosNotice(x, y) {
   ctx.fillText("(" + xRound + ", " + yRound + ")", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
 }
 
-// apparently using float math to add 0.01 to 0.06 doesn't result in 0.07
-//   so instead we will multiply by 100, use integer math, then divide by 100
-function addParamPercentAndRound(fieldName, nPercent) {
-  if (! fieldName in historyParams) {
-    console.log("unknown params field [" + fieldName + "]");
-    return;
+// take the visible number of pixels
+// pan the given percent of pixels
+function panPercentOfPixels(isHorizontal, nPercent) {
+  const dimensionPixels = isHorizontal ? dCanvas.width : dCanvas.height;
+  const dimensionUnits = infNumMul(createInfNum(dimensionPixels.toString()), windowCalc.eachPixUnits);
+  const pixelsToPan = Math.round(dimensionPixels * nPercent);
+  // make sure we move in an exact multiple of the pixel size, in order
+  //   to re-use previously cached pixels after the move
+  const units = infNumMul(createInfNum(pixelsToPan.toString()), windowCalc.eachPixUnits);
+  // if the number of pixels is odd, the center itself won't be at an
+  //   exact multiple of pixel sizes, so calculate the pan using the
+  //   edges
+  if (isHorizontal) {
+    windowCalc.leftEdge = infNumAdd(windowCalc.leftEdge, units);
+    historyParams.centerX = infNumAdd(windowCalc.leftEdge, infNumDiv(dimensionUnits, infNum(2n, 0n)));
+  } else {
+    windowCalc.bottomEdge = infNumAdd(windowCalc.bottomEdge, units);
+    historyParams.centerY = infNumAdd(windowCalc.bottomEdge, infNumDiv(dimensionUnits, infNum(2n, 0n)));
   }
-  // use Math.round() instead of parseInt() because, for example:
-  //   parseInt(0.29 * 100.0)   --> 28
-  //   Math.round(0.29 * 100.0) --> 29
-//  var val = Math.round(historyParams[fieldName] * 100.0);
-//  val += nPercent;
-//  historyParams[fieldName] = parseFloat(val / 100.0);
-
-  const pct = infNumMul(historyParams[fieldName], infNum(100n, 0n));
-  const newPct = infNumAdd(pct, createInfNum(nPercent.toString()));
-  const roundedStr = infNumToString(newPct).split('.')[0];
-  const rounded = infNumDiv(createInfNum(roundedStr), infNum(100n, 0n));
-  //historyParams[fieldName] = infNumTruncate(rounded);
-  historyParams[fieldName] = rounded;
 }
 
 function applyParamPercent(fieldName, pctStr) {
@@ -2276,28 +2273,28 @@ window.addEventListener("keydown", function(e) {
   if (e.keyCode == 16 /* shift */) {
     shiftPressed = true;
   } else if (e.keyCode == 39 /* right arrow */) {
-    addParamPercentAndRound("centerX", -1);
+    panPercentOfPixels(true, -0.01);
     redraw();
   } else if (e.keyCode == 68 /* d */) {
-    addParamPercentAndRound("centerX", -10);
+    panPercentOfPixels(true, -0.1);
     redraw();
   } else if (e.keyCode == 37 /* left arrow */) {
-    addParamPercentAndRound("centerX", 1);
+    panPercentOfPixels(true, 0.01);
     redraw();
   } else if (e.keyCode == 65 /* a */) {
-    addParamPercentAndRound("centerX", 10);
+    panPercentOfPixels(true, 0.1);
     redraw();
   } else if (e.keyCode == 38 /* up arrow */) {
-    addParamPercentAndRound("centerY", 1);
+    panPercentOfPixels(false, 0.01);
     redraw();
   } else if (e.keyCode == 87 /* w */) {
-    addParamPercentAndRound("centerY", 10);
+    panPercentOfPixels(false, 0.1);
     redraw();
   } else if (e.keyCode == 40 /* down arrow */) {
-    addParamPercentAndRound("centerY", -1);
+    panPercentOfPixels(false, -0.01);
     redraw();
   } else if (e.keyCode == 83 /* s */) {
-    addParamPercentAndRound("centerY", -10);
+    panPercentOfPixels(false, -0.1);
     redraw();
   } else if (e.keyCode == 61 || e.keyCode == 107 /* plus */) {
     applyParamPercent("scale", "1.01");

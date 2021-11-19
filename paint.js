@@ -48,7 +48,8 @@ const windowCalc = {
   "bottomEdge": infNum(0n, 0n),
   "leftEdgeFloat": 0.0,
   "topEdgeFloat": 0.0,
-  "n": 1
+  "n": 1,
+  "scale": infNum(1n, 0n)
 };
 var windowCalcRepeat = 0;
 var windowCalcTimes = [];
@@ -1224,20 +1225,29 @@ function computeBoundPointsChunk(plot, xChunk) {
     px = infNumAdd(infNumMul(windowCalc.eachPixUnits, x), windowCalc.leftEdge);
     var y = infNum(0n, 0n);
     while (infNumLt(y, pixHeight)) {
-      const pointPixel = infNumToString(x) + "," + infNumToString(y);
+      py = infNumSub(windowCalc.topEdge, infNumMul(windowCalc.eachPixUnits, y));
+      //const pointPixel = infNumToString(x) + "," + infNumToString(y);
+      const pointPixel = infNumToString(px) + "," + infNumToString(py);
       if (pointPixel in windowCalc.pointsCache) {
         windowCalc.cachedPoints++;
+        // update the pixel on the screen, in case we've panned since
+        //   the point was originally cached
+        windowCalc.pointsCache[pointPixel].px.x = parseInt(infNumToString(x));
+        windowCalc.pointsCache[pointPixel].px.y = parseInt(infNumToString(y));
         resultPoints.push(windowCalc.pointsCache[pointPixel]);
       } else {
-        py = infNumSub(windowCalc.topEdge, infNumMul(windowCalc.eachPixUnits, y));
+        //py = infNumSub(windowCalc.topEdge, infNumMul(windowCalc.eachPixUnits, y));
 
         const pointColor = plot.computeBoundPointColor(privContext, px, py);
         //console.log("computed point color [" + pointColor + "] for coord [" + pointPixel + "]");
 
         // x and y are integer (actual pixel) values, with no decimal component
         var point = getColorPoint(parseInt(infNumToString(x)), parseInt(infNumToString(y)), pointColor);
-        windowCalc.pointsCache[pointPixel] = point;
-        resultPoints.push(point);
+        // px -- the pixel "color point"
+        // pt -- the abstract coordinate on the plane
+        let wrappedPoint = {"px": point, "pt": {"x":copyInfNum(px), "y":copyInfNum(py)}};
+        windowCalc.pointsCache[pointPixel] = wrappedPoint;
+        resultPoints.push(wrappedPoint);
       }
       y = infNumAdd(y, pixelSize);
     }
@@ -1776,6 +1786,7 @@ function drawPoints(params) {
 }
 
 function resetWindowCalcCache() {
+  console.log("purging window points cache");
   windowCalc.pointsCache = {};
 }
 
@@ -1825,17 +1836,14 @@ function resetWindowCalcContext() {
   const topEdge = infNumAdd(params.centerY, infNumDiv(infNumDiv(canvasHeight, two), params.scale));
   const bottomEdge = infNumSub(topEdge, scaledHeight);
 
-  // only clear cache if iterations have changed or if any edge has moved
-  // this allows cache to be re-used when changing colors
-  if ( windowCalc.n != params.n ||
-      !infNumEq(windowCalc.leftEdge, leftEdge) ||
-      !infNumEq(windowCalc.topEdge, topEdge) ||
-      !infNumEq(windowCalc.rightEdge, rightEdge) ||
-      !infNumEq(windowCalc.bottomEdge, bottomEdge)) {
+  // only clear cache if iterations have changed or if zoom has changed
+  // this allows us to re-use the cache when panning, or changing colors
+  if (windowCalc.n != params.n || !infNumEq(windowCalc.scale, params.scale)) {
     resetWindowCalcCache();
   }
 
   windowCalc.n = params.n;
+  windowCalc.scale = params.scale;
   windowCalc.leftEdge = leftEdge;
   windowCalc.topEdge = topEdge;
   windowCalc.rightEdge = rightEdge;
@@ -2035,7 +2043,8 @@ function waitAndDrawWindow() {
   // log timing of this pass (a single lineWidth)
   if (windowLogTiming) {
     windowCalc.totalTimeMs += windowCalc.passTimeMs;
-    console.log("computing [" + windowCalc.totalPoints + "] points of width [" + windowCalc.lineWidth + "], of which [" + windowCalc.cachedPoints + "] were cached, took [" + windowCalc.passTimeMs + "] ms");
+    let cachedPct = Math.round(windowCalc.cachedPoints * 10000.0 / windowCalc.totalPoints) / 100.0;
+    console.log("computing [" + windowCalc.totalPoints + "] points of width [" + windowCalc.lineWidth + "], of which [" + windowCalc.cachedPoints + "] were cached (" + cachedPct + "%), took [" + windowCalc.passTimeMs + "] ms");
   }
 
   // if line width just finished is greater than the param lineWidth,
@@ -2094,6 +2103,26 @@ function waitAndDrawWindow() {
       }
     }
   }
+
+  // now that the image has been completed, delete any cached
+  //   points outside of the window
+  let cachedPointsKept = 0;
+  let cachedPointsToDelete = [];
+  for (let name in windowCalc.pointsCache) {
+    if (infNumLt(windowCalc.pointsCache[name].pt.x, windowCalc.leftEdge) ||
+        infNumGt(windowCalc.pointsCache[name].pt.x, windowCalc.rightEdge) ||
+        infNumLt(windowCalc.pointsCache[name].pt.y, windowCalc.bottomEdge) ||
+        infNumGt(windowCalc.pointsCache[name].pt.y, windowCalc.topEdge)) {
+      cachedPointsToDelete.push(name);
+    } else {
+      cachedPointsKept++;
+    }
+  }
+  for (let i = 0; i < cachedPointsToDelete.length; i++) {
+    delete windowCalc.pointsCache[name];
+  }
+  const deletedPct = Math.round(cachedPointsToDelete.length * 10000.0 / (cachedPointsToDelete.length + cachedPointsKept)) / 100.0;
+  console.log("deleted [" + cachedPointsToDelete.length + "] points from the cache (" + deletedPct + "%)");
 }
 
 function drawColorPoints(windowPoints) {
@@ -2114,9 +2143,9 @@ function drawColorPoints(windowPoints) {
     //   1 = 1  pixel  drawn per point
     //   2 = 2  pixels drawn per point
     //  10 = 10 pixels drawn per point
-    const resX = windowPoints[i].x;
-    const resY = windowPoints[i].y;
-    const colorPct = windowPoints[i].c;
+    const resX = windowPoints[i].px.x;
+    const resY = windowPoints[i].px.y;
+    const colorPct = windowPoints[i].px.c;
     let pointColor = getBgColor();
     // just completely skip points with this special color "value"
     if (colorPct == windowCalcIgnorePointColor) {
@@ -2184,20 +2213,14 @@ function drawMousePosNotice(x, y) {
 // pan the given percent of pixels
 function panPercentOfPixels(isHorizontal, nPercent) {
   const dimensionPixels = isHorizontal ? dCanvas.width : dCanvas.height;
-  const dimensionUnits = infNumMul(createInfNum(dimensionPixels.toString()), windowCalc.eachPixUnits);
+  // use Math.round()! make sure we move in an exact multiple of the
+  //   pixel size, in order to re-use previously cached pixels after the move
   const pixelsToPan = Math.round(dimensionPixels * nPercent);
-  // make sure we move in an exact multiple of the pixel size, in order
-  //   to re-use previously cached pixels after the move
-  const units = infNumMul(createInfNum(pixelsToPan.toString()), windowCalc.eachPixUnits);
-  // if the number of pixels is odd, the center itself won't be at an
-  //   exact multiple of pixel sizes, so calculate the pan using the
-  //   edges
+  const unitsToPan = infNumMul(createInfNum(pixelsToPan.toString()), windowCalc.eachPixUnits);
   if (isHorizontal) {
-    windowCalc.leftEdge = infNumAdd(windowCalc.leftEdge, units);
-    historyParams.centerX = infNumAdd(windowCalc.leftEdge, infNumDiv(dimensionUnits, infNum(2n, 0n)));
+    historyParams.centerX = infNumAdd(historyParams.centerX, unitsToPan);
   } else {
-    windowCalc.bottomEdge = infNumAdd(windowCalc.bottomEdge, units);
-    historyParams.centerY = infNumAdd(windowCalc.bottomEdge, infNumDiv(dimensionUnits, infNum(2n, 0n)));
+    historyParams.centerY = infNumAdd(historyParams.centerY, unitsToPan);
   }
 }
 
@@ -2213,16 +2236,6 @@ function applyParamPercent(fieldName, pctStr) {
   }
   const newVal = infNumMul(historyParams[fieldName], pct);
   historyParams[fieldName] = newVal;
-}
-
-function roundTo2Decimals(f) {
-  var val = Math.round(f * 100.0);
-  return parseFloat(val / 100.0);
-}
-
-function roundTo5Decimals(f) {
-  var val = Math.round(f * 100000.0);
-  return parseFloat(val / 100000.0);
 }
 
 function sanityCheckLineWidth(w, circular, plot) {
@@ -2262,7 +2275,7 @@ var dispatchCorrespondingKeydownEvent = function(e) {
   let keyName = e.target.id.substring(4);
   let keyEvent = new KeyboardEvent('keydown', {key: keyName,});
   window.dispatchEvent(keyEvent);
-}
+};
 
 // when a key cap in the help menu is clicked, actually fire the key event as if
 //   that key was pressed -- this allows devices without a keyboard (mobile)
@@ -2455,10 +2468,12 @@ var mouseDownHandler = function(e) {
   // this might help prevent strange ios/mobile weirdness
   e.preventDefault();
   if (shiftPressed) {
-    let pixX = createInfNum(e.pageX.toString());
-    let pixY = createInfNum(e.pageY.toString());
-    let posX = infNumAdd(infNumDiv(pixX, historyParams.scale), windowCalc.leftEdge);
-    let posY = infNumSub(windowCalc.topEdge, infNumDiv(pixY, historyParams.scale));
+    let pixX = createInfNum(Math.round(e.pageX - (dCanvas.width / 2)).toString());
+    let pixY = createInfNum(Math.round((dCanvas.height - e.pageY) - (dCanvas.height / 2)).toString());
+    // make sure we move in an exact multiple of the pixel size, so
+    //   that we can re-use previously-cached points
+    let posX = infNumAdd(infNumMul(pixX, windowCalc.eachPixUnits), historyParams.centerX);
+    let posY = infNumAdd(infNumMul(pixY, windowCalc.eachPixUnits), historyParams.centerY);
     historyParams.centerX = posX;
     historyParams.centerY = posY;
     redraw();
@@ -2503,8 +2518,10 @@ var mouseMoveHandler = function(e) {
   //    to be able to pinch zoom and pan in one gesture)
   const newX = e.pageX;
   const newY = e.pageY;
-  const diffX = infNumDiv(createInfNum((mouseDragX - newX).toString()), historyParams.scale);
-  const diffY = infNumDiv(createInfNum((mouseDragY - newY).toString()), historyParams.scale);
+  // make sure we move in an exact multiple of the pixel size
+  //   in order to re-use previously cached pixels after the move
+  const diffX = infNumMul(createInfNum((mouseDragX - newX).toString()), windowCalc.eachPixUnits);
+  const diffY = infNumMul(createInfNum((mouseDragY - newY).toString()), windowCalc.eachPixUnits);
   historyParams.centerX = infNumAdd(historyParams.centerX, diffX);
   historyParams.centerY = infNumSub(historyParams.centerY, diffY);
   mouseDragX = newX;
@@ -2605,17 +2622,6 @@ dCanvas.addEventListener("wheel", function(e) {
 
   redraw();
 });
-
-function calculateXPos(pixelPosition, scale, edge) {
-  // calculate the position using the given pixelPosition
-  // pixelX = (xPos - leftEdge) * oldScale
-  // xPos = (pixelX / oldScale) + leftEdge
-  return infNumAdd(infNumDiv(pixelPosition, oldScale), edge);
-}
-
-function calculateYPos(pixelPosition, scale, edge) {
-
-}
 
 // all arguments must be infNum
 function calculateNewZoomCenterX(pixelPosition, canvasSize, oldCenter, oldScale, newScale) {

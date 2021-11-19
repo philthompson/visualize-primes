@@ -153,6 +153,8 @@
         height: 1.5rem;
         text-align: center;
         font-size: 1.3rem;
+        user-select: none;
+        cursor: pointer;
     }
     #menu-open {
         height: 1.5rem;
@@ -173,7 +175,7 @@
     <div id="menu">
         <span style="position: fixed; right: 2.0rem; top: 2.0rem;" id="menu-close">×</span>
         <p style="padding-right: 4rem;"c>Use a "View" button below to select a plot.  Or, use the
-        buttons below or the number keys <kbd>1</kbd>&nbsp;to&nbsp;<kbd>4</kbd>
+        buttons below or the number keys <kbd id="kbd-1">1</kbd>&nbsp;to&nbsp;<kbd id="kbd-4">4</kbd>
         to view presets.
         <div id="menu-contents"></div>
     </div>
@@ -199,27 +201,39 @@
             <button id="go-to-b-reset">Reset to Current Window</button>
           </div>
         </details>
+        <details>
+          <summary>draw rectangle</summary>
+          <div>
+            <div>top left:&nbsp;<label>x<input id="go-to-tl-x"/></label>,<label>y<input id="go-to-tl-y"/></label></div><br/>
+            <div>bot right:<label>x<input id="go-to-br-x"/></label>,<label>y<input id="go-to-br-y"/></label></div>
+            <p style="clear: both;"></p>
+            <div>center:&nbsp;<label>x<input id="go-to-c-x"/></label>,<label>y<input id="go-to-c-y"/></label></div><br/>
+            <div>&nbsp;scale:&nbsp;&nbsp;<input id="go-to-scale" type="" name="" /></div><br/>
+            <p style="clear: both;"></p>
+            <button id="go-to-go">Go</button>
+          </div>
+        </details>
         <p style="clear: both; margin-left: -1.0rem">mouse</p>
         <p>drag mouse to move &mdash; scroll mouse wheel to zoom</p>
         <p>hold shift and click to re-center (good for slow-to-draw plots)</p>
-        <p style="clear: both; margin-left: -1.0rem">keyboard</p>
+        <p style="clear: both; margin-left: -1.0rem">keyboard (or click/tap key icons below)</p>
         <div id="keyboard-keycaps">
-          <div>help<br/>&nbsp;<kbd>H</kbd></div>
-          <div>plots<br/>&nbsp;<kbd>P</kbd></div>
-          <div>presets<br/>&nbsp;<kbd>1</kbd>&nbsp;-&nbsp;<kbd>4</kbd></div>
-          <div>center&nbsp;at (0,0)<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<kbd>C</kbd></div>
+          <div>help<br/>&nbsp;<kbd id="kbd-H">H</kbd></div>
+          <div>plots<br/>&nbsp;<kbd id="kbd-P">P</kbd></div>
+          <div>presets<br/>&nbsp;<kbd id="kbd-1">1</kbd>&nbsp;-&nbsp;<kbd id="kbd-4">4</kbd></div>
+          <div>center&nbsp;at (0,0)<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<kbd id="kbd-C">C</kbd></div>
           <p style="clear: both"></p>
-          <div>move<br/>&nbsp;<kbd>W</kbd><br/><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
-          <div>move&nbsp;less<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>↑</kbd><br/>&nbsp;&nbsp;<kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></div>
-          <div>zoom<br/><kbd>Q</kbd>&nbsp;&nbsp;<kbd>E</kbd></div>
-          <div>zoom&nbsp;less<br/>&nbsp;&nbsp;&nbsp;<kbd>−</kbd>&nbsp;<kbd>+</kbd></div>
+          <div>move<br/>&nbsp;<kbd id="kbd-W">W</kbd><br/><kbd id="kbd-A">A</kbd><kbd id="kbd-S">S</kbd><kbd id="kbd-D">D</kbd></div>
+          <div>move&nbsp;less<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd id="kbd-ArrowUp">↑</kbd><br/>&nbsp;&nbsp;<kbd id="kbd-ArrowLeft">←</kbd><kbd id="kbd-ArrowDown">↓</kbd><kbd id="kbd-ArrowRight">→</kbd></div>
+          <div>zoom<br/><kbd id="kbd-Q">Q</kbd>&nbsp;&nbsp;<kbd id="kbd-E">E</kbd></div>
+          <div>zoom&nbsp;less<br/>&nbsp;&nbsp;&nbsp;<kbd id="kbd-−">−</kbd>&nbsp;<kbd id="kbd-+">+</kbd></div>
           <p style="clear: both"></p>
-          <div>line&nbsp;width<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>Z</kbd></div>
-          <div>fewer/more&nbsp;points<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>N</kbd>&nbsp;<kbd>M</kbd></div>
+          <div>line&nbsp;width<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd id="kbd-Z">Z</kbd></div>
+          <div>fewer/more&nbsp;points<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd id="kbd-N">N</kbd>&nbsp;<kbd id="kbd-M">M</kbd></div>
           <p style="clear: both"></p>
-          <div>change plot<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>X</kbd></div>
-          <div>line&nbsp;color<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd>V</kbd></div>
-          <div>bg&nbsp;color<br/>&nbsp;&nbsp;&nbsp;<kbd>B</kbd></div>
+          <div>change plot<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd id="kbd-X">X</kbd></div>
+          <div>line&nbsp;color<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd id="kbd-V">V</kbd></div>
+          <div>bg&nbsp;color<br/>&nbsp;&nbsp;&nbsp;<kbd id="kbd-B">B</kbd></div>
         </div>
     </div>
     <div id="footer">

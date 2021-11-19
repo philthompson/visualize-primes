@@ -2253,79 +2253,95 @@ function sanityCheckLineWidth(w, circular, plot) {
 }
 
 window.addEventListener("keyup", function(e) {
-  if (e.keyCode == 16 /* shift */) {
+  if (e.keyCode == 16 || e.key == "Shift") {
     shiftPressed = false;
   }
 });
+
+var dispatchCorrespondingKeydownEvent = function(e) {
+  let keyName = e.target.id.substring(4);
+  let keyEvent = new KeyboardEvent('keydown', {key: keyName,});
+  window.dispatchEvent(keyEvent);
+}
+
+// when a key cap in the help menu is clicked, actually fire the key event as if
+//   that key was pressed -- this allows devices without a keyboard (mobile)
+//   to do everything a keyboard user can
+const kbdElements = document.getElementsByTagName("kbd");
+for (let i = 0; i < kbdElements.length; i++) {
+  if (kbdElements[i].id.startsWith("kbd-")) {
+    kbdElements[i].addEventListener("click", dispatchCorrespondingKeydownEvent);
+  }
+}
 
 // thanks to https://stackoverflow.com/a/3396805/259456
 window.addEventListener("keydown", function(e) {
   if (textInputHasFocus()) {
     return;
   }
-  //console.log(e.type + " - " + e.keyCode);
+  //console.log(e.type + " - keycode:" + e.keyCode + " key:" + e.key);
 
   // for keys that change the number of points or the position of points, use
   //start();
   // otherwise, use
   //drawPoints(historyParams);
 
-  if (e.keyCode == 16 /* shift */) {
+  if (e.keyCode == 16 || e.key == "Shift") {
     shiftPressed = true;
-  } else if (e.keyCode == 39 /* right arrow */) {
+  } else if (e.keyCode == 39 || e.key == "ArrowRight") {
     panPercentOfPixels(true, -0.01);
     redraw();
-  } else if (e.keyCode == 68 /* d */) {
+  } else if (e.keyCode == 68 || e.key == "d" || e.key == "D") {
     panPercentOfPixels(true, -0.1);
     redraw();
-  } else if (e.keyCode == 37 /* left arrow */) {
+  } else if (e.keyCode == 37 || e.key == "ArrowLeft") {
     panPercentOfPixels(true, 0.01);
     redraw();
-  } else if (e.keyCode == 65 /* a */) {
+  } else if (e.keyCode == 65 || e.key == "a" || e.key == "A") {
     panPercentOfPixels(true, 0.1);
     redraw();
-  } else if (e.keyCode == 38 /* up arrow */) {
+  } else if (e.keyCode == 38 || e.key == "ArrowUp") {
     panPercentOfPixels(false, 0.01);
     redraw();
-  } else if (e.keyCode == 87 /* w */) {
+  } else if (e.keyCode == 87 || e.key == "w" || e.key == "W") {
     panPercentOfPixels(false, 0.1);
     redraw();
-  } else if (e.keyCode == 40 /* down arrow */) {
+  } else if (e.keyCode == 40 || e.key == "ArrowDown") {
     panPercentOfPixels(false, -0.01);
     redraw();
-  } else if (e.keyCode == 83 /* s */) {
+  } else if (e.keyCode == 83 || e.key == "s" || e.key == "S") {
     panPercentOfPixels(false, -0.1);
     redraw();
-  } else if (e.keyCode == 61 || e.keyCode == 107 /* plus */) {
+  } else if (e.keyCode == 61 || e.keyCode == 107 || e.key == "+") {
     applyParamPercent("scale", "1.01");
     redraw();
-  } else if (e.keyCode == 173 || e.keyCode == 109 /* minus */) {
+  } else if (e.keyCode == 173 || e.keyCode == 109 || e.key == "-") {
     applyParamPercent("scale", "0.99");
     if (infNumLt(historyParams.scale, infNum(1n, -2n))) {
       historyParams.scale = createInfNum("0.01");
     }
     redraw();
-  } else if (e.keyCode == 69 /* e */) {
+  } else if (e.keyCode == 69 || e.key == "e" || e.key == "E") {
     applyParamPercent("scale", "1.05");
     redraw();
-  } else if (e.keyCode == 81 /* q */) {
+  } else if (e.keyCode == 81 || e.key == "q" || e.key == "Q") {
     applyParamPercent("scale", "0.95");
     if (infNumLt(historyParams.scale, infNum(0n, 0n))) {
       historyParams.scale = createInfNum("0.01");
     }
     redraw();
-  } else if (e.keyCode == 67 /* c */) {
+  } else if (e.keyCode == 67 || e.key == "c" || e.key == "C") {
     historyParams.centerX = createInfNum("0");
     historyParams.centerY = createInfNum("0");
     redraw();
-  } else if (e.keyCode == 77 /* m */) {
+  } else if (e.keyCode == 77 || e.key == "m" || e.key == "M") {
     if (plotsByName[historyParams.plot].calcFrom == "sequence") {
       historyParams.n += 500;
     } else {
       historyParams.n += 100;
     }
     start();
-  } else if (e.keyCode == 78 /* n */) {
+  } else if (e.keyCode == 78  || e.key == "n" || e.key == "N") {
     if (plotsByName[historyParams.plot].calcFrom == "sequence") {
       if (historyParams.n > 100) {
         historyParams.n -= 100;
@@ -2336,7 +2352,7 @@ window.addEventListener("keydown", function(e) {
       }
     }
     start();
-  } else if (e.keyCode == 86 /* v */) {
+  } else if (e.keyCode == 86 || e.key == "v" || e.key == "V") {
     let schemeNum = -1;
     for (let i = 0; i < lineColorSchemeNames.length; i++) {
       if (lineColorSchemeNames[i] == historyParams.lineColor) {
@@ -2351,7 +2367,7 @@ window.addEventListener("keydown", function(e) {
     historyParams.lineColor = lineColorSchemeNames[schemeNum];
 
     redraw();
-  } else if (e.keyCode == 66 /* b */) {
+  } else if (e.keyCode == 66 || e.key == "b" || e.key == "B") {
     let schemeNum = -1;
     for (let i = 0; i < bgColorSchemeNames.length; i++) {
       if (bgColorSchemeNames[i] == historyParams.bgColor) {
@@ -2365,7 +2381,7 @@ window.addEventListener("keydown", function(e) {
     }
     historyParams.bgColor = bgColorSchemeNames[schemeNum];
     redraw();
-  } else if (e.keyCode == 88 /* x */) {
+  } else if (e.keyCode == 88 || e.key == "x" || e.key == "X") {
     let plotNum = -1;
     for (let i = 0; i < plots.length; i++) {
       if (plots[i].name == historyParams.plot) {
@@ -2383,7 +2399,7 @@ window.addEventListener("keydown", function(e) {
     replaceHistoryWithParams(defaults);
     parseUrlParams();
     start();
-  } else if (e.keyCode == 90 /* z */) {
+  } else if (e.keyCode == 90 || e.key == "z" || e.key == "Z") {
     // use Math.round() instead of parseInt() because, for example:
     //   parseInt(0.29 * 100.0)   --> 28
     //   Math.round(0.29 * 100.0) --> 29
@@ -2398,27 +2414,27 @@ window.addEventListener("keydown", function(e) {
     } else {
       redraw();
     }
-  } else if (e.keyCode == 72 /* h */) {
+  } else if (e.keyCode == 72 || e.key == "h" || e.key == "H") {
     if (helpVisible) {
       closeHelpMenu();
     } else {
       openHelpMenu();
     }
-  } else if (e.keyCode == 80 /* p */) {
+  } else if (e.keyCode == 80 || e.key == "p" || e.key == "P") {
     if (menuVisible) {
       closeMenu();
     } else {
       openMenu();
     }
-  } else if (e.keyCode == 49 || e.keyCode == 97 /* 1 */) {
+  } else if (e.keyCode == 49 || e.keyCode == 97 || e.key == "1") {
     activatePreset(presets[0]);
-  } else if (e.keyCode == 50 || e.keyCode == 98 /* 2 */) {
+  } else if (e.keyCode == 50 || e.keyCode == 98 || e.key == "2") {
     activatePreset(presets[1]);
-  } else if (e.keyCode == 51 || e.keyCode == 99 /* 3 */) {
+  } else if (e.keyCode == 51 || e.keyCode == 99 || e.key == "3") {
     activatePreset(presets[2]);
-  } else if (e.keyCode == 52 || e.keyCode == 100 /* 4 */) {
+  } else if (e.keyCode == 52 || e.keyCode == 100 || e.key == "4") {
     activatePreset(presets[3]);
-  //} else if (e.keyCode == 57 || e.keyCode == 105 /* 9 */) {
+  //} else if (e.keyCode == 57 || e.keyCode == 105 || e.key == "9") {
   }
 });
 

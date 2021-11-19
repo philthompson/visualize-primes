@@ -1869,6 +1869,14 @@ function resetGoToCenterValues() {
   inputGotoScale.value = infNumToFloat(historyParams.scale);
 }
 
+function replaceAllEachChar(subject, replaceThese, replaceWith) {
+  var s = subject;
+  for (let i = 0; i < replaceThese.length; i++) {
+    s = s.replaceAll(replaceThese.charAt(i), replaceWith);
+  }
+  return s;
+}
+
 function applyGoToBoundsValues() {
   let leftX, rightX, topY, bottomY;
   try {
@@ -1888,13 +1896,13 @@ function applyGoToBoundsValues() {
     return;
   }
   try {
-    topY = createInfNum(inputGotoTopLeftY.value.replaceAll(",", "").replaceAll("i", "").replaceAll("I", ""));
+    topY = createInfNum(replaceAllEachChar(inputGotoTopLeftY.value, ",iI ", ""));
   } catch (e) {
     alert("Invalid top left x value");
     return;
   }
   try {
-    bottomY = createInfNum(inputGotoBotRightY.value.replaceAll(",", "").replaceAll("i", "").replaceAll("I", ""));
+    bottomY = createInfNum(replaceAllEachChar(inputGotoBotRightY.value, ",iI ", ""));
   } catch (e) {
     alert("Invalid bottom right x value");
     return;
@@ -1935,7 +1943,7 @@ function applyGoToCenterValues() {
     return;
   }
   try {
-    historyParams.centerY = createInfNum(inputGotoCenterY.value.replaceAll(",", "").replaceAll("i", "").replaceAll("I", ""));
+    historyParams.centerY = createInfNum(replaceAllEachChar(inputGotoCenterY.value, ",iI ", ""));
   } catch (e) {
     alert("Invalid center y value");
     return;

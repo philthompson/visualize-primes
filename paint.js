@@ -12,6 +12,7 @@ var pinch = false;
 var pinchStartDist = 0;
 var showMousePosition = false;
 var shiftPressed = false;
+var commandPressed = false;
 
 var historyParams = {};
 var replaceStateTimeout = null;
@@ -2414,8 +2415,13 @@ function sanityCheckLineWidth(w, circular, plot) {
 }
 
 window.addEventListener("keyup", function(e) {
-  if (e.keyCode == 16 || e.key == "Shift") {
+  if (e.key == "Shift" || e.keyCode == 16) {
     shiftPressed = false;
+  } else if (
+      e.key == "Meta"    || e.keyCode == 224 ||
+      e.key == "Alt"     || e.keyCode == 18 ||
+      e.key == "Control" || e.keyCode == 17) {
+    commandPressed = false;
   }
 });
 
@@ -2449,6 +2455,11 @@ window.addEventListener("keydown", function(e) {
 
   if (e.keyCode == 16 || e.key == "Shift") {
     shiftPressed = true;
+  } else if (
+      e.key == "Meta"    || e.keyCode == 224 ||
+      e.key == "Alt"     || e.keyCode == 18 ||
+      e.key == "Control" || e.keyCode == 17) {
+    commandPressed = true;
   } else if (e.keyCode == 39 || e.key == "ArrowRight") {
     panPercentOfPixels(true, -0.01);
     redraw();
@@ -2474,14 +2485,20 @@ window.addEventListener("keydown", function(e) {
     panPercentOfPixels(false, -0.1);
     redraw();
   } else if (e.keyCode == 61 || e.keyCode == 107 || e.key == "+") {
-    applyParamPercent("scale", "1.01");
-    redraw();
-  } else if (e.keyCode == 173 || e.keyCode == 109 || e.key == "-") {
-    applyParamPercent("scale", "0.99");
-    if (infNumLt(historyParams.scale, infNum(1n, -2n))) {
-      historyParams.scale = createInfNum("0.01");
+    // command/control and plus does browser zoom, so don't do anything on this combination
+    if (!commandPressed) {
+      applyParamPercent("scale", "1.01");
+      redraw();
     }
-    redraw();
+  } else if (e.keyCode == 173 || e.keyCode == 109 || e.key == "-") {
+    // command/control and minus does browser zoom, so don't do anything on this combination
+    if (!commandPressed) {
+      applyParamPercent("scale", "0.99");
+      if (infNumLt(historyParams.scale, infNum(1n, -2n))) {
+        historyParams.scale = createInfNum("0.01");
+      }
+      redraw();
+    }
   } else if (e.keyCode == 69 || e.key == "e" || e.key == "E") {
     applyParamPercent("scale", "1.05");
     redraw();

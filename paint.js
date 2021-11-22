@@ -2467,6 +2467,10 @@ window.addEventListener("resize", function() {
 var mouseDownHandler = function(e) {
   // this might help prevent strange ios/mobile weirdness
   e.preventDefault();
+  // ignore right- and middle-click
+  if ("button" in e && e.button != 0) {
+    return;
+  }
   if (shiftPressed) {
     let pixX = createInfNum(Math.round(e.pageX - (dCanvas.width / 2)).toString());
     let pixY = createInfNum(Math.round((dCanvas.height - e.pageY) - (dCanvas.height / 2)).toString());

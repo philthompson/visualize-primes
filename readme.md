@@ -1,8 +1,10 @@
 ### Visualize Primes
 
-Javascript tool that draws an image using a sequence of integers.
+JavaScript viewer for the Mandelbrot set, and other plots.  It started as a viewer of the sequence of prime numbers.
 
-A continuous line is drawn.  The line continues straight 1 unit for each non-prime integer.  When an integer is prime, the line turns, then continues 1 unit.
+The latest "release" of this viewer is available on the "Very Plotter" page on my blog:
+
+https://philthompson.me/very-plotter
 
 ### License
 

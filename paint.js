@@ -57,7 +57,7 @@ const windowCalc = {
 };
 var windowCalcRepeat = 0;
 var windowCalcTimes = [];
-var imageParametersCaption = true;
+var imageParametersCaption = false;
 
 const inputGotoTopLeftX = document.getElementById("go-to-tl-x");
 const inputGotoTopLeftY = document.getElementById("go-to-tl-y");
@@ -2301,6 +2301,10 @@ function drawColorPoints(windowPoints) {
   dContext.putImageData(pixelsImage, 0, 0);
 }
 
+function repaintOnly() {
+  dContext.putImageData(windowCalc.pixelsImage, 0, 0);
+}
+
 function drawCalculatingNotice(ctx) {
   const canvas = ctx.canvas;
   ctx.fillStyle = "rgba(100,100,100,1.0)";
@@ -2321,12 +2325,12 @@ function drawMousePosNotice(x, y) {
   const noticeHeight = Math.max(24, canvas.height * 0.03);
   const textHeight = Math.round(noticeHeight * 0.6);
   const noticeWidth = Math.max(200, textHeight * 18);
-  ctx.fillRect(0,canvas.height-noticeHeight,noticeWidth, noticeHeight);
+  ctx.fillRect(0,canvas.height-noticeHeight-noticeHeight,noticeWidth, noticeHeight);
   ctx.font = textHeight + "px system-ui";
   ctx.fillStyle = "rgba(0,0,0,0.9)";
   let xRound = Math.round(x * 100.0) / 100.0;
   let yRound = Math.round(y * 100.0) / 100.0;
-  ctx.fillText("(" + xRound + ", " + yRound + ")", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
+  ctx.fillText("(" + xRound + ", " + yRound + ")", Math.round(noticeHeight*0.2), canvas.height - noticeHeight - Math.round(noticeHeight* 0.2));
 }
 
 function drawImageParameters() {
@@ -2615,6 +2619,21 @@ window.addEventListener("keydown", function(e) {
       closeMenu();
     } else {
       openMenu();
+    }
+  } else if (e.key == "r" || e.key == "R" || e.keyCode == 82) {
+    showMousePosition = !showMousePosition;
+    if (!showMousePosition) {
+      repaintOnly();
+      if (imageParametersCaption) {
+        drawImageParameters();
+      }
+    }
+  } else if (e.key == "t" || e.key == "T" || e.keyCode == 84) {
+    imageParametersCaption = !imageParametersCaption;
+    if (imageParametersCaption) {
+      drawImageParameters();
+    } else {
+      repaintOnly();
     }
   } else if (e.keyCode == 49 || e.keyCode == 97 || e.key == "1") {
     activatePreset(presets[0]);

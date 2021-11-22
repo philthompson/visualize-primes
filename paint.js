@@ -51,7 +51,9 @@ const windowCalc = {
   "leftEdgeFloat": 0.0,
   "topEdgeFloat": 0.0,
   "n": 1,
-  "scale": infNum(1n, 0n)
+  "scale": infNum(1n, 0n),
+  "runtimeMs": -1,
+  "avgRuntimeMs": -1
 };
 var windowCalcRepeat = 0;
 var windowCalcTimes = [];
@@ -1926,6 +1928,8 @@ function resetWindowCalcContext() {
   windowCalc.cachedPoints = 0;
   windowCalc.chunksComplete = 0;
   windowCalc.totalChunks = 0;
+  windowCalc.runtimeMs = -1;
+  windowCalc.avgRuntimeMs = -1;
 
   const two = infNum(2n, 0n);
 
@@ -2167,6 +2171,7 @@ function waitAndDrawWindow() {
   if (windowLogTiming) {
     windowCalc.endTimeMs = Date.now();
     const overallTimeMs = windowCalc.endTimeMs - windowCalc.startTimeMs;
+    windowCalc.runtimeMs = overallTimeMs;
     // output overall timing info
     console.log("COMPLETED image [" +
       "w:" + dCanvas.width + ", " +
@@ -2208,7 +2213,8 @@ function waitAndDrawWindow() {
         num++;
       }
       if (num > 0) {
-        console.log("excluding max [" + maxTime + "] and min [" + minTime + "], the average overall time of [" + num + "] images was [" + (sum/num) + "] ms");
+        windowCalc.avgRuntimeMs = (sum/num);
+        console.log("excluding max [" + maxTime + "] and min [" + minTime + "], the average overall time of [" + num + "] images was [" + windowCalc.avgRuntimeMs + "] ms");
       }
     }
   }
@@ -2338,8 +2344,14 @@ function drawImageParameters() {
     ["  iter", historyParams.n.toString()],
     [" color", historyParams.lineColor],
     [" bgclr", historyParams.bgColor],
-    ["precis", truncateLength.toString()]
+    ["precis", truncateLength.toString()],
   ];
+  if (windowCalc.runtimeMs > 0) {
+    entries.push(["run ms", windowCalc.runtimeMs.toString()])
+  }
+  if (windowCalc.avgRuntimeMs > 0) {
+    entries.push(["avg ms", windowCalc.avgRuntimeMs.toString()])
+  }
   for (let i = 0; i < entries.length; i++) {
     const entryLabel = entries[i][0];
     let entryValue = entries[i][1];

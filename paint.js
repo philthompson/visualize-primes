@@ -54,6 +54,7 @@ const windowCalc = {
 };
 var windowCalcRepeat = 0;
 var windowCalcTimes = [];
+var imageParametersCaption = true;
 
 const inputGotoTopLeftX = document.getElementById("go-to-tl-x");
 const inputGotoTopLeftY = document.getElementById("go-to-tl-y");
@@ -2183,6 +2184,7 @@ function waitAndDrawWindow() {
       windowCalcRepeat -= 1;
       resetWindowCalcCache();
       redraw();
+      return;
     } else {
       windowCalcTimes.push(overallTimeMs);
       let maxTime = 0;
@@ -2229,6 +2231,11 @@ function waitAndDrawWindow() {
   }
   const deletedPct = Math.round(cachedPointsToDelete.length * 10000.0 / (cachedPointsToDelete.length + cachedPointsKept)) / 100.0;
   console.log("deleted [" + cachedPointsToDelete.length + "] points from the cache (" + deletedPct + "%)");
+
+  // draw image parameteres
+  if (imageParametersCaption) {
+    drawImageParameters();
+  }
 }
 
 function drawColorPoints(windowPoints) {
@@ -2313,6 +2320,41 @@ function drawMousePosNotice(x, y) {
   let xRound = Math.round(x * 100.0) / 100.0;
   let yRound = Math.round(y * 100.0) / 100.0;
   ctx.fillText("(" + xRound + ", " + yRound + ")", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
+}
+
+function drawImageParameters() {
+  const canvas = dCanvas;
+  const ctx = dContext;
+  const noticeHeight = Math.max(16, canvas.height * 0.01);
+  const textHeight = Math.round(noticeHeight * 0.6);
+  const noticeWidth = Math.max(200, textHeight * 18);
+  const lines = [];
+  const paramLengthLimit = 22;
+  let entries = [
+    ["x (re)", infNumSci(historyParams.centerX)],
+    ["y (im)", infNumSci(historyParams.centerY)],
+    [" scale", infNumSci(historyParams.scale)],
+    ["  iter", historyParams.n.toString()],
+    [" color", historyParams.lineColor],
+    [" bgclr", historyParams.bgColor],
+    ["precis", truncateLength.toString()]
+  ];
+  for (let i = 0; i < entries.length; i++) {
+    const entryLabel = entries[i][0];
+    let entryValue = entries[i][1];
+    lines.push(entryLabel + ": " + entryValue.substring(0,paramLengthLimit));
+    while (entryValue.length > paramLengthLimit) {
+      entryValue = entryValue.substring(paramLengthLimit);
+      lines.push("        " + entryValue.substring(0,paramLengthLimit));
+    }
+  }
+  ctx.font = textHeight + "px monospace";
+  for (let i = lines.length - 1, j = 0; i >= 0; i--, j++) {
+    ctx.fillStyle = "rgba(100,100,100,1.0)";
+    ctx.fillRect(canvas.width - noticeWidth, canvas.height - (noticeHeight * (j+1)), noticeWidth, noticeHeight);
+    ctx.fillStyle = "rgba(0,0,0,0.9)";
+    ctx.fillText(lines[i], canvas.width - noticeWidth + Math.round(noticeHeight*0.2), canvas.height - (noticeHeight * j) - Math.round(noticeHeight* 0.2));
+  }
 }
 
 // take the visible number of pixels

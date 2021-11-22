@@ -20,6 +20,7 @@ var resizeTimeout = null;
 var helpVisible = false;
 var menuVisible = false;
 
+const doUnitTests = true;
 const windowLogTiming = true;
 const mandelbrotCircleHeuristic = false;
 var truncateLength = 24;
@@ -74,7 +75,7 @@ function infNum(value, exponent) {
   return {"v": value, "e": exponent};
 }
 
-function trimZeroes(stringNum) {
+function trimZeroesOld(stringNum) {
   var trimmed = stringNum.trim();
   const negative = trimmed.startsWith('-');
   if (negative) {
@@ -99,23 +100,75 @@ function trimZeroes(stringNum) {
   return parts[0] + "." + parts[1];
 }
 
-var unitTest = trimZeroes("50000");
-console.log("trimZeroes(\"50000\") = [" + unitTest + "] // 50000");
+function trimZeroes(stringNum) {
+  var parts = stringNum.trim().split('.');
+  const negative = parts[0].startsWith('-');
+  if (negative) {
+    parts[0] = parts[0].substr(1);
+  }
+  let leadingZeroes = 0;
+  for (let i = 0; i < parts[0].length - 1; i++) {
+    if (parts[0].charAt(i) === '0') {
+      leadingZeroes++;
+    } else {
+      break;
+    }
+  }
+  parts[0] = parts[0].substring(leadingZeroes);
+  if (parts[0].length == 0) {
+    parts[0] = "0";
+  }
+  if (negative) {
+    parts[0] = "-" + parts[0];
+  }
+  if (parts.length == 1 || parts[1].length == 0) {
+    return parts[0];
+  }
+  let trailingZeroes = 0;
+  for (let i = parts[1].length - 1; i >= 0; i--) {
+    if (parts[1].charAt(i) === '0') {
+      trailingZeroes--;
+    } else {
+      break;
+    }
+  }
+  if (trailingZeroes < 0) {
+    parts[1] = parts[1].slice(0, trailingZeroes);
+    if (parts[1].length == 0) {
+      return parts[0];
+    }
+  }
+  return parts[0] + "." + parts[1];
+}
 
-unitTest = trimZeroes("050");
-console.log("trimZeroes(\"050\") = [" + unitTest + "] // 50");
+if (doUnitTests) {
+  let unitTest = "50000";
+  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 50000");
 
-unitTest = trimZeroes("-050");
-console.log("trimZeroes(\"-050\") = [" + unitTest + "] // -50");
+  unitTest = "050";
+  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 50");
 
-unitTest = trimZeroes("-022.00");
-console.log("trimZeroes(\"-022.00\") = [" + unitTest + "] // -22");
+  unitTest = "-050";
+  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // -50");
 
-unitTest = trimZeroes("022.002200");
-console.log("trimZeroes(\"022.002200\") = [" + unitTest + "] // 22.0022");
+  unitTest = "-022.00";
+  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // -22");
 
-unitTest = trimZeroes("-22.002200");
-console.log("trimZeroes(\"-22.002200\") = [" + unitTest + "] // -22.0022");
+  unitTest = "022.002200";
+  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 22.0022");
+
+  unitTest = "-22.002200";
+  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // -22.0022");
+
+  unitTest = "000.002200";
+  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 0.0022");
+
+  unitTest = "-.0022";
+  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // -0.0022");
+
+  unitTest = "5.";
+  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 5");
+}
 
 function createInfNum(stringNum) {
   var trimmed = trimZeroes(stringNum);
@@ -126,14 +179,16 @@ function createInfNum(stringNum) {
   return infNum(BigInt(parts[0] + "" + parts[1]), BigInt("-" + parts[1].length));
 }
 
-console.log(createInfNum("0.0"));
-console.log(createInfNum("0"));
-console.log(createInfNum("123"));
-console.log(createInfNum("123.456"));
-console.log(createInfNum("  3 "));
-console.log(createInfNum("  123456789.000000000012345"));
-console.log(createInfNum("  -4.00321"));
-console.log(createInfNum("  -0.009 "));
+if (doUnitTests) {
+  console.log(createInfNum("0.0"));
+  console.log(createInfNum("0"));
+  console.log(createInfNum("123"));
+  console.log(createInfNum("123.456"));
+  console.log(createInfNum("  3 "));
+  console.log(createInfNum("  123456789.000000000012345"));
+  console.log(createInfNum("  -4.00321"));
+  console.log(createInfNum("  -0.009 "));
+}
 
 // after a quick test this seems to actually create a copy
 function copyInfNum(n) {
@@ -147,17 +202,19 @@ function infNumMul(a, b) {
   return infNum(a.v * b.v, a.e + b.e);
 }
 
-console.log("100 * 1.5 = ... // 150 (1500, -1)");
-console.log(infNumMul(createInfNum("100"), createInfNum("1.5")));
+if (doUnitTests) {
+  console.log("100 * 1.5 = ... // 150 (1500, -1)");
+  console.log(infNumMul(createInfNum("100"), createInfNum("1.5")));
 
-console.log("123.5 * 1.5 = ... // 185.25 (18525, -2)");
-console.log(infNumMul(createInfNum("123.5"), createInfNum("1.5")));
+  console.log("123.5 * 1.5 = ... // 185.25 (18525, -2)");
+  console.log(infNumMul(createInfNum("123.5"), createInfNum("1.5")));
 
-console.log("123.5 * 1.5 = ... // 185.25 (18525, -2)");
-console.log(infNumMul(createInfNum("123.5"), createInfNum("1.5")));
+  console.log("123.5 * 1.5 = ... // 185.25 (18525, -2)");
+  console.log(infNumMul(createInfNum("123.5"), createInfNum("1.5")));
 
-console.log("15000 * 0.0006 = ... // 9 (9, 0)");
-console.log(infNumMul(createInfNum("15000"), createInfNum("0.0006")));
+  console.log("15000 * 0.0006 = ... // 9 (9, 0)");
+  console.log(infNumMul(createInfNum("15000"), createInfNum("0.0006")));
+}
 
 // adjust the exponents to make them the same, by
 //   increasing the value part of the InfNum with the
@@ -191,14 +248,16 @@ function normInfNum(argA, argB) {
   return [s, newL];
 }
 
-console.log("100 and 123.456"); // (100000, -3) and (123456, -3)
-console.log(normInfNum(createInfNum("100"), createInfNum("123.456")));
+if (doUnitTests) {
+  console.log("100 and 123.456"); // (100000, -3) and (123456, -3)
+  console.log(normInfNum(createInfNum("100"), createInfNum("123.456")));
 
-console.log("0.0321 and 5"); // (321, -4) and (50000, -4)
-console.log(normInfNum(createInfNum("0.0321"), createInfNum("5")));
+  console.log("0.0321 and 5"); // (321, -4) and (50000, -4)
+  console.log(normInfNum(createInfNum("0.0321"), createInfNum("5")));
 
-console.log("22 and 5"); // (22, 0) and (5, 0)
-console.log(normInfNum(createInfNum("22"), createInfNum("5")));
+  console.log("22 and 5"); // (22, 0) and (5, 0)
+  console.log(normInfNum(createInfNum("22"), createInfNum("5")));
+}
 
 // more optimized way to normalize this number of InfNums with each other
 // no loops, and minimum number of if statements
@@ -246,47 +305,49 @@ function normInPlaceInfNum(argA, b, c, d, e, f) {
   return a;
 }
 
-let testA = infNum(5n, -2n);
-let testB = infNum(5n, -1n);
-let testC = infNum(5n, 0n);
-let testD = infNum(5n, 1n);
-let testE = infNum(5n, 2n);
-let testF = infNum(5n, 3n);
-let normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
-console.log("testA -> (" + normA.v + " ," + normA.e + ")");
-console.log("testB -> (" + testB.v + " ," + testB.e + ")");
-console.log("testC -> (" + testC.v + " ," + testC.e + ")");
-console.log("testD -> (" + testD.v + " ," + testD.e + ")");
-console.log("testE -> (" + testE.v + " ," + testE.e + ")");
-console.log("testF -> (" + testF.v + " ," + testF.e + ")");
+if (doUnitTests) {
+  let testA = infNum(5n, -2n);
+  let testB = infNum(5n, -1n);
+  let testC = infNum(5n, 0n);
+  let testD = infNum(5n, 1n);
+  let testE = infNum(5n, 2n);
+  let testF = infNum(5n, 3n);
+  let normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
+  console.log("testA -> (" + normA.v + " ," + normA.e + ")");
+  console.log("testB -> (" + testB.v + " ," + testB.e + ")");
+  console.log("testC -> (" + testC.v + " ," + testC.e + ")");
+  console.log("testD -> (" + testD.v + " ," + testD.e + ")");
+  console.log("testE -> (" + testE.v + " ," + testE.e + ")");
+  console.log("testF -> (" + testF.v + " ," + testF.e + ")");
 
-testA = infNum(5n, -2n);
-testB = infNum(5n, -11n);
-testC = infNum(5n, -3n);
-testD = infNum(5n, -22n);
-testE = infNum(5n, -2n);
-testF = infNum(5n, -5n);
-normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
-console.log("testA -> (" + normA.v + " ," + normA.e + ")");
-console.log("testB -> (" + testB.v + " ," + testB.e + ")");
-console.log("testC -> (" + testC.v + " ," + testC.e + ")");
-console.log("testD -> (" + testD.v + " ," + testD.e + ")");
-console.log("testE -> (" + testE.v + " ," + testE.e + ")");
-console.log("testF -> (" + testF.v + " ," + testF.e + ")");
+  testA = infNum(5n, -2n);
+  testB = infNum(5n, -11n);
+  testC = infNum(5n, -3n);
+  testD = infNum(5n, -22n);
+  testE = infNum(5n, -2n);
+  testF = infNum(5n, -5n);
+  normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
+  console.log("testA -> (" + normA.v + " ," + normA.e + ")");
+  console.log("testB -> (" + testB.v + " ," + testB.e + ")");
+  console.log("testC -> (" + testC.v + " ," + testC.e + ")");
+  console.log("testD -> (" + testD.v + " ," + testD.e + ")");
+  console.log("testE -> (" + testE.v + " ," + testE.e + ")");
+  console.log("testF -> (" + testF.v + " ," + testF.e + ")");
 
-testA = infNum(5n, 2n);
-testB = infNum(5n, 11n);
-testC = infNum(5n, 3n);
-testD = infNum(5n, 22n);
-testE = infNum(5n, 2n);
-testF = infNum(5n, 5n);
-normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
-console.log("testA -> (" + normA.v + " ," + normA.e + ")");
-console.log("testB -> (" + testB.v + " ," + testB.e + ")");
-console.log("testC -> (" + testC.v + " ," + testC.e + ")");
-console.log("testD -> (" + testD.v + " ," + testD.e + ")");
-console.log("testE -> (" + testE.v + " ," + testE.e + ")");
-console.log("testF -> (" + testF.v + " ," + testF.e + ")");
+  testA = infNum(5n, 2n);
+  testB = infNum(5n, 11n);
+  testC = infNum(5n, 3n);
+  testD = infNum(5n, 22n);
+  testE = infNum(5n, 2n);
+  testF = infNum(5n, 5n);
+  normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
+  console.log("testA -> (" + normA.v + " ," + normA.e + ")");
+  console.log("testB -> (" + testB.v + " ," + testB.e + ")");
+  console.log("testC -> (" + testC.v + " ," + testC.e + ")");
+  console.log("testD -> (" + testD.v + " ," + testD.e + ")");
+  console.log("testE -> (" + testE.v + " ," + testE.e + ")");
+  console.log("testF -> (" + testF.v + " ," + testF.e + ")");
+}
 
 
 // copies values from a and b, so the given objects are never modified
@@ -295,14 +356,16 @@ function infNumAdd(a, b) {
   return infNum(norm[0].v + norm[1].v, norm[0].e);
 }
 
-console.log("100 + 1.5 = ... // 101.5 (1015, -1)");
-console.log(infNumAdd(createInfNum("100"), createInfNum("1.5")));
+if (doUnitTests) {
+  console.log("100 + 1.5 = ... // 101.5 (1015, -1)");
+  console.log(infNumAdd(createInfNum("100"), createInfNum("1.5")));
 
-console.log("123 + 0.456 = ... // 123.456 (123456, -3)");
-console.log(infNumAdd(createInfNum("123"), createInfNum("0.456")));
+  console.log("123 + 0.456 = ... // 123.456 (123456, -3)");
+  console.log(infNumAdd(createInfNum("123"), createInfNum("0.456")));
 
-console.log("0.00001 + 5.05 = ... // 5.05001 (505001, -5)");
-console.log(infNumAdd(createInfNum("0.00001"), createInfNum("5.05")));
+  console.log("0.00001 + 5.05 = ... // 5.05001 (505001, -5)");
+  console.log(infNumAdd(createInfNum("0.00001"), createInfNum("5.05")));
+}
 
 // assumes arguments have the same exponent
 function infNumAddNorm(a, b) {
@@ -315,14 +378,16 @@ function infNumSub(a, b) {
   return infNum(norm[0].v - norm[1].v, norm[0].e);
 }
 
-console.log("100 - 1.5 = ... // 98.5 (985, -1)");
-console.log(infNumSub(createInfNum("100"), createInfNum("1.5")));
+if (doUnitTests) {
+  console.log("100 - 1.5 = ... // 98.5 (985, -1)");
+  console.log(infNumSub(createInfNum("100"), createInfNum("1.5")));
 
-console.log("123 - 0.01 = ... // 122.99 (12299, -2)");
-console.log(infNumSub(createInfNum("123"), createInfNum("0.01")));
+  console.log("123 - 0.01 = ... // 122.99 (12299, -2)");
+  console.log(infNumSub(createInfNum("123"), createInfNum("0.01")));
 
-console.log("0.00001 - 50 = ... // -49.99999 (-4999999, -5)");
-console.log(infNumSub(createInfNum("0.00001"), createInfNum("50")));
+  console.log("0.00001 - 50 = ... // -49.99999 (-4999999, -5)");
+  console.log(infNumSub(createInfNum("0.00001"), createInfNum("50")));
+}
 
 // assumes arguments have the same exponent
 function infNumSubNorm(a, b) {
@@ -350,21 +415,23 @@ function infNumDiv(argA, argB) {
   return infNumAdd(truncated, remTrunc);
 }
 
-var unitTest = infNumDiv(createInfNum("50000"), createInfNum("20"));
-console.log("50000 / 20 = [" + infNumToString(unitTest) + "] // 2500 (25, 2)");
-console.log(unitTest);
+if (doUnitTests) {
+  let unitTest = infNumDiv(createInfNum("50000"), createInfNum("20"));
+  console.log("50000 / 20 = [" + infNumToString(unitTest) + "] // 2500 (25, 2)");
+  console.log(unitTest);
 
-unitTest = infNumDiv(createInfNum("100"), createInfNum("7"));
-console.log("100 / 7 = [" + infNumToString(unitTest) + "] // 14.28571428571428...");
-console.log(unitTest);
+  unitTest = infNumDiv(createInfNum("100"), createInfNum("7"));
+  console.log("100 / 7 = [" + infNumToString(unitTest) + "] // 14.28571428571428...");
+  console.log(unitTest);
 
-unitTest = infNumDiv(createInfNum("100"), createInfNum("64"));
-console.log("100 / 64 = [" + infNumToString(unitTest) + "] // 1.5625 (15625, -4)");
-console.log(unitTest);
+  unitTest = infNumDiv(createInfNum("100"), createInfNum("64"));
+  console.log("100 / 64 = [" + infNumToString(unitTest) + "] // 1.5625 (15625, -4)");
+  console.log(unitTest);
 
-unitTest = infNumDiv(createInfNum("1302"), createInfNum("10.5"));
-console.log("1302 / 10.5 = [" + infNumToString(unitTest) + "] // 124");
-console.log(unitTest);
+  unitTest = infNumDiv(createInfNum("1302"), createInfNum("10.5"));
+  console.log("1302 / 10.5 = [" + infNumToString(unitTest) + "] // 124");
+  console.log(unitTest);
+}
 
 function infNumEq(a, b) {
   const normalized = normInfNum(a, b);
@@ -395,23 +462,25 @@ function infNumGtNorm(a, b) {
   return a.v > b.v;
 }
 
-console.log("100 < 123.456 // true");
-console.log(infNumLt(createInfNum("100"), createInfNum("123.456")));
+if (doUnitTests) {
+  console.log("100 < 123.456 // true");
+  console.log(infNumLt(createInfNum("100"), createInfNum("123.456")));
 
-console.log("0.0321 > 5 // false");
-console.log(infNumGt(createInfNum("0.0321"), createInfNum("5")));
+  console.log("0.0321 > 5 // false");
+  console.log(infNumGt(createInfNum("0.0321"), createInfNum("5")));
 
-console.log("5 > 0.0321 // true");
-console.log(infNumGt(createInfNum("5"), createInfNum("0.0321")));
+  console.log("5 > 0.0321 // true");
+  console.log(infNumGt(createInfNum("5"), createInfNum("0.0321")));
 
-console.log("22 === 5 // false");
-console.log(infNumEq(createInfNum("22"), createInfNum("5")));
+  console.log("22 === 5 // false");
+  console.log(infNumEq(createInfNum("22"), createInfNum("5")));
 
-console.log("-22 > 5 // false");
-console.log(infNumGt(createInfNum("-22"), createInfNum("5")));
+  console.log("-22 > 5 // false");
+  console.log(infNumGt(createInfNum("-22"), createInfNum("5")));
 
-console.log("-22 <= -22.0000 // true");
-console.log(infNumLe(createInfNum("-22"), createInfNum("-22.0000")));
+  console.log("-22 <= -22.0000 // true");
+  console.log(infNumLe(createInfNum("-22"), createInfNum("-22.0000")));
+}
 
 function infNumToString(n) {
   var value = n.v.toString();
@@ -451,29 +520,66 @@ function infNumToString(n) {
   return trimZeroes(value + "." + dec);
 }
 
-console.log("(22,0) // 22");
-console.log(infNumToString(infNum(22n, 0n)));
+if (doUnitTests) {
+  console.log("(22,0) // 22");
+  console.log(infNumToString(infNum(22n, 0n)));
 
-console.log("(22,1) // 220");
-console.log(infNumToString(infNum(22n, 1n)));
+  console.log("(22,1) // 220");
+  console.log(infNumToString(infNum(22n, 1n)));
 
-console.log("22,-1) // 2.2");
-console.log(infNumToString(infNum(22n, -1n)));
+  console.log("22,-1) // 2.2");
+  console.log(infNumToString(infNum(22n, -1n)));
 
-console.log("22,-2) // 0.22");
-console.log(infNumToString(infNum(22n, -2n)));
+  console.log("22,-2) // 0.22");
+  console.log(infNumToString(infNum(22n, -2n)));
 
-console.log("22,-4) // 0.0022");
-console.log(infNumToString(infNum(22n, -4n)));
+  console.log("22,-4) // 0.0022");
+  console.log(infNumToString(infNum(22n, -4n)));
 
-console.log("(-22,0) // -22");
-console.log(infNumToString(infNum(-22n, 0n)));
+  console.log("(-22,0) // -22");
+  console.log(infNumToString(infNum(-22n, 0n)));
 
-console.log("(-22,1) // -220");
-console.log(infNumToString(infNum(-22n, 1n)));
+  console.log("(-22,1) // -220");
+  console.log(infNumToString(infNum(-22n, 1n)));
 
-console.log("-22,-4) // -0.0022");
-console.log(infNumToString(infNum(-22n, -4n)));
+  console.log("-22,-4) // -0.0022");
+  console.log(infNumToString(infNum(-22n, -4n)));
+}
+
+function infNumSci(n) {
+  return infNumSci(n, -1);
+}
+
+function infNumSci(n, truncDecimals) {
+  var value = n.v.toString();
+  let negative = false;
+  if (n.v < 0) {
+    negative = true;
+    value = value.substring(1);
+  }
+  let bd = value.length;
+  let ad = value.length - 1;
+  let finalExponent = n.e + BigInt(ad.toString());
+  let decimal = trimZeroes(value.substring(0, 1) + "." + value.substring(1));
+  if (!decimal.includes(".")) {
+    decimal = decimal + ".0";
+  }
+  if (truncDecimals > 0) {
+    decimal = decimal.substring(0, truncDecimals + 2);
+  }
+  if (negative) {
+    decimal = "-" + decimal;
+  }
+  return decimal + "e" + finalExponent.toString();
+}
+
+if (doUnitTests) {
+  let unitTest = "22";
+  console.log("infNumSci(\"" + unitTest + "\") = [" + infNumSci(createInfNum(unitTest)) + "]// 2.2e1");
+
+  unitTest = "123456789";
+  console.log("infNumSci(\"" + unitTest + "\", 5) = [" + infNumSci(createInfNum(unitTest), 5) + "]// 1.23456e8");
+}
 
 function infNumTruncate(n) {
   var a = copyInfNum(n);

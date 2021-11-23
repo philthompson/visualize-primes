@@ -867,7 +867,8 @@ const plots = [{
         truncateLength = 24;
       }
       console.log("set truncateLength to [" + truncateLength + "], using floats for mandelbrot [" + mandelbrotFloat + "]");
-    }
+    },
+    "minScale": createInfNum("20")
   }
 },{
   "name": "Primes-1-Step-90-turn",
@@ -2599,7 +2600,10 @@ window.addEventListener("keydown", function(e) {
     // command/control and minus does browser zoom, so don't do anything on this combination
     if (!commandPressed) {
       applyParamPercent("scale", "0.99");
-      if (infNumLt(historyParams.scale, infNum(1n, -2n))) {
+      if ("minScale" in plotsByName[historyParams.plot].privContext &&
+          infNumLt(historyParams.scale, plotsByName[historyParams.plot].privContext.minScale)) {
+        historyParams.scale = plotsByName[historyParams.plot].privContext.minScale;
+      } else if (infNumLt(historyParams.scale, infNum(1n, -2n))) {
         historyParams.scale = createInfNum("0.01");
       }
       redraw();
@@ -2609,7 +2613,10 @@ window.addEventListener("keydown", function(e) {
     redraw();
   } else if (e.keyCode == 81 || e.key == "q" || e.key == "Q") {
     applyParamPercent("scale", "0.95");
-    if (infNumLt(historyParams.scale, infNum(0n, 0n))) {
+    if ("minScale" in plotsByName[historyParams.plot].privContext &&
+        infNumLt(historyParams.scale, plotsByName[historyParams.plot].privContext.minScale)) {
+      historyParams.scale = plotsByName[historyParams.plot].privContext.minScale;
+    } else if (infNumLt(historyParams.scale, infNum(1n, -2n))) {
       historyParams.scale = createInfNum("0.01");
     }
     redraw();
@@ -2848,6 +2855,10 @@ var mouseMoveHandler = function(e) {
       }
     // for window plots, use full-precision scale
     } else {
+      if ("minScale" in plotsByName[historyParams.plot].privContext &&
+          infNumLt(newScale, plotsByName[historyParams.plot].privContext.minScale)) {
+        return;
+      }
       historyParams.scale = newScale;
     }
 
@@ -2898,6 +2909,10 @@ dCanvas.addEventListener("wheel", function(e) {
     }
   // for window plots, use full-precision scale, though truncate later when writing in the URL
   } else {
+    if ("minScale" in plotsByName[historyParams.plot].privContext &&
+        infNumLt(newScale, plotsByName[historyParams.plot].privContext.minScale)) {
+      return;
+    }
     historyParams.scale = newScale;
   }
 

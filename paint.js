@@ -176,12 +176,25 @@ if (doUnitTests) {
 }
 
 function createInfNum(stringNum) {
-  var trimmed = trimZeroes(stringNum);
-  const parts = trimmed.split('.');
-  if (parts.length == 1) {
-    return infNum(BigInt(parts[0]), 0n);
+  if (stringNum.includes("e") || stringNum.includes("E")) {
+    const split = replaceAllEachChar(stringNum, ", ", "").replaceAll("E", "e").split("e");
+    let value = split[0];
+    let exponent = 0;
+    if (value.includes(".")) {
+      let valSplit = value.split(".");
+      exponent -= valSplit[1].length;
+      value = valSplit[0] + valSplit[1];
+    }
+    exponent += parseInt(split[1]);
+    return infNum(BigInt(value), BigInt(exponent));
+  } else {
+    var trimmed = trimZeroes(stringNum);
+    const parts = trimmed.split('.');
+    if (parts.length == 1) {
+      return infNum(BigInt(parts[0]), 0n);
+    }
+    return infNum(BigInt(parts[0] + "" + parts[1]), BigInt("-" + parts[1].length));
   }
-  return infNum(BigInt(parts[0] + "" + parts[1]), BigInt("-" + parts[1].length));
 }
 
 if (doUnitTests) {
@@ -193,6 +206,25 @@ if (doUnitTests) {
   console.log(createInfNum("  123456789.000000000012345"));
   console.log(createInfNum("  -4.00321"));
   console.log(createInfNum("  -0.009 "));
+  let unitTest = "123e4";
+  console.log("createInfNum(" + unitTest + ") = ... // (123n, 4n)");
+  console.log(createInfNum(unitTest));
+
+  unitTest = "1.23e4";
+  console.log("createInfNum(" + unitTest + ") = ... // (123n, 2n)");
+  console.log(createInfNum(unitTest));
+
+  unitTest = "5. E22";
+  console.log("createInfNum(" + unitTest + ") = ... // (5n, 22n)");
+  console.log(createInfNum(unitTest));
+
+  unitTest = "  1.23 e -10";
+  console.log("createInfNum(" + unitTest + ") = ... // (123n, -12n)");
+  console.log(createInfNum(unitTest));
+
+  unitTest = "  1,234 E -10";
+  console.log("createInfNum(" + unitTest + ") = ... // (1234n, -10n)");
+  console.log(createInfNum(unitTest));
 }
 
 // after a quick test this seems to actually create a copy
@@ -551,11 +583,15 @@ if (doUnitTests) {
   console.log(infNumToString(infNum(-22n, -4n)));
 }
 
-function infNumSci(n) {
-  return infNumSci(n, -1);
+function infNumExpString(n) {
+  return infNumExpStringTruncToLen(n, -1);
 }
 
-function infNumSci(n, truncDecimals) {
+function infNumExpStringTrunc(n) {
+  return infNumExpStringTruncToLen(n, truncateLength);
+}
+
+function infNumExpStringTruncToLen(n, truncDecimals) {
   var value = n.v.toString();
   let negative = false;
   if (n.v < 0) {
@@ -580,10 +616,10 @@ function infNumSci(n, truncDecimals) {
 
 if (doUnitTests) {
   let unitTest = "22";
-  console.log("infNumSci(\"" + unitTest + "\") = [" + infNumSci(createInfNum(unitTest)) + "]// 2.2e1");
+  console.log("infNumExpString(\"" + unitTest + "\") = [" + infNumExpString(createInfNum(unitTest)) + "]// 2.2e1");
 
   unitTest = "123456789";
-  console.log("infNumSci(\"" + unitTest + "\", 5) = [" + infNumSci(createInfNum(unitTest), 5) + "]// 1.23456e8");
+  console.log("infNumExpStringTruncToLen(\"" + unitTest + "\", 5) = [" + infNumExpStringTruncToLen(createInfNum(unitTest), 5) + "]// 1.23456e8");
 }
 
 function infNumTruncate(n) {
@@ -1758,9 +1794,9 @@ function setDScaleVars(dCtx) {
 //   and the rest will be populated with standard values as part of parseUrlParams()
 function replaceHistoryWithParams(params) {
   var paramsCopy = Object.assign({}, params);
-  paramsCopy.scale = infNumToString(infNumTruncate(params.scale));
-  paramsCopy.centerX = infNumToString(infNumTruncate(params.centerX));
-  paramsCopy.centerY = infNumToString(infNumTruncate(params.centerY));
+  paramsCopy.scale = infNumExpStringTrunc(params.scale);
+  paramsCopy.centerX = infNumExpStringTrunc(params.centerX);
+  paramsCopy.centerY = infNumExpStringTrunc(params.centerY);
   history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
   replaceStateTimeout = null;
 }
@@ -1771,9 +1807,9 @@ var replaceHistory = function() {
 
 var pushToHistory = function() {
   var paramsCopy = Object.assign({}, historyParams);
-  paramsCopy.scale = infNumToString(infNumTruncate(historyParams.scale));
-  paramsCopy.centerX = infNumToString(infNumTruncate(historyParams.centerX));
-  paramsCopy.centerY = infNumToString(infNumTruncate(historyParams.centerY));
+  paramsCopy.scale = infNumExpStringTrunc(historyParams.scale);
+  paramsCopy.centerX = infNumExpStringTrunc(historyParams.centerX);
+  paramsCopy.centerY = infNumExpStringTrunc(historyParams.centerY);
   // no need to replaceState() here -- we'll replaceState() on param
   //   changes except for mouse dragging, which happen too fast
   history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
@@ -2391,9 +2427,9 @@ function drawImageParameters() {
   const lines = [];
   const paramLengthLimit = 22;
   let entries = [
-    ["x (re)", infNumSci(historyParams.centerX)],
-    ["y (im)", infNumSci(historyParams.centerY)],
-    [" scale", infNumSci(historyParams.scale)],
+    ["x (re)", infNumExpString(historyParams.centerX)],
+    ["y (im)", infNumExpString(historyParams.centerY)],
+    [" scale", infNumExpString(historyParams.scale)],
     ["  iter", historyParams.n.toString()],
     [" color", historyParams.lineColor],
     [" bgclr", historyParams.bgColor]

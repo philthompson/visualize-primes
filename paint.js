@@ -25,6 +25,7 @@ const doUnitTests = true;
 const windowLogTiming = true;
 const mandelbrotCircleHeuristic = false;
 var truncateLength = 24;
+var mandelbrotFloat = false;
 const windowCalcIgnorePointColor = -2;
 
 const windowCalc = {
@@ -616,6 +617,38 @@ const plots = [{
   "computeBoundPointColor": function(privContext, x, y) {
     const maxIter = historyParams.n;
 
+    if (mandelbrotFloat) {
+      const saveTruncateLength = truncateLength;
+      truncateLength = 16;
+      let xFloat = parseFloat(infNumToString(infNumTruncate(x)));
+      let yFloat = parseFloat(infNumToString(infNumTruncate(y)));
+      truncateLength = saveTruncateLength;
+      let ix = 0;
+      let iy = 0;
+      let ixSq = 0;
+      let iySq = 0;
+      let ixTemp = 0;
+      let iter = 0;
+      while (iter < maxIter) {
+        ixSq = ix * ix;
+        iySq = iy * iy;
+        if (ixSq + iySq > 4) {
+          break;
+        }
+        ixTemp = xFloat + (ixSq - iySq);
+        iy = yFloat + (2 * ix * iy);
+        ix = ixTemp;
+        iter++;
+      }
+
+      if (iter == maxIter) {
+        return -1.0; // background color
+      } else {
+        //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
+        return privContext.applyColorCurve(iter / maxIter);
+      }
+    }
+
     // circle heuristics to speed up zoomed-out viewing
     if (mandelbrotCircleHeuristic) {
       for (var i = 0; i < privContext.circles.length; i++) {
@@ -784,13 +817,19 @@ const plots = [{
       // these values need more testing to ensure they create pixel-identical images
       //   to higher-precision images
       if (infNumLt(historyParams.scale, createInfNum("1000"))) {
+        mandelbrotFloat = true;
         truncateLength = 12;
-      } else if (infNumLt(historyParams.scale, createInfNum("1000000"))) {
-        truncateLength = 18;
+      } else if (infNumLt(historyParams.scale, createInfNum("2,000,000".replaceAll(",", "")))) {
+        mandelbrotFloat = true;
+        truncateLength = 12;
+      } else if (infNumLt(historyParams.scale, createInfNum("30,000,000,000,000".replaceAll(",", "")))) {
+        mandelbrotFloat = true;
+        truncateLength = 20;
       } else {
+        mandelbrotFloat = false;
         truncateLength = 24;
       }
-      console.log("set truncateLength to [" + truncateLength + "]");
+      console.log("set truncateLength to [" + truncateLength + "], using floats for mandelbrot [" + mandelbrotFloat + "]");
     }
   }
 },{
@@ -2195,12 +2234,14 @@ function waitAndDrawWindow() {
       windowCalcTimes.push(overallTimeMs);
       let maxTime = 0;
       let minTime = 0;
-      for (let i = 0; i < windowCalcTimes.length; i++) {
-        if (windowCalcTimes[i] > maxTime) {
-          maxTime = windowCalcTimes[i];
-        }
-        if (minTime == 0 || windowCalcTimes[i] < minTime) {
-          minTime = windowCalcTimes[i];
+      if (windowCalcTimes.length > 4) {
+        for (let i = 0; i < windowCalcTimes.length; i++) {
+          if (windowCalcTimes[i] > maxTime) {
+            maxTime = windowCalcTimes[i];
+          }
+          if (minTime == 0 || windowCalcTimes[i] < minTime) {
+            minTime = windowCalcTimes[i];
+          }
         }
       }
       let sum = 0;
@@ -2347,9 +2388,13 @@ function drawImageParameters() {
     [" scale", infNumSci(historyParams.scale)],
     ["  iter", historyParams.n.toString()],
     [" color", historyParams.lineColor],
-    [" bgclr", historyParams.bgColor],
-    ["precis", truncateLength.toString()],
+    [" bgclr", historyParams.bgColor]
   ];
+  if (historyParams.plot.startsWith("Mandelbrot") && mandelbrotFloat) {
+    entries.push(["precis", "floating pt"]);
+  } else {
+    entries.push(["precis", truncateLength.toString()]);
+  }
   if (windowCalc.runtimeMs > 0) {
     entries.push(["run ms", windowCalc.runtimeMs.toString()])
   }

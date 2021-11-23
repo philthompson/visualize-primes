@@ -587,13 +587,17 @@ if (doUnitTests) {
 }
 
 function infNumTruncate(n) {
+  return infNumTruncateToLen(n, truncateLength);
+}
+
+function infNumTruncateToLen(n, len) {
   var a = copyInfNum(n);
   const orig = a.v.toString();
-  if (orig.length <= truncateLength) {
+  if (orig.length <= len) {
     return a;
   }
-  a.v = BigInt(a.v.toString().substring(0,truncateLength));
-  a.e = a.e + BigInt(orig.length - truncateLength);
+  a.v = BigInt(a.v.toString().substring(0,len));
+  a.e = a.e + BigInt(orig.length - len);
   return a;
 }
 
@@ -618,11 +622,8 @@ const plots = [{
     const maxIter = historyParams.n;
 
     if (mandelbrotFloat) {
-      const saveTruncateLength = truncateLength;
-      truncateLength = 16;
-      let xFloat = parseFloat(infNumToString(infNumTruncate(x)));
-      let yFloat = parseFloat(infNumToString(infNumTruncate(y)));
-      truncateLength = saveTruncateLength;
+      let xFloat = parseFloat(infNumToString(infNumTruncateToLen(x, 16)));
+      let yFloat = parseFloat(infNumToString(infNumTruncateToLen(y, 16)));
       let ix = 0;
       let iy = 0;
       let ixSq = 0;
@@ -1947,6 +1948,12 @@ function resetWindowCalcContext() {
 
   const params = historyParams;
   windowCalc.plotName = params.plot;
+
+  // attempt to resolve slowdown experienced when repeatedly panning/zooming,
+  //   where the slowdown is resolved when refreshing the page
+  historyParams.scale = infNumTruncate(historyParams.scale);
+  historyParams.centerX = infNumTruncate(historyParams.centerX);
+  historyParams.centerY = infNumTruncate(historyParams.centerY);
 
   if ("adjustTruncate" in plotsByName[params.plot].privContext) {
     plotsByName[params.plot].privContext.adjustTruncate();

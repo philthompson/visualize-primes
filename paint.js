@@ -1359,47 +1359,48 @@ function computeBoundPointsChunk(plot, xChunk) {
   //   pixels, so round to integer
   // use Math.round(), not Math.trunc(), because we want the minimum
   //   lineWidth of 0.5 to result in a pixel size of 1
-  const pixelSize = createInfNum(Math.round(windowCalc.lineWidth).toString());
+  const pixelSizeFloat = Math.round(windowCalc.lineWidth);
+  const pixelSize = createInfNum(pixelSizeFloat.toString());
   //const params = historyParams;
 
   // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
   //const pixWidth = createInfNum(dContext.canvas.width.toString());
   const pixHeight = createInfNum(dContext.canvas.height.toString());
 
-  var px = 0.0;
-  var py = 0.0;
-  var x = infNum(0n, 0n);
-  for (var i = 0; i < xChunk.length; i++) {
-    x = infNum(BigInt(xChunk[i]), 0n);
+  let px = null;
+  let py = null;
+  let x = 0;
+  const yStep = infNumMul(windowCalc.eachPixUnits, pixelSize);
+  const yNorm = normInfNum(yStep, windowCalc.topEdge);
+  const yStepNorm = yNorm[0];
+  const topNorm = yNorm[1];
+  for (let i = 0; i < xChunk.length; i++) {
+    x = xChunk[i];
+    xInfNum = infNum(BigInt(xChunk[i]), 0n);
 
-    px = infNumAdd(infNumMul(windowCalc.eachPixUnits, x), windowCalc.leftEdge);
-    var y = infNum(0n, 0n);
-    while (infNumLt(y, pixHeight)) {
-      py = infNumSub(windowCalc.topEdge, infNumMul(windowCalc.eachPixUnits, y));
-      //const pointPixel = infNumToString(x) + "," + infNumToString(y);
+    px = infNumAdd(infNumMul(windowCalc.eachPixUnits, xInfNum), windowCalc.leftEdge);
+    py = topNorm;
+    for (let y = 0; y < dCanvas.height; y += pixelSizeFloat) {
       const pointPixel = infNumToString(px) + "," + infNumToString(py);
       if (pointPixel in windowCalc.pointsCache) {
         windowCalc.cachedPoints++;
         // update the pixel on the screen, in case we've panned since
         //   the point was originally cached
-        windowCalc.pointsCache[pointPixel].px.x = parseInt(infNumToString(x));
-        windowCalc.pointsCache[pointPixel].px.y = parseInt(infNumToString(y));
+        windowCalc.pointsCache[pointPixel].px.x = x;
+        windowCalc.pointsCache[pointPixel].px.y = y;
         resultPoints.push(windowCalc.pointsCache[pointPixel]);
       } else {
-        //py = infNumSub(windowCalc.topEdge, infNumMul(windowCalc.eachPixUnits, y));
-
         const pointColor = plot.computeBoundPointColor(privContext, px, py);
-        //console.log("computed point color [" + pointColor + "] for coord [" + pointPixel + "]");
 
         // x and y are integer (actual pixel) values, with no decimal component
-        var point = getColorPoint(parseInt(infNumToString(x)), parseInt(infNumToString(y)), pointColor);
+        const point = getColorPoint(x, y, pointColor);
         // px -- the pixel "color point"
         // pt -- the abstract coordinate on the plane
         let wrappedPoint = {"px": point, "pt": {"x":copyInfNum(px), "y":copyInfNum(py)}};
         windowCalc.pointsCache[pointPixel] = wrappedPoint;
         resultPoints.push(wrappedPoint);
       }
-      y = infNumAdd(y, pixelSize);
+      py = infNumSubNorm(py, yStepNorm);
     }
   }
   windowCalc.passTimeMs += (Date.now() - chunkStartMs);
@@ -1983,7 +1984,7 @@ function resetWindowCalcContext() {
   const canvasHeight = createInfNum(dContext.canvas.offsetHeight.toString());
 
   // rather than calculate this for each chunk, compute it once here
-  windowCalc.eachPixUnits = infNumDiv(infNum(1n, 0n), params.scale);
+  windowCalc.eachPixUnits = infNumTruncate(infNumDiv(infNum(1n, 0n), params.scale));
 
   // find the visible abstract points using offset and scale
   const scaledWidth = infNumDiv(canvasWidth, params.scale);

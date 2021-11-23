@@ -21,7 +21,7 @@ var resizeTimeout = null;
 var helpVisible = false;
 var menuVisible = false;
 
-const doUnitTests = true;
+const doUnitTests = false;
 const windowLogTiming = true;
 const mandelbrotCircleHeuristic = false;
 var truncateLength = 24;
@@ -1615,6 +1615,10 @@ function parseUrlParams() {
   //   when actually drawing the thing to ensure the URL is kept
   //   up-to-date with what is being drawn without reloading the page)
   var urlParams = new URLSearchParams(document.location.search);
+
+  if (urlParams.has("repeat")) {
+    windowCalcRepeat = parseInt(urlParams.get("repeat"));
+  }
 
   // default params are mandelbrot defaults
   var params = {

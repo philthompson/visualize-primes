@@ -27,6 +27,7 @@ const mandelbrotCircleHeuristic = false;
 var truncateLength = 24;
 var mandelbrotFloat = false;
 const windowCalcIgnorePointColor = -2;
+var builtGradient = null;
 
 const windowCalc = {
   "timeout": null,
@@ -71,6 +72,9 @@ const btnGotoBoundsGo = document.getElementById("go-to-b-go");
 const btnGotoBoundsReset = document.getElementById("go-to-b-reset");
 const btnGotoCenterGo = document.getElementById("go-to-c-go");
 const btnGotoCenterReset = document.getElementById("go-to-c-reset");
+const inputGradGrad = document.getElementById("grad-grad");
+const btnGradGo = document.getElementById("grad-go");
+const btnGradReset = document.getElementById("grad-reset");
 
 // this is checked each time a key is pressed, so keep it
 //   here so we don't have to do a DOM query every time
@@ -804,7 +808,7 @@ const plots = [{
     "boundsRadiusSquared": infNum(4n, 0n),
     "colors": {},
     "applyColorCurve": function(pct) {
-      //return pct;
+      const result = pct;
       ////////////////////////////////////////////////////////
       // curve 1
       // computed using wolfram alpha:
@@ -820,7 +824,7 @@ const plots = [{
       // curve 3
       // quadratic fit {0.01,0.01},{0.2,0.4},{0.6, 0.75},{1.0,1.0}
       // -0.76991x^2 + 1.73351x + 0.0250757
-      const result = (-0.76991*pct*pct) + (1.73351*pct) + 0.0250757;
+      //const result = (-0.76991*pct*pct) + (1.73351*pct) + 0.0250757;
       ////////////////////////////////////////////////////////
       // curve 4
       // log fit {0.01,0.01},{0.1,0.4},{0.4, 0.75},{0.75,0.92},{1.0,1.0}
@@ -1046,6 +1050,7 @@ const plots = [{
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
+    const diagHypot = Math.sqrt(2);
 
     // this is a straightforward predictable plot, so there's no point in
     //   going beyond a few thousand points let alone a million
@@ -1065,7 +1070,7 @@ const plots = [{
       }
       // find the next point according to direction and current location
       nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
-      resultLength += 1;
+      resultLength += privContext.direction % 90 == 0 ? 1 : diagHypot;
     }
     // add the last point
     resultPoints.push(nextPoint);
@@ -1456,7 +1461,7 @@ const presets = [{
   "scale": createInfNum("1640000"),
   "centerX": createInfNum("0.273210669156851807493494"),
   "centerY": createInfNum("-0.00588612373984032474800031"),
-  "lineColor": "rbgyo",
+  "gradient": "rbgyo",
   "bgColor": "b"
 },{
   "plot": "Primes-1-Step-90-turn",
@@ -1466,7 +1471,7 @@ const presets = [{
   "scale": createInfNum("1.35"),
   "centerX": createInfNum("-240"),
   "centerY": createInfNum("288.4"),
-  "lineColor": "rbgyo",
+  "gradient": "rbgyo",
   "bgColor": "b"
 },{
   "plot": "Trapped-Knight",
@@ -1476,7 +1481,7 @@ const presets = [{
   "scale": createInfNum("15.0"),
   "centerX": createInfNum("0"),
   "centerY": createInfNum("0"),
-  "lineColor": "rbgyo",
+  "gradient": "rbgyo",
   "bgColor": "b"
 },{
   "plot": "Primes-1-Step-45-turn",
@@ -1486,7 +1491,7 @@ const presets = [{
   "scale": createInfNum("10.95"),
   "centerX": createInfNum("35"),
   "centerY": createInfNum("100"),
-  "lineColor": "rbgyo",
+  "gradient": "rbgyo",
   "bgColor": "b"
 }];
 
@@ -1629,7 +1634,7 @@ function parseUrlParams() {
     "scale": infNum(400n, 0n),
     "centerX": createInfNum("-0.65"),
     "centerY": infNum(0n, 0n),
-    "lineColor": "rbgyo",
+    "gradient": "rbgyo",
     "bgColor": "b"
   };
 
@@ -1675,14 +1680,13 @@ function parseUrlParams() {
         params.centerY = yParam;
       }
     }
-    if (urlParams.has('lineColor')) {
-      const color = urlParams.get('lineColor');
-      if (color in lineColorSchemes) {
-        params.lineColor = color;
-      } else {
-        alert("no such line color scheme [" + color + "]");
-      }
+    if (urlParams.has("lineColor")) {
+      params.gradient = urlParams.get("lineColor");
     }
+    if (urlParams.has("gradient")) {
+      params.gradient = urlParams.get("gradient");
+    }
+    buildGradient(params.gradient);
     if (urlParams.has('bgColor')) {
       const color = urlParams.get('bgColor');
       if (color in bgColorSchemes) {
@@ -1821,91 +1825,222 @@ var pushToHistory = function() {
   historyTimeout = null;
 };
 
-const lineColorSchemes = {
-  "rby": function c(startPercentage) { // red -> blue -> yellow
-    if (startPercentage < 0.5) {
-      const blue = parseInt(startPercentage * 2 * 240);
-      return "rgba(" + (240 - blue) + ",0," + blue + ",1.0)";
-    } else {
-      const blue = 240 - parseInt((startPercentage - 0.5) * 2 * 240);
-      return "rgba(" + (240 - blue) + "," + (240 - blue) + "," + blue + ",1.0)";
-    }
-  },
-  "rbgyo": function c(startPercentage) { // red -> blue -> green -> yellow -> orange
-    if (startPercentage < 0.25) {
-      const blue = parseInt(startPercentage * 4 * 240);
-      return "rgba(" + (240 - blue) + ",0," + blue + ",1.0)";
-    } else if (startPercentage < 0.5) {
-      const green = parseInt((startPercentage - 0.25) * 4 * 240);
-      return "rgba(0," + green + "," + (240 - green) + ",1.0)";
-    } else if (startPercentage < 0.75) {
-      const red = 240 - parseInt((startPercentage - 0.5) * 4 * 240);
-      return "rgba(" + (240 - red) + "," + 240 + ",0,1.0)";
-    } else {
-      const blue = parseInt((startPercentage - 0.75) * 4 * 240);
-      return "rgba(240," + (240 - (blue/2)) + ",0,1.0)";
-    }
-  },
-  "br": function c(startPercentage) { // blue -> red
-    const red = parseInt(startPercentage * 240);
-    return "rgba(" + red + ",0," + (240 - red) + ",1.0)";
-  },
-  "by": function c(startPercentage) { // blue -> yellow
-    const red = parseInt(startPercentage * 240);
-    return "rgba(" + red + "," + red + "," + (240 - red) + ",1.0)";
-  },
-  "op": function c(startPercentage) { // orange -> purple
-    const blue = parseInt(startPercentage * 240);
-    return "rgba(240," + (120 - (blue/2)) + "," + blue + ",1.0)";
-  },
-  "lgdg": function c(startPercentage) { // light gray -> dark gray
-    const c = parseInt(startPercentage * 150);
-    return "rgba(" + (200 - c) + "," + (200 - c) + "," + (200 - c) + ",1.0)";
-  },
-  "r": function c(startPercentage) { // red
-    const red = 200 - parseInt(startPercentage * 80);
-    return "rgba(" + red + "," + (red * 0.2) + "," + (red * 0.2) + ",1.0)";
-  },
-  "o": function c(startPercentage) { // orange
-    const red = 200 - parseInt(startPercentage * 80);
-    return "rgba(" + red + "," + (red * 0.5) + ",0,1.0)";
-  },
-  "y": function c(startPercentage) { // yellow
-    const red = 200 - parseInt(startPercentage * 80);
-    return "rgba(" + red + "," + red + ",0,1.0)";
-  },
-  "g": function c(startPercentage) { // green
-    const green = 200 - parseInt(startPercentage * 80);
-    return "rgba(" + (green * 0.1) + "," + green + "," + (green * 0.1) + ",1.0)";
-  },
-  "b": function c(startPercentage) { // blue
-    const blue = 200 - parseInt(startPercentage * 80);
-    return "rgba(" + (blue * 0.1) + "," + (blue * 0.1) + "," + blue + ",1.0)";
-  },
-  "p": function c(startPercentage) { // purple
-    const blue = 200 - parseInt(startPercentage * 80);
-    return "rgba(" + blue + "," + (blue * 0.1) + "," + blue + ",1.0)";
-  },
-  "dg": function c(startPercentage) { // dark gray
-    const c = 60 - parseInt(startPercentage * 30);
-    return "rgba(" + c + "," + c + "," + c + ",1.0)";
-  },
-  "lg": function c(startPercentage) { // light gray
-    const c = 200 - parseInt(startPercentage * 80);
-    return "rgba(" + c + "," + c + "," + c + ",1.0)";
-  }
-};
+const lineColorSchemes = [
+  "rby", // red -> blue -> yellow
+  "rbgyo", // red -> blue -> green -> yellow -> orange
+  "br", // blue -> red
+  "by", // blue -> yellow
+  "op", // orange -> purple
+  "LD-L(200_200_200)-D(50_50_50)", // light gray - dark gray
+  "LD-L(200_40_40)-D(120_24_24)", // red
+  "LD-L(200_100_0)-D(120_60_0)", // orange
+  "LD-L(200_200_0)-D(120_120_0)", // yellow
+  "LD-L(20_200_20)-D(12_120_12)", // green
+  "LD-L(20_20_200)-D(12_12_120)", // blue
+  "LD-L(200_20_200)-D(120_12_120)", // purple
+  "LD-L(60_60_60)-D(30_30_30)", // dark gray
+  "LD-L(200_200_200)-D(120_120_120)" // light gray
+];
 
-const lineColorSchemeNames = [];
-for (let name in lineColorSchemes) {
-  lineColorSchemeNames.push(name);
+// match color declaration like "a(1_2_3)" or "r(150_30_30)"
+const customColorRegex = /^[a-zA-z]\([0-9]{1,3}_[0-9]{1,3}_[0-9]{1,3}\)$/;
+
+// build global gradient stops from format:
+//   roygbv-saturation60-brightness90-width80-offset30-repeat10-mirror2-shift3
+function buildGradient(gradientString) {
+  const colorsByName = {
+    "r": [240,0,0],
+    "o": [240,120,0],
+    "y": [240,240,0],
+    "g": [0,240,0],
+    "b": [0,0,240],
+    "v": [240,0,240],
+    "p": [240,0,240],
+    "w": [255,255,255],
+    "B": [0,0,0]
+  };
+  const grad = {};
+  const args = {};
+  const splitArgs = gradientString.split("-");
+  const colorArgs = splitArgs[0];
+  const argNames = ["saturation","brightness","width","offset","repeat","mirror","shift"];
+  let colorMatch = null;
+  for (let i = 1; i < splitArgs.length; i++) {
+    colorMatch = splitArgs[i].match(customColorRegex);
+    if (colorMatch !== null) {
+      let customColorName = colorMatch[0].charAt(0);
+      let customRgbValuesSplit = colorMatch[0].slice(2, -1).split("_"); // "x(1_2_3)" -> ["1","2","3"]
+      let customRgbValues = [];
+      for (let i = 0; i < customRgbValuesSplit.length; i++) {
+        let value = parseInt(customRgbValuesSplit[i]);
+        value = Math.min(255, Math.max(0, value)); // restrict to 0-255
+        customRgbValues.push(value);
+      }
+      colorsByName[customColorName] = customRgbValues
+    } else {
+      for (let j = 0; j < argNames.length; j++) {
+        const argName = argNames[j];
+        if (splitArgs[i].startsWith(argName)) {
+          args[argName] = splitArgs[i].substring(argName.length);
+          try {
+            args[argName] = parseInt(args[argName]);
+            if (["shift","saturation","brightness"].includes(argName)) {
+              if (args[argName] < -99 || args[argName] > 99) {
+                throw "argument must be greater than -100 and less than 100";
+              }
+            } else {
+              if (args[argName] <= 0 || args[argName] > 100) {
+                throw "argument must be greater than 0 and less than 101";
+              }
+            }
+          } catch (e) {
+            alert("Invalid integer value for gradient argument [" + splitArgs[i] + "]");
+            delete args[argName];
+            continue;
+          }
+        }
+      }
+    }
+  }
+  const colorsDefault = "roygbv";
+  let colors = "";
+  for (let i = 0; i < colorArgs.length && i < 20; i++) {
+    const color = colorArgs.charAt(i);
+    if (color in colorsByName) {
+      colors = colors + color;
+    }
+  }
+  if (colors.length == 0) {
+    colors = colorsDefault;
+  }
+  // mirror is applied before repeat
+  // mirror: rgb -> rgbgr -> rgbgrgb -> rgbgrgbgr
+  if ("mirror" in args && colors.length > 1) {
+    const n = args.mirror;
+    let rev = [];
+    // skip last char when reversing
+    for (let i = colors.length - 2; i >= 0; i--) {
+      rev.push(colors.charAt(i));
+    }
+    rev = rev.join("");
+    let newColors = "";
+    for (let i = 0; i < args.mirror && i < 20; i++) {
+      if (i % 2 == 0) {
+        newColors += colors.substring(1);
+      } else {
+        newColors += rev; // don't need to skip first char here
+      }
+    }
+    colors = newColors;
+  }
+  if ("repeat" in args) {
+    colors = colors.repeat(args.repeat > 20 ? 20 : args.repeat);
+  }
+  if ("shift" in args && colors.length > 1) {
+    let split = colors.split("");
+    if (args.shift > 0) {
+      for (let i = 0; i < args.shift; i++) {
+        split.unshift(split.pop());
+      }
+    } else if (args.shift < 0) {
+      for (let i = 0; i > args.shift; i--) {
+        split.push(split.shift());
+      }
+    }
+    colors = split.join("");
+  }
+  // calculate the stop points here, then later apply width and offset
+  // TODO: handle repeating like "ooorvvv" or "rgggb" by making extra-wide stops
+  //  r    g    b
+  // 255   0    0
+  //  0   255   0
+  //  0    0   255
+  grad["orderedStops"] = [];
+  // apply width arg by scaling all stops
+  const totalWidth = "width" in args ? Math.min(1.0, (args.width / 100.0)) : 1.0;
+  let prevStopRgb = null;
+  for (let i = 0; i < colors.length; i++) {
+    const stop = {};
+    const colorRgb = colorsByName[colors.charAt(i)];
+
+    if (prevStopRgb === null) {
+      prevStopRgb = colorRgb;
+      stop["lower"] = 0.0;
+      // if this is the first and last stop, set the upper pct, lower color, and zero range
+      if (colors.length == i + 1) {
+        stop["upper"] = totalWidth;
+        stop["rLower"] = prevStopRgb[0];
+        stop["gLower"] = prevStopRgb[1];
+        stop["bLower"] = prevStopRgb[2];
+        stop["rRange"] = 0.0;
+        stop["gRange"] = 0.0;
+        stop["bRange"] = 0.0;
+      // if this is the first but not last stop, set upper to zero
+      } else {
+        stop["upper"] = 0.0;
+      }
+      grad.orderedStops.push(stop);
+      continue;
+    // if this is not the first stop, the lower is the previous stop's upper
+    } else {
+      stop["lower"] = grad.orderedStops[grad.orderedStops.length-1].upper;
+    }
+    stop["rLower"] = prevStopRgb[0];
+    stop["gLower"] = prevStopRgb[1];
+    stop["bLower"] = prevStopRgb[2];
+
+    if (colors.length == i + 1) {
+      //stop["upper"] = totalWidth;
+      stop["upper"] = 1.0;
+    } else {
+      // we cannot divide by zero because if there's only one stop, we've
+      //   already called break above
+      stop["upper"] = stop.lower + ((1.0 / (colors.length - 1)) * totalWidth);
+    }
+
+    stop["rRange"] = colorRgb[0] - stop["rLower"];
+    stop["gRange"] = colorRgb[1] - stop["gLower"];
+    stop["bRange"] = colorRgb[2] - stop["bLower"];
+
+    prevStopRgb = colorRgb;
+    grad.orderedStops.push(stop);
+  }
+  const maxOffset = 1.0 - totalWidth;
+  const offset = "offset" in args ? Math.min(maxOffset, (args.offset / 100.0)) : 0.0;
+  // even if offset is zero, we still need to set each stop's range
+  for (let i = 0; i < grad.orderedStops.length; i++) {
+    // do not touch the lower bound of the first stop
+    if (i > 0) {
+      grad.orderedStops[i].lower += offset;
+    }
+    // do not touch the upper bound of the last stop
+    if (i + 1 < grad.orderedStops.length) {
+      grad.orderedStops[i].upper += offset;
+    }
+    grad.orderedStops[i].range = grad.orderedStops[i].upper - grad.orderedStops[i].lower;
+  }
+  builtGradient = grad;
 }
 
-function getLineColor(startPercentage, colorScheme) {
-  if (colorScheme in lineColorSchemes) {
-    return lineColorSchemes[colorScheme](startPercentage);
+function applyBuiltGradient(gradient, percentage) {
+  const pct = Math.max(0.0, Math.min(1.0, percentage));
+  let color = "rgba(255,255,255,1.0)";
+  for (let i = 0; i < gradient.orderedStops.length; i++) {
+    if (pct <= gradient.orderedStops[i].upper) {
+      let stop = gradient.orderedStops[i];
+      // put code elsewhere to avoid needing this
+      if (stop.range == 0) {
+        break;
+      }
+      let withinStopPct = (pct - stop.lower) / stop.range;
+      let r = (withinStopPct * stop.rRange) + stop.rLower;
+      let g = (withinStopPct * stop.gRange) + stop.gLower;
+      let b = (withinStopPct * stop.bRange) + stop.bLower;
+      color = "rgba(" + r + "," + g + "," + b + ",1.0)";
+      break;
+    }
   }
-  return "rgba(200,200,200,1.0)";
+  return color;
 }
 
 function redraw() {
@@ -1968,7 +2103,8 @@ function drawPoints(params) {
     }
     dContext.beginPath();
     dContext.moveTo(lastX, lastY);
-    dContext.strokeStyle = getLineColor(drawnLength / totalLengthScaled, params.lineColor);
+    //dContext.strokeStyle = getLineColor(drawnLength / totalLengthScaled, params.lineColor);
+    dContext.strokeStyle = applyBuiltGradient(builtGradient, drawnLength / totalLengthScaled);
     dContext.lineTo(x, y);
     // stroke every line individually in order to do gradual color gradient
     dContext.stroke();
@@ -2053,6 +2189,7 @@ function resetWindowCalcContext() {
 
   resetGoToBoundsValues();
   resetGoToCenterValues();
+  resetGradientInput();
 }
 
 function resetGoToBoundsValues() {
@@ -2194,6 +2331,17 @@ function calculateAndDrawWindow() {
     window.setTimeout(calculateAndDrawWindowInner, 50);
   }
 }
+
+var resetGradientInput = function() {
+  inputGradGrad.value = historyParams.gradient;
+};
+
+btnGradGo.addEventListener("click", function() {
+  historyParams.gradient = inputGradGrad.value;
+  buildGradient(historyParams.gradient);
+  redraw();
+});
+btnGradReset.addEventListener("click", resetGradientInput);
 
 function calculateAndDrawWindowInner() {
   const params = historyParams;
@@ -2361,7 +2509,7 @@ function drawColorPoints(windowPoints) {
     if (colorPct == windowCalcIgnorePointColor) {
       continue;
     } else if (colorPct >= 0) {
-      pointColor = getLineColor(colorPct, historyParams.lineColor);
+      pointColor = applyBuiltGradient(builtGradient, colorPct);
     }
     const rgba = pointColor.substr(5).split(',');
     pointColor = getColor(parseInt(rgba[0]),parseInt(rgba[1]),parseInt(rgba[2]));
@@ -2436,7 +2584,7 @@ function drawImageParameters() {
     ["y (im)", infNumExpString(historyParams.centerY)],
     [" scale", infNumExpString(historyParams.scale)],
     ["  iter", historyParams.n.toString()],
-    [" color", historyParams.lineColor],
+    ["  grad", historyParams.gradient],
     [" bgclr", historyParams.bgColor]
   ];
   if (historyParams.plot.startsWith("Mandelbrot") && mandelbrotFloat) {
@@ -2648,18 +2796,18 @@ window.addEventListener("keydown", function(e) {
     start();
   } else if (e.keyCode == 86 || e.key == "v" || e.key == "V") {
     let schemeNum = -1;
-    for (let i = 0; i < lineColorSchemeNames.length; i++) {
-      if (lineColorSchemeNames[i] == historyParams.lineColor) {
+    for (let i = 0; i < lineColorSchemes.length; i++) {
+      if (lineColorSchemes[i] == historyParams.gradient) {
         schemeNum = i;
         break;
       }
     }
     schemeNum += 1;
-    if (schemeNum >= lineColorSchemeNames.length) {
+    if (schemeNum >= lineColorSchemes.length) {
       schemeNum = 0;
     }
-    historyParams.lineColor = lineColorSchemeNames[schemeNum];
-
+    historyParams.gradient = lineColorSchemes[schemeNum];
+    buildGradient(historyParams.gradient);
     redraw();
   } else if (e.keyCode == 66 || e.key == "b" || e.key == "B") {
     let schemeNum = -1;
@@ -3047,5 +3195,7 @@ function hideFooter() {
   document.getElementById('footer').style.display = 'none';
 }
 
+// build a gradient here just so the global one isn't left null
+buildGradient("roygbv");
 parseUrlParams();
 start();

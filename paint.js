@@ -1421,9 +1421,10 @@ function computeBoundPointsChunk(plot, xChunk) {
     xInfNum = infNum(BigInt(xChunk[i]), 0n);
 
     px = infNumAdd(infNumMul(windowCalc.eachPixUnits, xInfNum), windowCalc.leftEdge);
+    pxStr = infNumToString(px) + ",";
     py = topNorm;
     for (let y = 0; y < dCanvas.height; y += pixelSizeFloat) {
-      const pointPixel = infNumToString(px) + "," + infNumToString(py);
+      const pointPixel = pxStr + infNumToString(py);
       if (pointPixel in windowCalc.pointsCache) {
         windowCalc.cachedPoints++;
         // update the pixel on the screen, in case we've panned since

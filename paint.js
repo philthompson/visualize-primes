@@ -21,7 +21,7 @@ var resizeTimeout = null;
 var helpVisible = false;
 var menuVisible = false;
 
-const doUnitTests = false;
+const doUnitTests = true;
 const windowLogTiming = true;
 const mandelbrotCircleHeuristic = false;
 var truncateLength = 24;
@@ -624,6 +624,103 @@ if (doUnitTests) {
 
   unitTest = "123456789";
   console.log("infNumExpStringTruncToLen(\"" + unitTest + "\", 5) = [" + infNumExpStringTruncToLen(createInfNum(unitTest), 5) + "]// 1.23456e8");
+}
+
+// does in-place dividing of the value portion of n, as
+//   long as it's divisible by 10
+function infNumFastStr(n) {
+  while (n.v % 10n === 0n) {
+    n.v /= 10n;
+    n.e += 1n;
+  }
+  return n.v.toString(10) + "e" + n.e.toString(10);
+}
+
+function infNumFastStr(n, r) {
+  while (n.v % 10n === 0n) {
+    n.v /= 10n;
+    n.e += 1n;
+  }
+  return n.v.toString(r) + "e" + n.e.toString(r);
+}
+
+// thanks to https://stackoverflow.com/a/47593316/259456 for hash function
+function xmur3(str) {
+  for(var i = 0, h = 1779033703 ^ str.length; i < str.length; i++)
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353),
+    h = h << 13 | h >>> 19;
+  return function() {
+    h = Math.imul(h ^ h >>> 16, 2246822507);
+    h = Math.imul(h ^ h >>> 13, 3266489909);
+    return (h ^= h >>> 16) >>> 0;
+  }
+}
+
+// thanks to https://stackoverflow.com/a/47593316/259456 for seed-able rng
+function sfc32(a, b, c, d) {
+  return function() {
+    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0; 
+    var t = (a + b) | 0;
+    a = b ^ b >>> 9;
+    b = c + (c << 3) | 0;
+    c = (c << 21 | c >>> 11);
+    d = d + 1 | 0;
+    t = t + d | 0;
+    c = c + t | 0;
+    return (t >>> 0) / 4294967296;
+  }
+}
+
+if (doUnitTests) {
+  let seed = xmur3("718724816339254596");
+  // Output four 32-bit hashes to provide the seed for sfc32.
+  let rand = sfc32(seed(), seed(), seed(), seed());
+
+  let n = [];
+  for (let i = 0; i < 300000; i++) {
+    n.push(infNum(BigInt(rand().toString().replaceAll(".", "")), BigInt(rand().toString().replaceAll(".", "").substring(0,5))));
+  }
+  let s = [];
+  let t = null;
+  let startMs = Date.now();
+  for (let i = 0; i < n.length; i++) {
+    if (i < 20) {
+      s.push(infNumFastStr(n[i]));
+    } else {
+      t = infNumFastStr(n[i]);
+    }
+  }
+  let durationMs = Date.now() - startMs;
+  console.log("BigInt took [" + durationMs + "] ms for infNumFastStr(n, 10):");
+  console.log(s.join("\n"));
+
+  ////////////////////////////////////////////////////////////////////////
+  s = [];
+  startMs = Date.now();
+  for (let i = 0; i < n.length; i++) {
+    if (i < 20) {
+      s.push(infNumToString(n[i]));
+    } else {
+      t = infNumToString(n[i]);
+    }
+  }
+  durationMs = Date.now() - startMs;
+  console.log("BigInt took [" + durationMs + "] ms for infNumToString():");
+  console.log(s.join("\n"));
+  
+  ////////////////////////////////////////////////////////////////////////
+  s = [];
+  startMs = Date.now();
+  for (let i = 0; i < n.length; i++) {
+    if (i < 20) {
+      s.push(infNumExpString(n[i]));
+    } else {
+      t = infNumExpString(n[i]);
+    }
+  }
+  durationMs = Date.now() - startMs;
+  console.log("BigInt took [" + durationMs + "] ms for infNumExpString():");
+  console.log(s.join("\n"));
 }
 
 function infNumTruncate(n) {

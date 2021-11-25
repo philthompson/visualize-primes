@@ -1961,8 +1961,12 @@ function buildGradient(gradientString) {
   const totalWidth = "width" in args ? Math.min(1.0, (args.width / 100.0)) : 1.0;
   let prevStopRgb = null;
   for (let i = 0; i < colors.length; i++) {
+    const colorLetter = colors.charAt(i);
+    if (! colorLetter in colorsByName) {
+      continue;
+    }
+    const colorRgb = colorsByName[colorLetter];
     const stop = {};
-    const colorRgb = colorsByName[colors.charAt(i)];
 
     if (prevStopRgb === null) {
       prevStopRgb = colorRgb;

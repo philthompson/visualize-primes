@@ -672,12 +672,12 @@ function sfc32(a, b, c, d) {
 }
 
 if (doUnitTests) {
-  let seed = xmur3("718724816339254596");
+  let seed = xmur3("71872481633925459");
   // Output four 32-bit hashes to provide the seed for sfc32.
   let rand = sfc32(seed(), seed(), seed(), seed());
 
   let n = [];
-  for (let i = 0; i < 300000; i++) {
+  for (let i = 0; i < 600000; i++) {
     n.push(infNum(BigInt(rand().toString().replaceAll(".", "")), BigInt(rand().toString().replaceAll(".", "").substring(0,5))));
   }
   let s = [];
@@ -685,9 +685,9 @@ if (doUnitTests) {
   let startMs = Date.now();
   for (let i = 0; i < n.length; i++) {
     if (i < 20) {
-      s.push(infNumFastStr(n[i]));
+      s.push(infNumFastStr(n[i], 10));
     } else {
-      t = infNumFastStr(n[i]);
+      t = infNumFastStr(n[i], 10);
     }
   }
   let durationMs = Date.now() - startMs;
@@ -699,13 +699,13 @@ if (doUnitTests) {
   startMs = Date.now();
   for (let i = 0; i < n.length; i++) {
     if (i < 20) {
-      s.push(infNumToString(n[i]));
+      s.push(infNumFastStr(n[i], 16));
     } else {
-      t = infNumToString(n[i]);
+      t = infNumFastStr(n[i], 16);
     }
   }
   durationMs = Date.now() - startMs;
-  console.log("BigInt took [" + durationMs + "] ms for infNumToString():");
+  console.log("BigInt took [" + durationMs + "] ms for infNumFastStr(n, 16):");
   console.log(s.join("\n"));
   
   ////////////////////////////////////////////////////////////////////////
@@ -713,13 +713,13 @@ if (doUnitTests) {
   startMs = Date.now();
   for (let i = 0; i < n.length; i++) {
     if (i < 20) {
-      s.push(infNumExpString(n[i]));
+      s.push(infNumFastStr(n[i], 32));
     } else {
-      t = infNumExpString(n[i]);
+      t = infNumFastStr(n[i], 32);
     }
   }
   durationMs = Date.now() - startMs;
-  console.log("BigInt took [" + durationMs + "] ms for infNumExpString():");
+  console.log("BigInt took [" + durationMs + "] ms for infNumFastStr(n, 32):");
   console.log(s.join("\n"));
 }
 

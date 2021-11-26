@@ -1377,7 +1377,7 @@ function runWindowBoundPointsCalculators(privContext) {
   if (pixelSize == 64) {
     numXChunks = 1;
   } else if (pixelSize == 32) {
-    numXChunks = 1;
+    numXChunks = 4;
   } else if (pixelSize == 16) {
     numXChunks = 32;
   } else if (pixelSize == 8 || pixelSize == 4) {

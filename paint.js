@@ -626,22 +626,23 @@ if (doUnitTests) {
   console.log("infNumExpStringTruncToLen(\"" + unitTest + "\", 5) = [" + infNumExpStringTruncToLen(createInfNum(unitTest), 5) + "]// 1.23456e8");
 }
 
-// does in-place dividing of the value portion of n, as
-//   long as it's divisible by 10
+// divides the value portion of n as long as it's divisible by 10
 function infNumFastStr(n) {
-  while (n.v % 10n === 0n) {
-    n.v /= 10n;
-    n.e += 1n;
+  let nCopy = copyInfNum(n);
+  while (nCopy.v % 10n === 0n) {
+    nCopy.v /= 10n;
+    nCopy.e += 1n;
   }
-  return n.v.toString(10) + "e" + n.e.toString(10);
+  return nCopy.v.toString(10) + "e" + nCopy.e.toString(10);
 }
 
 function infNumFastStr(n, r) {
-  while (n.v % 10n === 0n) {
-    n.v /= 10n;
-    n.e += 1n;
+  let nCopy = copyInfNum(n);
+  while (nCopy.v % 10n === 0n) {
+    nCopy.v /= 10n;
+    nCopy.e += 1n;
   }
-  return n.v.toString(r) + "e" + n.e.toString(r);
+  return nCopy.v.toString(r) + "e" + nCopy.e.toString(r);
 }
 
 // thanks to https://stackoverflow.com/a/47593316/259456 for hash function
@@ -672,7 +673,7 @@ function sfc32(a, b, c, d) {
 }
 
 if (doUnitTests) {
-  let seed = xmur3("71872481633925459");
+  let seed = xmur3("718724816339");
   // Output four 32-bit hashes to provide the seed for sfc32.
   let rand = sfc32(seed(), seed(), seed(), seed());
 

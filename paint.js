@@ -633,16 +633,9 @@ function infNumFastStr(n) {
     nCopy.v /= 10n;
     nCopy.e += 1n;
   }
-  return nCopy.v.toString(10) + "e" + nCopy.e.toString(10);
-}
-
-function infNumFastStr(n, r) {
-  let nCopy = copyInfNum(n);
-  while (nCopy.v % 10n === 0n) {
-    nCopy.v /= 10n;
-    nCopy.e += 1n;
-  }
-  return nCopy.v.toString(r) + "e" + nCopy.e.toString(r);
+  // using radix 16 because in testing it was 75% faster than
+  //   radix 10 and 32
+  return nCopy.v.toString(16) + "e" + nCopy.e.toString(16);
 }
 
 // thanks to https://stackoverflow.com/a/47593316/259456 for hash function
@@ -678,21 +671,21 @@ if (doUnitTests) {
   let rand = sfc32(seed(), seed(), seed(), seed());
 
   let n = [];
-  for (let i = 0; i < 600000; i++) {
-    n.push(infNum(BigInt(rand().toString().replaceAll(".", "")), BigInt(rand().toString().replaceAll(".", "").substring(0,5))));
+  for (let i = 0; i < 500000; i++) {
+    n.push(infNum(BigInt(rand().toString().replaceAll(".", "")), BigInt(rand().toString().replaceAll(".", "").substring(0,3))));
   }
   let s = [];
   let t = null;
   let startMs = Date.now();
   for (let i = 0; i < n.length; i++) {
     if (i < 20) {
-      s.push(infNumFastStr(n[i], 10));
+      s.push(infNumFastStr(n[i]));
     } else {
-      t = infNumFastStr(n[i], 10);
+      t = infNumFastStr(n[i]);
     }
   }
   let durationMs = Date.now() - startMs;
-  console.log("BigInt took [" + durationMs + "] ms for infNumFastStr(n, 10):");
+  console.log("BigInt took [" + durationMs + "] ms for infNumFastStr(n):");
   console.log(s.join("\n"));
 
   ////////////////////////////////////////////////////////////////////////
@@ -700,13 +693,13 @@ if (doUnitTests) {
   startMs = Date.now();
   for (let i = 0; i < n.length; i++) {
     if (i < 20) {
-      s.push(infNumFastStr(n[i], 16));
+      s.push(infNumExpString(n[i]));
     } else {
-      t = infNumFastStr(n[i], 16);
+      t = infNumExpString(n[i]);
     }
   }
   durationMs = Date.now() - startMs;
-  console.log("BigInt took [" + durationMs + "] ms for infNumFastStr(n, 16):");
+  console.log("BigInt took [" + durationMs + "] ms for infNumExpString(n):");
   console.log(s.join("\n"));
   
   ////////////////////////////////////////////////////////////////////////
@@ -714,13 +707,13 @@ if (doUnitTests) {
   startMs = Date.now();
   for (let i = 0; i < n.length; i++) {
     if (i < 20) {
-      s.push(infNumFastStr(n[i], 32));
+      s.push(infNumToString(n[i]));
     } else {
-      t = infNumFastStr(n[i], 32);
+      t = infNumToString(n[i]);
     }
   }
   durationMs = Date.now() - startMs;
-  console.log("BigInt took [" + durationMs + "] ms for infNumFastStr(n, 32):");
+  console.log("BigInt took [" + durationMs + "] ms for infNumToString(n):");
   console.log(s.join("\n"));
 }
 

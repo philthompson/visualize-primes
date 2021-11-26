@@ -626,6 +626,7 @@ if (doUnitTests) {
   console.log("infNumExpStringTruncToLen(\"" + unitTest + "\", 5) = [" + infNumExpStringTruncToLen(createInfNum(unitTest), 5) + "]// 1.23456e8");
 }
 
+// this is not suitable for displaying to users (it's in base 16)
 // divides the value portion of n as long as it's divisible by 10
 function infNumFastStr(n) {
   let nCopy = copyInfNum(n);
@@ -636,85 +637,6 @@ function infNumFastStr(n) {
   // using radix 16 because in testing it was 75% faster than
   //   radix 10 and 32
   return nCopy.v.toString(16) + "e" + nCopy.e.toString(16);
-}
-
-// thanks to https://stackoverflow.com/a/47593316/259456 for hash function
-function xmur3(str) {
-  for(var i = 0, h = 1779033703 ^ str.length; i < str.length; i++)
-    h = Math.imul(h ^ str.charCodeAt(i), 3432918353),
-    h = h << 13 | h >>> 19;
-  return function() {
-    h = Math.imul(h ^ h >>> 16, 2246822507);
-    h = Math.imul(h ^ h >>> 13, 3266489909);
-    return (h ^= h >>> 16) >>> 0;
-  }
-}
-
-// thanks to https://stackoverflow.com/a/47593316/259456 for seed-able rng
-function sfc32(a, b, c, d) {
-  return function() {
-    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0; 
-    var t = (a + b) | 0;
-    a = b ^ b >>> 9;
-    b = c + (c << 3) | 0;
-    c = (c << 21 | c >>> 11);
-    d = d + 1 | 0;
-    t = t + d | 0;
-    c = c + t | 0;
-    return (t >>> 0) / 4294967296;
-  }
-}
-
-if (doUnitTests) {
-  let seed = xmur3("718724816339");
-  // Output four 32-bit hashes to provide the seed for sfc32.
-  let rand = sfc32(seed(), seed(), seed(), seed());
-
-  let n = [];
-  for (let i = 0; i < 500000; i++) {
-    n.push(infNum(BigInt(rand().toString().replaceAll(".", "")), BigInt(rand().toString().replaceAll(".", "").substring(0,3))));
-  }
-  let s = [];
-  let t = null;
-  let startMs = Date.now();
-  for (let i = 0; i < n.length; i++) {
-    if (i < 20) {
-      s.push(infNumFastStr(n[i]));
-    } else {
-      t = infNumFastStr(n[i]);
-    }
-  }
-  let durationMs = Date.now() - startMs;
-  console.log("BigInt took [" + durationMs + "] ms for infNumFastStr(n):");
-  console.log(s.join("\n"));
-
-  ////////////////////////////////////////////////////////////////////////
-  s = [];
-  startMs = Date.now();
-  for (let i = 0; i < n.length; i++) {
-    if (i < 20) {
-      s.push(infNumExpString(n[i]));
-    } else {
-      t = infNumExpString(n[i]);
-    }
-  }
-  durationMs = Date.now() - startMs;
-  console.log("BigInt took [" + durationMs + "] ms for infNumExpString(n):");
-  console.log(s.join("\n"));
-  
-  ////////////////////////////////////////////////////////////////////////
-  s = [];
-  startMs = Date.now();
-  for (let i = 0; i < n.length; i++) {
-    if (i < 20) {
-      s.push(infNumToString(n[i]));
-    } else {
-      t = infNumToString(n[i]);
-    }
-  }
-  durationMs = Date.now() - startMs;
-  console.log("BigInt took [" + durationMs + "] ms for infNumToString(n):");
-  console.log(s.join("\n"));
 }
 
 function infNumTruncate(n) {
@@ -1512,10 +1434,10 @@ function computeBoundPointsChunk(plot, xChunk) {
     xInfNum = infNum(BigInt(xChunk[i]), 0n);
 
     px = infNumAdd(infNumMul(windowCalc.eachPixUnits, xInfNum), windowCalc.leftEdge);
-    pxStr = infNumToString(px) + ",";
+    pxStr = infNumFastStr(px) + ",";
     py = topNorm;
     for (let y = 0; y < dCanvas.height; y += pixelSizeFloat) {
-      const pointPixel = pxStr + infNumToString(py);
+      const pointPixel = pxStr + infNumFastStr(py);
       if (pointPixel in windowCalc.pointsCache) {
         windowCalc.cachedPoints++;
         // update the pixel on the screen, in case we've panned since

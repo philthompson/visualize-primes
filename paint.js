@@ -630,7 +630,7 @@ if (doUnitTests) {
 // divides the value portion of n as long as it's divisible by 10
 function infNumFastStr(n) {
   let nCopy = copyInfNum(n);
-  while (nCopy.v % 10n === 0n) {
+  while (nCopy.v % 10n === 0n && nCopy.v !== 0n) {
     nCopy.v /= 10n;
     nCopy.e += 1n;
   }

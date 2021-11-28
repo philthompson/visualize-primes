@@ -1472,6 +1472,7 @@ const presets = [{
   "v": 4,
   "n": 20000,
   "lineWidth": 1,
+  "significantDigits": 18,
   "scale": createInfNum("29000000000000"),
   "centerX": createInfNum("-0.743643887037052"),
   "centerY": createInfNum("0.1318259042051376"),
@@ -1482,6 +1483,7 @@ const presets = [{
   "v": 4,
   "n": 400,
   "lineWidth": 1,
+  "significantDigits": 12,
   "scale": createInfNum("1640000"),
   "centerX": createInfNum("0.273210669156851807493494"),
   "centerY": createInfNum("-0.00588612373984032474800031"),
@@ -1827,6 +1829,10 @@ function setDScaleVars(dCtx) {
 //   and the rest will be populated with standard values as part of parseUrlParams()
 function replaceHistoryWithParams(params) {
   var paramsCopy = Object.assign({}, params);
+  if ("significantDigits" in paramsCopy) {
+    truncateLength = paramsCopy.significantDigits;
+    delete paramsCopy["significantDigits"];
+  }
   paramsCopy.scale = infNumExpStringTrunc(params.scale);
   paramsCopy.centerX = infNumExpStringTrunc(params.centerX);
   paramsCopy.centerY = infNumExpStringTrunc(params.centerY);

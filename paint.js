@@ -675,8 +675,8 @@ const plots = [{
     const maxIter = historyParams.n;
 
     if (mandelbrotFloat) {
-      let xFloat = parseFloat(infNumToString(infNumTruncateToLen(x, 16)));
-      let yFloat = parseFloat(infNumToString(infNumTruncateToLen(y, 16)));
+      let xFloat = parseFloat(infNumExpString(infNumTruncateToLen(x, 16)));
+      let yFloat = parseFloat(infNumExpString(infNumTruncateToLen(y, 16)));
       let ix = 0;
       let iy = 0;
       let ixSq = 0;

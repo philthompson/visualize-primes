@@ -32,6 +32,7 @@ var builtGradient = null;
 const windowCalc = {
   "timeout": null,
   "plotName": "",
+  "stage": "",
   "lineWidth": 0,
   "xPixelChunks": [],
   "resultPoints": [],
@@ -57,7 +58,7 @@ const windowCalc = {
   "runtimeMs": -1,
   "avgRuntimeMs": -1
 };
-var windowCalcRepeat = 0;
+var windowCalcRepeat = -1;
 var windowCalcTimes = [];
 var imageParametersCaption = false;
 
@@ -1349,22 +1350,22 @@ const plots = [{
 //   }
 }];
 
-function isComputationComplete() {
+function isPassComputationComplete() {
   return windowCalc.xPixelChunks.length == 0;// && privContext.resultPoints.length > 0;
-}
-
-//function getResults(privContext) {
-//  return privContext.resultPoints;
-//}
-
-function computeBoundPoints(privContext) {
-  // call a function to split the calculation into chunks and kick it off
-  runWindowBoundPointsCalculators(privContext);
 }
 
 // call the plot's computeBoundPoints function in chunks, to better
 //   allow interuptions for long-running calculations
-function runWindowBoundPointsCalculators(privContext) {
+function calculateWindowPassChunks() {
+  windowCalc.chunksComplete = 0;
+  const roundedParamLineWidth =  Math.round(historyParams.lineWidth);
+  const potentialTempLineWidth = Math.round(windowCalc.lineWidth / 2);
+  if (potentialTempLineWidth <= roundedParamLineWidth) {
+    windowCalc.lineWidth = roundedParamLineWidth;
+  } else {
+    windowCalc.lineWidth = potentialTempLineWidth;
+  }
+
   // use lineWidth to determine how large to make the calculated/displayed
   //   pixels, so round to integer
   // use Math.round(), not Math.trunc(), because we want the minimum
@@ -1401,12 +1402,11 @@ function runWindowBoundPointsCalculators(privContext) {
   }
   windowCalc.xPixelChunks.push(xChunk);
   windowCalc.totalChunks = windowCalc.xPixelChunks.length;
-
-  waitAndDrawWindow();
 }
 
-function computeBoundPointsChunk(plot, xChunk) {
+function computeBoundPointsChunk(xChunk) {
   var chunkStartMs = Date.now();
+  const plot = plotsByName[historyParams.plot];
   const privContext = plot.privContext;
   var resultPoints = [];
 
@@ -2067,7 +2067,6 @@ function redraw() {
   if (plot.calcFrom == "sequence") {
     drawPoints(historyParams);
   } else if (plot.calcFrom == "window") {
-    //resetWindowCalcContext();
     calculateAndDrawWindow();
   }
 }
@@ -2144,6 +2143,7 @@ function resetWindowCalcContext() {
 
   const params = historyParams;
   windowCalc.plotName = params.plot;
+  windowCalc.stage = "";
 
   // attempt to resolve slowdown experienced when repeatedly panning/zooming,
   //   where the slowdown is resolved when refreshing the page
@@ -2168,7 +2168,6 @@ function resetWindowCalcContext() {
   windowCalc.endTimeMs = 0;
   windowCalc.totalPoints = 0;
   windowCalc.cachedPoints = 0;
-  windowCalc.chunksComplete = 0;
   windowCalc.totalChunks = 0;
   windowCalc.runtimeMs = -1;
   windowCalc.avgRuntimeMs = -1;
@@ -2336,18 +2335,27 @@ btnGotoCenterGo.addEventListener("click", applyGoToCenterValues);
 btnGotoCenterReset.addEventListener("click", resetGoToCenterValues);
 
 function calculateAndDrawWindow() {
-  // if lineWidth is 128, then we are starting with a fresh drawing
-  // in this case, drawing will be fast (64-wide pixels) so don't bother
-  //   drawing the "Calculating ..." notice text
-  if (windowCalc.lineWidth == 128) {
-    calculateAndDrawWindowInner();
-  } else {
-    drawCalculatingNotice(dContext);
-    // thanks to https://stackoverflow.com/a/5521412/259456
-    // hand control back to the browser to allow canvas to actually show
-    //   the "calculating" text
-    window.setTimeout(calculateAndDrawWindowInner, 50);
+  // since we are just starting a new image, calculate and draw the first
+  //   pass synchronously, so that as the user drags a mouse/finger, or
+  //   zooms, the canvas is updated as rapidly as possible
+  calculateWindowPassChunks();
+  calculateAndDrawNextChunk();
+
+  if (windowCalc.timeout != null) {
+    window.clearTimeout(windowCalc.timeout);
   }
+  // after drawing the fist pass synchronously, we'll do all subsequent
+  //   passes via the windowDrawLoop
+  // BUT FIRST wait 1/4 second because the user might still be panning/zooming
+  windowCalc.timeout = window.setTimeout(kickoffWindowDrawLoop, 250);
+}
+
+function kickoffWindowDrawLoop() {
+  if (windowCalc.timeout != null) {
+    window.clearTimeout(windowCalc.timeout);
+  }
+  windowCalc.stage = windowCalcStages.calculateChunks;
+  windowCalc.timeout = window.setInterval(windowDrawLoop, 5);
 }
 
 var resetGradientInput = function() {
@@ -2361,120 +2369,149 @@ btnGradGo.addEventListener("click", function() {
 });
 btnGradReset.addEventListener("click", resetGradientInput);
 
-function calculateAndDrawWindowInner() {
-  const params = historyParams;
-
-  const plot = plotsByName[params.plot];
-
-  const roundedParamLineWidth =  Math.round(params.lineWidth);
-  const potentialTempLineWidth = Math.round(windowCalc.lineWidth / 2);
-  if (potentialTempLineWidth <= roundedParamLineWidth) {
-    windowCalc.lineWidth = roundedParamLineWidth;
-  } else {
-    windowCalc.lineWidth = potentialTempLineWidth;
-  }
-
-  // this calls some functions that will later call other functions
-  //   to incrementally compute and display the results
-  computeBoundPoints(plot.privContext);
+const windowCalcStages = {
+  drawCalculatingNotice: "draw-calculating-notice",
+  calculateChunks: "calculate-chunks",
+  doNextChunk: "next-chunk",
+  cleanUpWindowCache: "clean-up-window-cache"
 }
 
-function waitAndDrawWindow() {
-  //console.log("waitAndDrawWindow() at " + new Error().stack.split('\n')[1]);
-  const plot = plotsByName[windowCalc.plotName];
+// the main window plot drawing loop, called repeatedly by setInterval()
+//function waitAndDrawWindow() {
+function windowDrawLoop() {
+  //console.log("windowDrawLoop() at " + new Error().stack.split('\n')[1]);
 
+  if (windowCalc.stage === windowCalcStages.drawCalculatingNotice) {
+    drawCalculatingNotice(dContext);
+    // if line width just finished is greater than the param lineWidth,
+    //   we have to do it again
+    // otherwise, we are done so do cleanup/end-of-image stuff
+    windowCalc.stage = windowCalcStages.calculateChunks;
+
+  } else if (windowCalc.stage === windowCalcStages.calculateChunks) {
+    calculateWindowPassChunks();
+    windowCalc.stage = windowCalcStages.doNextChunk;
+
+  } else if (windowCalc.stage === windowCalcStages.doNextChunk) {
+    const isPassFinished = calculateAndDrawNextChunk();
+
+    if (isPassFinished) {
+      // log timing of this pass (a single lineWidth)
+      if (windowLogTiming) {
+        windowCalc.totalTimeMs += windowCalc.passTimeMs;
+        let cachedPct = Math.round(windowCalc.cachedPoints * 10000.0 / windowCalc.totalPoints) / 100.0;
+        console.log("computing [" + windowCalc.totalPoints + "] points of width [" + windowCalc.lineWidth + "], of which [" + windowCalc.cachedPoints + "] were cached (" + cachedPct + "%), took [" + windowCalc.passTimeMs + "] ms");
+      }
+
+      // if line width just finished is greater than the param lineWidth,
+      //   we have to do it again
+      // otherwise, we are done
+      if (windowCalc.lineWidth > Math.round(historyParams.lineWidth)) {
+        windowCalc.stage = windowCalcStages.calculateChunks;
+      } else {
+        if (windowLogTiming) {
+          windowLogOverallImage();
+          if (windowCalcRepeat > 1) {
+            windowCalcRepeat -= 1;
+            resetWindowCalcCache();
+            redraw();
+            //return;
+          } else if (windowCalcRepeat === 1) {
+            windowCalcRepeat -= 1;
+            windowAverageTiming();
+          }
+        }
+        // draw image parameteres
+        if (imageParametersCaption) {
+          drawImageParameters();
+        }
+        // do a separate stage for cache cleaning so that the "Calculating..."
+        //   notice is removed from the screen before cache cleaning starts
+        //   (since cache cleaning is kind of slow, the "Calculating 99%"
+        //   would stay visible during the cache cleaning)
+        windowCalc.stage = windowCalcStages.cleanUpWindowCache;
+      }
+    }
+
+  } else if (windowCalc.stage === windowCalcStages.cleanUpWindowCache) {
+    cleanUpWindowCache();
+    if (windowCalc.timeout != null) {
+      window.clearTimeout(windowCalc.timeout);
+    }
+
+  // if the stage is not set, stop
+  } else {
+    if (windowCalc.timeout != null) {
+      window.clearTimeout(windowCalc.timeout);
+    }
+  }
+}
+
+function calculateAndDrawNextChunk() {
   var nextXChunk = windowCalc.xPixelChunks.shift();
-  const isFinished = isComputationComplete();
+  const isPassFinished = isPassComputationComplete();
   
   if (nextXChunk) {
-    const out = computeBoundPointsChunk(plot, nextXChunk);
+    const out = computeBoundPointsChunk(nextXChunk);
 
     // draw the results
     drawColorPoints(out.points);
-    if (!isFinished) {
+    if (!isPassFinished) {
       drawCalculatingNotice(dContext);
     }
   }
+  return isPassFinished;
+}
 
-  if (windowCalc.timeout != null) {
-    window.clearTimeout(windowCalc.timeout);
-  }
+function windowLogOverallImage() {
+  windowCalc.endTimeMs = Date.now();
+  const overallTimeMs = windowCalc.endTimeMs - windowCalc.startTimeMs;
+  windowCalc.runtimeMs = overallTimeMs;
+  // output overall timing info
+  console.log("COMPLETED image [" +
+    "w:" + dCanvas.width + ", " +
+    "h:" + dCanvas.height + ", " +
+    "lineWidth:" + Math.round(historyParams.lineWidth) + ", " +
+    "n:" + historyParams.n + ", " +
+    "centerX:" + infNumToString(infNumTruncate(historyParams.centerX)) + ", " +
+    "centerY:" + infNumToString(infNumTruncate(historyParams.centerY)) + ", " +
+    "scale:" + infNumToString(infNumTruncate(historyParams.scale)) +
+    "] took: " +
+    "[" + overallTimeMs + "] ms of overall time, " +
+    "[" + windowCalc.totalTimeMs + "] ms of compute/draw time, " +
+    "[" + (overallTimeMs - windowCalc.totalTimeMs) + "] ms of idle/wait time");
+  windowCalcTimes.push(overallTimeMs);
+}
 
-  // if the calculation is not finished, schedule another chunk to be calculated
-  if (!isFinished) {
-    windowCalc.timeout = window.setTimeout(waitAndDrawWindow, 25);
-    return;
-  }
-
-  // log timing of this pass (a single lineWidth)
-  if (windowLogTiming) {
-    windowCalc.totalTimeMs += windowCalc.passTimeMs;
-    let cachedPct = Math.round(windowCalc.cachedPoints * 10000.0 / windowCalc.totalPoints) / 100.0;
-    console.log("computing [" + windowCalc.totalPoints + "] points of width [" + windowCalc.lineWidth + "], of which [" + windowCalc.cachedPoints + "] were cached (" + cachedPct + "%), took [" + windowCalc.passTimeMs + "] ms");
-  }
-
-  // if line width just finished is greater than the param lineWidth,
-  //   we have to do it again
-  // otherwise, we are done
-  if (Math.round(windowCalc.lineWidth) > Math.round(historyParams.lineWidth)) {
-    windowCalc.chunksComplete = 0;
-    windowCalc.timeout = window.setTimeout(calculateAndDrawWindow, 250);
-    return;
-  }
-
-  if (windowLogTiming) {
-    windowCalc.endTimeMs = Date.now();
-    const overallTimeMs = windowCalc.endTimeMs - windowCalc.startTimeMs;
-    windowCalc.runtimeMs = overallTimeMs;
-    // output overall timing info
-    console.log("COMPLETED image [" +
-      "w:" + dCanvas.width + ", " +
-      "h:" + dCanvas.height + ", " +
-      "lineWidth:" + Math.round(historyParams.lineWidth) + ", " +
-      "n:" + historyParams.n + ", " +
-      "centerX:" + infNumToString(infNumTruncate(historyParams.centerX)) + ", " +
-      "centerY:" + infNumToString(infNumTruncate(historyParams.centerY)) + ", " +
-      "scale:" + infNumToString(infNumTruncate(historyParams.scale)) +
-      "] took: " +
-      "[" + overallTimeMs + "] ms of overall time, " +
-      "[" + windowCalc.totalTimeMs + "] ms of compute/draw time, " +
-      "[" + (overallTimeMs - windowCalc.totalTimeMs) + "] ms of idle/wait time");
-    if (windowCalcRepeat > 1) {
-      windowCalcTimes.push(overallTimeMs);
-      windowCalcRepeat -= 1;
-      resetWindowCalcCache();
-      redraw();
-      return;
-    } else {
-      windowCalcTimes.push(overallTimeMs);
-      let maxTime = 0;
-      let minTime = 0;
-      if (windowCalcTimes.length > 4) {
-        for (let i = 0; i < windowCalcTimes.length; i++) {
-          if (windowCalcTimes[i] > maxTime) {
-            maxTime = windowCalcTimes[i];
-          }
-          if (minTime == 0 || windowCalcTimes[i] < minTime) {
-            minTime = windowCalcTimes[i];
-          }
-        }
+function windowAverageTiming() {
+  let maxTime = 0;
+  let minTime = 0;
+  if (windowCalcTimes.length > 4) {
+    for (let i = 0; i < windowCalcTimes.length; i++) {
+      if (windowCalcTimes[i] > maxTime) {
+        maxTime = windowCalcTimes[i];
       }
-      let sum = 0;
-      let num = 0;
-      for (let i = 0; i < windowCalcTimes.length; i++) {
-        if (windowCalcTimes[i] == maxTime || windowCalcTimes[i] == minTime) {
-          continue;
-        }
-        sum += windowCalcTimes[i];
-        num++;
-      }
-      if (num > 0) {
-        windowCalc.avgRuntimeMs = (sum/num);
-        console.log("excluding max [" + maxTime + "] and min [" + minTime + "], the average overall time of [" + num + "] images was [" + windowCalc.avgRuntimeMs + "] ms");
+      if (minTime == 0 || windowCalcTimes[i] < minTime) {
+        minTime = windowCalcTimes[i];
       }
     }
   }
+  let sum = 0;
+  let num = 0;
+  for (let i = 0; i < windowCalcTimes.length; i++) {
+    if (windowCalcTimes[i] == maxTime || windowCalcTimes[i] == minTime) {
+      continue;
+    }
+    sum += windowCalcTimes[i];
+    num++;
+  }
+  if (num > 0) {
+    windowCalc.avgRuntimeMs = (sum/num);
+    console.log("excluding max [" + maxTime + "] and min [" + minTime + "], the average overall time of [" + num + "] images was [" + windowCalc.avgRuntimeMs + "] ms");
+  }
+}
 
+function cleanUpWindowCache() {
   // now that the image has been completed, delete any cached
   //   points outside of the window
   let cachedPointsKept = 0;
@@ -2494,11 +2531,6 @@ function waitAndDrawWindow() {
   }
   const deletedPct = Math.round(cachedPointsToDelete.length * 10000.0 / (cachedPointsToDelete.length + cachedPointsKept)) / 100.0;
   console.log("deleted [" + cachedPointsToDelete.length + "] points from the cache (" + deletedPct + "%)");
-
-  // draw image parameteres
-  if (imageParametersCaption) {
-    drawImageParameters();
-  }
 }
 
 function drawColorPoints(windowPoints) {

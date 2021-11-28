@@ -1470,6 +1470,16 @@ function computeBoundPointsChunk(xChunk) {
 const presets = [{
   "plot": "Mandelbrot-set",
   "v": 4,
+  "n": 20000,
+  "lineWidth": 1,
+  "scale": createInfNum("29000000000000"),
+  "centerX": createInfNum("-0.743643887037052"),
+  "centerY": createInfNum("0.1318259042051376"),
+  "gradient": "rbgyo",
+  "bgColor": "b"
+},{
+  "plot": "Mandelbrot-set",
+  "v": 4,
   "n": 400,
   "lineWidth": 1,
   "scale": createInfNum("1640000"),
@@ -2941,6 +2951,8 @@ window.addEventListener("keydown", function(e) {
     activatePreset(presets[2]);
   } else if (e.keyCode == 52 || e.keyCode == 100 || e.key == "4") {
     activatePreset(presets[3]);
+  } else if (e.keyCode == 53 || e.keyCode == 101 || e.key == "5") {
+    activatePreset(presets[4]);
   //} else if (e.keyCode == 57 || e.keyCode == 105 || e.key == "9") {
   }
 });

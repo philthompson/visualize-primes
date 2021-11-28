@@ -1845,22 +1845,22 @@ const lineColorSchemes = [
   "br", // blue -> red
   "by", // blue -> yellow
   "op", // orange -> purple
-  "LD-L(200_200_200)-D(50_50_50)", // light gray - dark gray
-  "LD-L(200_40_40)-D(120_24_24)", // red
-  "LD-L(200_100_0)-D(120_60_0)", // orange
-  "LD-L(200_200_0)-D(120_120_0)", // yellow
-  "LD-L(20_200_20)-D(12_120_12)", // green
-  "LD-L(20_20_200)-D(12_12_120)", // blue
-  "LD-L(200_20_200)-D(120_12_120)", // purple
-  "LD-L(60_60_60)-D(30_30_30)", // dark gray
-  "LD-L(200_200_200)-D(120_120_120)" // light gray
+  "LD-L~200.200.200-D~50.50.50", // light gray - dark gray
+  "LD-L~200.40.40-D~120.24.24", // red
+  "LD-L~200.100.0-D~120.60.0", // orange
+  "LD-L~200.200.0-D~120.120.0", // yellow
+  "LD-L~20.200.20-D~12.120.12", // green
+  "LD-L~20.20.200-D~12.12.120", // blue
+  "LD-L~200.20.200-D~120.12.120", // purple
+  "LD-L~60.60.60-D~30.30.30", // dark gray
+  "LD-L~200.200.200-D~120.120.120" // light gray
 ];
 
-// match color declaration like "a(1_2_3)" or "r(150_30_30)"
-const customColorRegex = /^[a-zA-z]\([0-9]{1,3}_[0-9]{1,3}_[0-9]{1,3}\)$/;
+// match color declaration like "a~1.2.3" or "r~150.30.30"
+const customColorRegex = /^[a-zA-z]~[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
 
 // build global gradient stops from format:
-//   roygbv-saturation60-brightness90-width80-offset30-repeat10-mirror2-shift3
+//   roygbvx-saturation60-brightness90-width80-offset30-repeat10-mirror2-shift3-x~30.30.30
 function buildGradient(gradientString) {
   const colorsByName = {
     "r": [240,0,0],
@@ -1883,7 +1883,7 @@ function buildGradient(gradientString) {
     colorMatch = splitArgs[i].match(customColorRegex);
     if (colorMatch !== null) {
       let customColorName = colorMatch[0].charAt(0);
-      let customRgbValuesSplit = colorMatch[0].slice(2, -1).split("_"); // "x(1_2_3)" -> ["1","2","3"]
+      let customRgbValuesSplit = colorMatch[0].substring(2).split("."); // "x~1.2.3" -> ["1","2","3"]
       let customRgbValues = [];
       for (let i = 0; i < customRgbValuesSplit.length; i++) {
         let value = parseInt(customRgbValuesSplit[i]);

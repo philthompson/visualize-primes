@@ -2072,6 +2072,9 @@ function applyBuiltGradient(gradient, percentage) {
 }
 
 function redraw() {
+  if (windowCalc.timeout != null) {
+    window.clearTimeout(windowCalc.timeout);
+  }
   resetWindowCalcContext();
   const plot = plotsByName[historyParams.plot];
   if (plot.calcFrom == "sequence") {
@@ -2425,7 +2428,6 @@ function windowDrawLoop() {
             windowCalcRepeat -= 1;
             resetWindowCalcCache();
             redraw();
-            //return;
           } else if (windowCalcRepeat === 1) {
             windowCalcRepeat -= 1;
             windowAverageTiming();
@@ -2462,10 +2464,7 @@ function calculateAndDrawNextChunk() {
   const isPassFinished = isPassComputationComplete();
   
   if (nextXChunk) {
-    const out = computeBoundPointsChunk(nextXChunk);
-
-    // draw the results
-    drawColorPoints(out.points);
+      drawColorPoints(computeBoundPointsChunk(nextXChunk).points);
     if (!isPassFinished) {
       drawCalculatingNotice(dContext);
     }

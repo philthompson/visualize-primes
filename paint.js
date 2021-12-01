@@ -1473,10 +1473,10 @@ const presets = [{
   "n": 20000,
   "lineWidth": 1,
   "significantDigits": 18,
-  "scale": createInfNum("29000000000000"),
-  "centerX": createInfNum("-0.743643887037052"),
-  "centerY": createInfNum("0.1318259042051376"),
-  "gradient": "rbgyo",
+  "scale": createInfNum("9000000000000"),
+  "centerX": createInfNum("-0.74364392705773112"),
+  "centerY": createInfNum("0.131825980877688413"),
+  "gradient": "bBgwo-B~20.20.20-repeat3",
   "bgColor": "b"
 },{
   "plot": "Mandelbrot-set",
@@ -2643,7 +2643,7 @@ function drawImageParameters() {
   const textHeight = Math.round(noticeHeight * 0.6);
   const noticeWidth = Math.max(200, textHeight * 18);
   const lines = [];
-  const paramLengthLimit = 22;
+  const paramLengthLimit = 20;
   let entries = [
     ["x (re)", infNumExpString(historyParams.centerX)],
     ["y (im)", infNumExpString(historyParams.centerY)],

@@ -868,16 +868,17 @@ const plots = [{
       "centerY": createInfNum("0.0"),
       "radSq": createInfNum("0.04")
     }],
-    "adjustTruncate": function() {
+    "adjustTruncate": function(scale) {
+      const truncScale = infNumTruncateToLen(scale, 8); // we probably only need 1 or 2 significant digits for this...
       // these values need more testing to ensure they create pixel-identical images
       //   to higher-precision images
-      if (infNumLt(historyParams.scale, createInfNum("1000"))) {
+      if (infNumLt(truncScale, createInfNum("1000"))) {
         mandelbrotFloat = true;
         truncateLength = 12;
-      } else if (infNumLt(historyParams.scale, createInfNum("2,000,000".replaceAll(",", "")))) {
+      } else if (infNumLt(truncScale, createInfNum("2,000,000".replaceAll(",", "")))) {
         mandelbrotFloat = true;
         truncateLength = 12;
-      } else if (infNumLt(historyParams.scale, createInfNum("30,000,000,000,000".replaceAll(",", "")))) {
+      } else if (infNumLt(truncScale, createInfNum("30,000,000,000,000".replaceAll(",", "")))) {
         mandelbrotFloat = true;
         truncateLength = 20;
       } else {
@@ -2164,15 +2165,16 @@ function resetWindowCalcContext() {
   windowCalc.plotName = params.plot;
   windowCalc.stage = "";
 
+  // set the plot-specific global precision to use first
+  if ("adjustTruncate" in plotsByName[params.plot].privContext) {
+    plotsByName[params.plot].privContext.adjustTruncate(historyParams.scale);
+  }
+
   // attempt to resolve slowdown experienced when repeatedly panning/zooming,
   //   where the slowdown is resolved when refreshing the page
   historyParams.scale = infNumTruncate(historyParams.scale);
   historyParams.centerX = infNumTruncate(historyParams.centerX);
   historyParams.centerY = infNumTruncate(historyParams.centerY);
-
-  if ("adjustTruncate" in plotsByName[params.plot].privContext) {
-    plotsByName[params.plot].privContext.adjustTruncate();
-  }
 
   // since line width is halved each time the draw occurs, use 128 to get
   //   the initial draw to use a 64-wide pixels

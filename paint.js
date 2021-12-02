@@ -56,7 +56,8 @@ const windowCalc = {
   "n": 1,
   "scale": infNum(1n, 0n),
   "runtimeMs": -1,
-  "avgRuntimeMs": -1
+  "avgRuntimeMs": -1,
+  "worker": null
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];
@@ -627,6 +628,29 @@ if (doUnitTests) {
   console.log("infNumExpStringTruncToLen(\"" + unitTest + "\", 5) = [" + infNumExpStringTruncToLen(createInfNum(unitTest), 5) + "]// 1.23456e8");
 }
 
+function createInfNumFromExpStr(s) {
+  const split = s.split("e");
+  const decSplit = split[0].split(".");
+  let exp = BigInt(split[1]);
+  exp -= BigInt(decSplit[1].length);
+  let val = BigInt(decSplit[0] + decSplit[1]);
+  return infNum(val, exp);
+}
+
+if (doUnitTests) {
+  let unitTest = "5.0e0";
+  console.log("createInfNumFromExpStr(\"" + unitTest + "\") = ... // (50n, -1n)");
+  console.log(createInfNumFromExpStr(unitTest));
+
+  unitTest = "-5.0e2";
+  console.log("createInfNumFromExpStr(\"" + unitTest + "\") = ... // (-50n, 1n)");
+  console.log(createInfNumFromExpStr(unitTest));
+
+  unitTest = "3.21e-4";
+  console.log("createInfNumFromExpStr(\"" + unitTest + "\") = ... // (321n, -6n)");
+  console.log(createInfNumFromExpStr(unitTest));
+}
+
 // this is not suitable for displaying to users (it's in base 16)
 // divides the value portion of n as long as it's divisible by 10
 function infNumFastStr(n) {
@@ -672,8 +696,9 @@ const plots = [{
     "<br/>- When not zoomed in very far, keep the <code>n</code> (iterations) parameter low for faster calculation (use N and M keys to decrease/increase the <code>n</code> value)." +
     "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower.",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeBoundPointColor": function(privContext, x, y) {
-    const maxIter = historyParams.n;
+  "computeBoundPointColor": function(n, x, y) {
+    const maxIter = n;
+    const four = infNum(4n, 0n);
 
     if (mandelbrotFloat) {
       let xFloat = parseFloat(infNumExpString(infNumTruncateToLen(x, 16)));
@@ -700,7 +725,8 @@ const plots = [{
         return -1.0; // background color
       } else {
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        return privContext.applyColorCurve(iter / maxIter);
+        //return privContext.applyColorCurve(iter / maxIter);
+        return iter / maxIter;
       }
     }
 
@@ -726,7 +752,7 @@ const plots = [{
       while (iter < maxIter) {
         ixSq = infNumMul(ix, ix);
         iySq = infNumMul(iy, iy);
-        if (infNumGt(infNumAdd(ixSq, iySq), privContext.boundsRadiusSquared)) {
+        if (infNumGt(infNumAdd(ixSq, iySq), four)) {
           break;
         }
         ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
@@ -741,7 +767,8 @@ const plots = [{
         return -1.0; // background color
       } else {
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        return privContext.applyColorCurve(iter / maxIter);
+        //return privContext.applyColorCurve(iter / maxIter);
+        return iter / maxIter;
       }
     } catch (e) {
       console.log("ERROR CAUGHT when processing point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
@@ -1351,122 +1378,255 @@ const plots = [{
 //   }
 }];
 
-function isPassComputationComplete() {
-  return windowCalc.xPixelChunks.length == 0;// && privContext.resultPoints.length > 0;
-}
-
-// call the plot's computeBoundPoints function in chunks, to better
-//   allow interuptions for long-running calculations
-function calculateWindowPassChunks() {
-  windowCalc.chunksComplete = 0;
-  const roundedParamLineWidth =  Math.round(historyParams.lineWidth);
-  const potentialTempLineWidth = Math.round(windowCalc.lineWidth / 2);
-  if (potentialTempLineWidth <= roundedParamLineWidth) {
-    windowCalc.lineWidth = roundedParamLineWidth;
-  } else {
-    windowCalc.lineWidth = potentialTempLineWidth;
+var calcWorker = function() {
+  // from https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers
+  var fn2workerURL = function(fn) {
+    var blob = new Blob(['('+fn.toString()+')()'], {type: 'text/javascript'})
+    return URL.createObjectURL(blob)
   }
 
-  // use lineWidth to determine how large to make the calculated/displayed
-  //   pixels, so round to integer
-  // use Math.round(), not Math.trunc(), because we want the minimum
-  //   lineWidth of 0.5 to result in a pixel size of 1
-  const pixelSize = Math.round(windowCalc.lineWidth);
+  // create subworkers
+  // for each pass:
+  //   - calculate chunks
+  //   - give a chunk to each subworker
+  //   - when subworker completes chunk:
+  //       - pass it up to main thread
+  //       - give that subworker another chunk
+  //   - when pass is complete, repeat if there's another pass
 
-  const pixWidth = dContext.canvas.width;
-  // use way fewer chunks for larger pixels, which mostly fixes mouse-dragging issues
-  var numXChunks = 128;
-  if (pixelSize == 64) {
-    numXChunks = 1;
-  } else if (pixelSize == 32) {
-    numXChunks = 4;
-  } else if (pixelSize == 16) {
-    numXChunks = 32;
-  } else if (pixelSize == 8 || pixelSize == 4) {
-    numXChunks = 64;
-  }
-  var pixPerChunk = 1;
-  var realPixelsPerChunk = pixWidth/numXChunks;
-  pixPerChunk = Math.trunc(realPixelsPerChunk / pixelSize) + 1;
-
-  // split the x-axis, to break the computation down into interruptable chunks
-  var xChunkPix = 0;
-  var xChunk = [];
-  for (var x = 0; x < pixWidth; x+=pixelSize) {
-    xChunkPix++;
-    if (xChunkPix > pixPerChunk) {
-      windowCalc.xPixelChunks.push(xChunk);
-      xChunkPix = 1;
-      xChunk = [];
-    }
-    xChunk.push(x);
-  }
-  windowCalc.xPixelChunks.push(xChunk);
-  windowCalc.totalChunks = windowCalc.xPixelChunks.length;
-}
-
-function computeBoundPointsChunk(xChunk) {
-  var chunkStartMs = Date.now();
-  const plot = plotsByName[historyParams.plot];
-  const privContext = plot.privContext;
-  var resultPoints = [];
-
-  // use lineWidth to determine how large to make the calculated/displayed
-  //   pixels, so round to integer
-  // use Math.round(), not Math.trunc(), because we want the minimum
-  //   lineWidth of 0.5 to result in a pixel size of 1
-  const pixelSizeFloat = Math.round(windowCalc.lineWidth);
-  const pixelSize = createInfNum(pixelSizeFloat.toString());
-  //const params = historyParams;
-
-  // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
-  //const pixWidth = createInfNum(dContext.canvas.width.toString());
-  const pixHeight = createInfNum(dContext.canvas.height.toString());
-
-  let px = null;
-  let py = null;
-  let x = 0;
-  const yStep = infNumMul(windowCalc.eachPixUnits, pixelSize);
-  const yNorm = normInfNum(yStep, windowCalc.topEdge);
-  const yStepNorm = yNorm[0];
-  const topNorm = yNorm[1];
-  for (let i = 0; i < xChunk.length; i++) {
-    x = xChunk[i];
-    xInfNum = infNum(BigInt(xChunk[i]), 0n);
-
-    px = infNumAdd(infNumMul(windowCalc.eachPixUnits, xInfNum), windowCalc.leftEdge);
-    pxStr = infNumFastStr(px) + ",";
-    py = topNorm;
-    for (let y = 0; y < dCanvas.height; y += pixelSizeFloat) {
-      const pointPixel = pxStr + infNumFastStr(py);
-      if (pointPixel in windowCalc.pointsCache) {
-        windowCalc.cachedPoints++;
-        // update the pixel on the screen, in case we've panned since
-        //   the point was originally cached
-        windowCalc.pointsCache[pointPixel].px.x = x;
-        windowCalc.pointsCache[pointPixel].px.y = y;
-        resultPoints.push(windowCalc.pointsCache[pointPixel]);
-      } else {
-        const pointColor = plot.computeBoundPointColor(privContext, px, py);
-
-        // x and y are integer (actual pixel) values, with no decimal component
-        const point = getColorPoint(x, y, pointColor);
-        // px -- the pixel "color point"
-        // pt -- the abstract coordinate on the plane
-        let wrappedPoint = {"px": point, "pt": {"x":copyInfNum(px), "y":copyInfNum(py)}};
-        windowCalc.pointsCache[pointPixel] = wrappedPoint;
-        resultPoints.push(wrappedPoint);
-      }
-      py = infNumSubNorm(py, yStepNorm);
-    }
-  }
-  windowCalc.passTimeMs += (Date.now() - chunkStartMs);
-  windowCalc.totalPoints += resultPoints.length;
-  windowCalc.chunksComplete++;
-  return {
-    "points": resultPoints,
+  const windowCalc = {
+    "pointCalcFunction": null,
+    "eachPixUnits": null,
+    "leftEdge": null,
+    "bottomEdge": null,
+    "n": null,
+    "lineWidth": null,
+    "finalWidth": null,
+    "chunksComplete": null,
+    "canvasWidth": null,
+    "canvasHeight": null,
+    "xPixelChunks": null,
+    "totalChunks": null,
+    "workers": null,
   };
-}
+  // this is set below
+  var subWorkerUrl = null;
+
+  self.onmessage = function(e) {
+    windowCalc.eachPixUnits = createInfNumFromExpStr(e.data.eachPixUnits);
+    windowCalc.leftEdge = createInfNumFromExpStr(e.data.leftEdge);
+    windowCalc.bottomEdge = createInfNumFromExpStr(e.data.bottomEdge);
+    windowCalc.n = e.data.n;
+    // the main thread does its own 64-wide pixels synchronously,
+    //   so the worker threads should start at 32-wide (set to 64
+    //   here so that after dividing by two initially we are at 32)
+    windowCalc.lineWidth = 64;
+    windowCalc.finalWidth = e.data.finalWidth;
+    windowCalc.chunksComplete = 0;
+    windowCalc.canvasWidth = e.data.canvasWidth;
+    windowCalc.canvasHeight = e.data.canvasHeight;
+    windowCalc.totalChunks = null;
+    windowCalc.workers = [];
+    windowCalc.computeFnUrl = e.data.computeFnUrl;
+    for (let i = 0; i < e.data.workers; i++) {
+      windowCalc.workers.push(new Worker(subWorkerUrl));
+      windowCalc.workers[i].onmessage = onSubWorkerMessage;
+    }
+    calculatePass();
+  };
+
+  var calculatePass = function() {
+    calculateWindowPassChunks();
+    //const isPassFinished = calculateAndDrawNextChunk();
+    for (let i = 0; i < windowCalc.workers.length; i++) {
+      assignChunkToWorker(i);
+    }
+  };
+
+  var assignChunkToWorker = function(workerIndex) {
+    var nextChunk = windowCalc.xPixelChunks.shift();
+    var subWorkerMsg = {
+      "chunk": nextChunk,
+      "computeFnUrl": windowCalc.computeFnUrl,
+    };
+    
+    // give next chunk, if any, to the worker
+    if (nextChunk) {
+      windowCalc.workers[workerIndex].postMessage(subWorkerMsg);
+    }
+  };
+
+  var onSubWorkerMessage = function(msg) {
+    windowCalc.chunksComplete++;
+
+    const workerId = msg.data.subworkerId;
+    delete msg.data.subworkerId;
+
+    // pass results up to main thread, then give next chunk to the worker
+    const status = {
+      "chunks": windowCalc.totalChunks,
+      "chunksComplete": windowCalc.chunksComplete,
+      "pixelWidth": windowCalc.lineWidth,
+      "running": true
+    };
+    msg.data["calcStatus"] = status;
+    self.postMessage(msg.data);
+
+    if (windowCalc.chunksComplete >= windowCalc.totalChunks) {
+      // start next pass, if there is a next one
+      calculatePass();
+    } else {
+      assignChunkToWorker(workerId);
+    }
+  };
+
+  // this needs to be fixed or at least renamed: once
+  //   the chunks array is empty, there still may be ongoing
+  //   computations in other threads
+  var isPassComputationComplete = function() {
+    return windowCalc.xPixelChunks.length == 0;// && privContext.resultPoints.length > 0;
+  };
+
+  // call the plot's computeBoundPoints function in chunks, to better
+  //   allow interuptions for long-running calculations
+  var calculateWindowPassChunks = function() {
+    windowCalc.chunksComplete = 0;
+    windowCalc.xPixelChunks = [];
+    if (windowCalc.lineWidth == windowCalc.finalWidth) {
+      return;
+    }
+    // use lineWidth to determine how large to make the calculated/displayed
+    //   pixels, so round to integer
+    // use Math.round(), not Math.trunc(), because we want the minimum
+    //   lineWidth of 0.5 to result in a pixel size of 1
+    const potentialTempLineWidth = Math.round(windowCalc.lineWidth / 2);
+    if (potentialTempLineWidth <= windowCalc.finalWidth) {
+      windowCalc.lineWidth = windowCalc.finalWidth;
+    } else {
+      windowCalc.lineWidth = potentialTempLineWidth;
+    }
+
+    const pixelSize = windowCalc.lineWidth;
+
+    // chunk computation does not block the UI thread anymore, so... 
+    // "chunks" are CHANGING completely
+    // previously, they were a set of X values
+    // now, to start with, it is an x,y coordinate with an increment
+    //   in ONE dimension
+    // it's no longer possible to have a 2-dimensional chunk
+    //
+    // in the future, we may want to use center-out calculation in a square
+    //   shape, where successively bigger squares of pixels are
+    //   computed, each made up of 4 chunks (2 vertical, 2 horizontal) 
+
+    // !! T O D O !!
+    // use modulo to effectively "cache" points?
+    // since we are drawing on top of the existing N-wide pixels,
+    //   we might be able to skip every other pixel in every other
+    //     row or something, and the skipped pixels will remain...
+
+
+    const yPointsPerChunk = Math.ceil(windowCalc.canvasHeight / pixelSize);
+    
+    var incX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
+    var cursorX = infNumSub(windowCalc.leftEdge, incX);
+    for (var x = 0; x < windowCalc.canvasWidth; x+=pixelSize) {
+      cursorX = infNumAdd(cursorX, incX);
+      let chunk = {
+        "chunkPix": {"x": x, "y": windowCalc.canvasHeight},
+        // since we start at bottom edge, we increment pixels by subtracting Y value 
+        //   (because javascript canvas Y coordinate is backwards)
+        "chunkPixInc": {"x": 0, "y": -1 * pixelSize},
+        "chunkPos": {"x": copyInfNum(cursorX), "y": copyInfNum(windowCalc.bottomEdge)},
+        // within the chunk inself, each position along the chunk is incremented in the
+        //   Y dimension, and since chunk pixels are square, the amount incremented in
+        //   the Y dimension is the same as incX
+        "chunkInc": {"x": infNum(0n, 0n), "y": copyInfNum(incX)},
+        "chunkLen": yPointsPerChunk,
+        "chunkN": windowCalc.n
+      };
+      windowCalc.xPixelChunks.push(chunk);
+    }
+    windowCalc.totalChunks = windowCalc.xPixelChunks.length;
+  };
+
+  var calcSubWorker = function() {
+    self.onmessage = function(e) {
+      // load the script blob that contains the function used to
+      //   actually compute each point -- that function is always
+      //   called "computeBoundPointColor" and is defined by each
+      //   window plot
+      importScripts(e.data.computeFnUrl);
+      computeChunk(e.data.chunk);
+    };
+
+    var computeChunk = function(chunk) {
+      // TODO: just use overall time as measured in main thread, don't keep
+      //         separate running times on a per-chunk or per-subworker basis
+      //var chunkStartMs = Date.now();
+
+      ////////////////////////////////
+      // e.chunkPix - {x: int, y: int} - starting point of the chunk's pixel on canvas
+      // e.chunkPixInc - {x: int, y: int} - coordinate to add to previous pixel to move to next pixel
+      // e.chunkPos - {x: InfNumExpStr, y: InfNumExpStr} - starting point of the chunk
+      // e.chunkInc - {x: InfNumExpStr, y: InfNumExpStr} - the coordinate to add to the previous point to move to the next point
+      // e.chunkLen - int - the number of points in the chunk
+      // e.chunkN - max iterations
+      // e.results -  [int,int,...] - array of integer "interations" values, one per point in the chunk
+      // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean}
+    //  const zero = InfNum(0n, 0n);
+    //  let posX = createInfNumFromExpStr(e.chunkPos.x);
+    //  let posY = createInfNumFromExpStr(e.chunkPos.y);
+    //  let incX = createInfNumFromExpStr(e.chunkInc.x);
+    //  let incY = createInfNumFromExpStr(e.chunkInc.y);
+      ////////////////////////////////
+
+      let px = chunk.chunkPos.x;
+      let py = chunk.chunkPos.y;
+      let incX = chunk.chunkInc.x;
+      let incY = chunk.chunkInc.y;
+
+      // assume exactly one of x or y increments is zero
+      let moveX = true;
+      if (infNumEq(InfNum(0n, 0n), chunk.chunkInc.x)) {
+        moveX = false;
+      }
+      if (moveX) {
+        let norm = normInfNum(px, incX);
+        px = norm[0];
+        incX = norm[1];
+      } else {
+        let norm = normInfNum(py, incY);
+        py = norm[0];
+        incY = norm[1];
+      }
+
+      // pre-allocate array so we don't have to use array.push()
+      const results = new Array(chunk.chunkLen);
+      if (moveX) {
+        for (let i = 0; i < chunk.chunkLen; i++) {
+          results[i] = computeBoundPointColor(chunk.chunkN, px, py);
+          // since we want to start at the given starting position, increment
+          //   the position AFTER computing each result
+          px = infNumAddNorm(px, incX);
+        }
+      } else {
+        for (let i = 0; i < chunk.chunkLen; i++) {
+          results[i] = computeBoundPointColor(chunk.chunkN, px, py);
+          // since we want to start at the given starting position, increment
+          //   the position AFTER computing each result
+          py = infNumAddNorm(py, incY);
+        }
+      }
+      chunk["results"] = results;
+      self.postMessage(chunk);
+    };
+
+  };
+  subWorkerUrl = fn2workerURL(calcSubWorker);
+
+};
+const calcWorkerUrl = fn2workerURL(calcWorker);
 
 const presets = [{
   "plot": "Mandelbrot-set",
@@ -2079,9 +2239,12 @@ function applyBuiltGradient(gradient, percentage) {
 }
 
 function redraw() {
-  if (windowCalc.timeout != null) {
-    window.clearTimeout(windowCalc.timeout);
+  if (windowCalc.worker != null) {
+    windowCalc.worker.terminate();
   }
+  //if (windowCalc.timeout != null) {
+  //  window.clearTimeout(windowCalc.timeout);
+  //}
   resetWindowCalcContext();
   const plot = plotsByName[historyParams.plot];
   if (plot.calcFrom == "sequence") {
@@ -2156,9 +2319,12 @@ function resetWindowCalcCache() {
 }
 
 function resetWindowCalcContext() {
-  if (windowCalc.timeout != null) {
-    window.clearTimeout(windowCalc.timeout);
+  if (windowCalc.worker != null) {
+    windowCalc.worker.terminate();
   }
+  //if (windowCalc.timeout != null) {
+  //  window.clearTimeout(windowCalc.timeout);
+  //}
   fillBg(dContext);
 
   const params = historyParams;
@@ -2355,28 +2521,152 @@ btnGotoBoundsReset.addEventListener("click", resetGoToBoundsValues);
 btnGotoCenterGo.addEventListener("click", applyGoToCenterValues);
 btnGotoCenterReset.addEventListener("click", resetGoToCenterValues);
 
+// from https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers
+function fn2workerURL(fn) {
+  var blob = new Blob(['('+fn.toString()+')()'], {type: 'text/javascript'})
+  return URL.createObjectURL(blob)
+}
+
+// messages received from main worker:
+// chunk complete
+var calcWorkerOnmessage = function(e) {
+  drawWorkerColorPoints(e);
+  drawCalculatingNotice(dContext);
+};
+
+function drawWorkerColorPoints(workerMessage) {
+  const e = workerMessage;
+  // e.chunkPix - {x: int, y: int} - starting point of the chunk's pixel on canvas
+  // e.chunkPixInc - {x: int, y: int} - coordinate to add to previous pixel to move to next pixel
+  // e.chunkPos - {x: InfNumExpStr, y: InfNumExpStr} - starting point of the chunk
+  // e.chunkInc - {x: InfNumExpStr, y: InfNumExpStr} - the coordinate to add to the previous point to move to the next point
+  // e.chunkLen - int - the number of points in the chunk
+  // e.results -  [float,int,...] - array of results values, one per point in the chunk
+  // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean}
+  let posX = createInfNumFromExpStr(e.chunkPos.x);
+  let posY = createInfNumFromExpStr(e.chunkPos.y);
+  let incX = createInfNumFromExpStr(e.chunkInc.x);
+  let incY = createInfNumFromExpStr(e.chunkInc.y);
+  const pixIncX = e.chunkPixInc.x;
+  const pixIncY = e.chunkPixInc.y;
+  // assume exactly one of x or y increments is zero
+  let moveX = true;
+  if (infNumEq(InfNum(0n, 0n), incX)) {
+    moveX = false;
+  }
+  if (moveX) {
+    let norm = normInfNum(posX, incX);
+    posX = norm[0];
+    incX = norm[1];
+  } else {
+    let norm = normInfNum(posY, incY);
+    posY = norm[0];
+    incY = norm[1];
+  }
+  let pixX = e.chunkPix.x;
+  let pixY = e.chunkPix.y;
+  // pre-allocate array so we don't have to use array.push()
+  const results = new Array(e.chunkLen);
+  if (moveX) {
+    for (let i = 0; i < e.chunkLen; i++) {
+      // x and y are integer (actual pixel) values, with no decimal component
+      const point = getColorPoint(pixX, pixY, e.results[i]);
+      // create a wrappedPoint
+      // px -- the pixel "color point"
+      // pt -- the abstract coordinate on the plane
+      results[i] = {"px": point, "pt": {"x":copyInfNum(posX), "y":copyInfNum(posY)}};
+      // since we want to start at the given starting position, increment
+      //   both the position and pixel AFTER creating each result
+      pixX += pixIncX;
+      posX = infNumAddNorm(posX, incX);
+    }
+  } else {
+    posY = infNumSubNorm(posY, incY);
+    for (let i = 0; i < e.chunkLen; i++) {
+      // x and y are integer (actual pixel) values, with no decimal component
+      const point = getColorPoint(pixX, pixY, e.results[i]);
+      // create a wrappedPoint
+      // px -- the pixel "color point"
+      // pt -- the abstract coordinate on the plane
+      results[i] = {"px": point, "pt": {"x":copyInfNum(posX), "y":copyInfNum(posY)}};
+      // since we want to start at the given starting position, increment
+      //   both the position and pixel AFTER creating each result
+      pixY += pixIncY;
+      posY = infNumAddNorm(posY, incY);
+    }
+  }
+  drawColorPoints(results);
+}
+
+// simple, synchronous/blocking function to calculate and draw
+//   the entire image
+function calculateAndDrawWindowSync(pixelSize) {
+  const compute = plotsByName[windowCalc.plotName].computeBoundPointColor;
+  let step = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
+  let xNorm = normInfNum(windowCalc.leftEdge, step);
+  let px = xNorm[0];
+  let xStep = xNorm[1];
+  // pre-allocate array so we don't have to use array.push()
+  const results = new Array(Math.ceil(dContext.canvas.width/pixelSize) * Math.ceil(dContext.canvas.height/pixelSize));
+  let resultCounter = 0;
+  for (let x = 0; x < dContext.canvas.width; x+=pixelSize) {
+    let yNorm = normInfNum(windowCalc.topEdge, step);
+    let py = yNorm[0];
+    let yStep = yNorm[1];
+    for (let y = 0; y < dContext.canvas.height; y+=pixelSize) {
+      // create a wrappedPoint
+      // px -- the pixel "color point"
+      // pt -- the abstract coordinate on the plane
+      results[resultCounter] = {
+        "px": getColorPoint(x, y, compute(windowCalc.n, px, py)),
+        "pt": {"x":copyInfNum(px), "y":copyInfNum(py)}
+      };
+      resultCounter++;
+      py = infNumSubNorm(py, yStep);
+    }
+    px = infNumAddNorm(px, xStep);
+  }
+  drawColorPoints(results);
+}
+
 function calculateAndDrawWindow() {
   // since we are just starting a new image, calculate and draw the first
   //   pass synchronously, so that as the user drags a mouse/finger, or
   //   zooms, the canvas is updated as rapidly as possible
-  calculateWindowPassChunks();
-  calculateAndDrawNextChunk();
-
+  calculateAndDrawWindowSync(64);
+  return;
   if (windowCalc.timeout != null) {
     window.clearTimeout(windowCalc.timeout);
   }
   // after drawing the fist pass synchronously, we'll do all subsequent
-  //   passes via the windowDrawLoop
+  //   passes via the worker and its subworkers
   // BUT FIRST wait 1/4 second because the user might still be panning/zooming
   windowCalc.timeout = window.setTimeout(kickoffWindowDrawLoop, 250);
 }
 
 function kickoffWindowDrawLoop() {
-  if (windowCalc.timeout != null) {
-    window.clearTimeout(windowCalc.timeout);
+  if (windowCalc.worker != null) {
+    windowCalc.worker.terminate();
   }
-  windowCalc.stage = windowCalcStages.calculateChunks;
-  windowCalc.timeout = window.setInterval(windowDrawLoop, 5);
+  windowCalc.worker = new Worker(calcWorkerUrl);
+  windowCalc.worker.onmessage = calcWorkerOnmessage;
+  const workerCalc = {};
+  workerCalc["eachPixUnits"] = infNumExpString(windowCalc.eachPixUnits);
+  workerCalc["leftEdge"] = infNumExpString(windowCalc.leftEdge);
+  workerCalc["bottomEdge"] = infNumExpString(windowCalc.bottomEdge);
+  workerCalc["n"] = windowCalc.n;
+  workerCalc["finalWidth"] = Math.round(windowCalc.lineWidth);
+  workerCalc["canvasWidth"] = dContext.canvas.width;
+  workerCalc["canvasHeight"] = dContext.canvas.height;
+  workerCalc["workers"] = 1; // number of sub-workers to actually compute the chunks
+  workerCalc["computeFnUrl"] = fn2workerURL(plotsByName[windowCalc.plotName].computeBoundPointColor);
+  windowCalc.worker.postMessage(workerCalc);
+
+//  if (windowCalc.timeout != null) {
+//    window.clearTimeout(windowCalc.timeout);
+//  }
+//  windowCalc.stage = windowCalcStages.calculateChunks;
+//  windowCalc.timeout = window.setInterval(windowDrawLoop, 5);
 }
 
 var resetGradientInput = function() {

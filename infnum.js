@@ -1,6 +1,15 @@
 
-const doUnitTests = true;
+var doUnitTests = false;
 //var infNumPrecision = 24;
+
+function replaceAllEachChar(subject, replaceThese, replaceWith) {
+  var s = subject;
+  for (let i = 0; i < replaceThese.length; i++) {
+    s = s.replaceAll(replaceThese.charAt(i), replaceWith);
+  }
+  return s;
+}
+
 
 function infNum(value, exponent) {
   return {"v": value, "e": exponent};

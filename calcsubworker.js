@@ -1,10 +1,14 @@
 
+const forceWorkerReloadUrlParam = "force-worker-reload=true";
+const forceWorkerReload = self.location.toString().includes(forceWorkerReloadUrlParam);
 
-
-//importScripts("infnum.js?t=" + (Date.now()));
-//importScripts("plots.js?t=" + (Date.now()));
-importScripts("infnum.js");
-importScripts("plots.js");
+if (forceWorkerReload) {
+  importScripts("infnum.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+  importScripts("plots.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+} else {
+  importScripts("infnum.js");
+  importScripts("plots.js");
+}
 
 const plotsByName = {};
 for (let i = 0; i < plots.length; i++) {

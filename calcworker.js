@@ -1,6 +1,12 @@
 
-//importScripts("infnum.js?t=" + (Date.now()));
-importScripts("infnum.js");
+const forceWorkerReloadUrlParam = "force-worker-reload=true";
+const forceWorkerReload = self.location.toString().includes(forceWorkerReloadUrlParam);
+
+if (forceWorkerReload) {
+  importScripts("infnum.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+} else {
+  importScripts("infnum.js");
+}
 
 // create subworkers
 // for each pass:
@@ -58,10 +64,11 @@ self.onmessage = function(e) {
   windowCalc.workers = [];
   windowCalc.computeFnUrl = e.data.computeFnUrl;
   for (let i = 0; i < e.data.workers; i++) {
-    //windowCalc.workers.push(new Worker(subWorkerUrl));
-    //windowCalc.workers.push(new Worker(windowCalc.scriptsParentUri + "/calcsubworker.js"));
-    //windowCalc.workers.push(new Worker("calcsubworker.js?t=" + (Date.now())));
-    windowCalc.workers.push(new Worker("calcsubworker.js"));
+    if (forceWorkerReload) {
+      windowCalc.workers.push(new Worker("calcsubworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now())));
+    } else {
+      windowCalc.workers.push(new Worker("calcsubworker.js"));
+    }
     windowCalc.workers[i].onmessage = onSubWorkerMessage;
   }
   calculatePass();

@@ -22,6 +22,8 @@ var helpVisible = false;
 var menuVisible = false;
 
 const windowLogTiming = true;
+const forceWorkerReloadUrlParam = "force-worker-reload=true";
+const forceWorkerReload = window.location.toString().includes(forceWorkerReloadUrlParam);
 const mandelbrotCircleHeuristic = false;
 var precision = 24;
 var mandelbrotFloat = false;
@@ -1098,9 +1100,11 @@ function kickoffWindowDrawLoop() {
   if (windowCalc.worker != null) {
     windowCalc.worker.terminate();
   }
-  //windowCalc.worker = new Worker(calcWorkerUrl);
-  //windowCalc.worker = new Worker("calcworker.js?t=" + (Date.now()));
-  windowCalc.worker = new Worker("calcworker.js");
+  if (forceWorkerReload) {
+    windowCalc.worker = new Worker("calcworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+  } else {
+    windowCalc.worker = new Worker("calcworker.js");
+  }
   windowCalc.worker.onmessage = calcWorkerOnmessage;
   const workerCalc = {};
   workerCalc["plot"] = windowCalc.plotName;

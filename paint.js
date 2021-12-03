@@ -30,6 +30,11 @@ var mandelbrotFloat = false;
 const windowCalcIgnorePointColor = -2;
 var builtGradient = null;
 
+// since user machines and user needs are different, the number of
+//   workers is not a URL param
+var workersCount = 1;
+const maxWorkers = 32;
+
 const windowCalc = {
   "timeout": null,
   "plotName": "",
@@ -78,6 +83,7 @@ const btnGotoCenterReset = document.getElementById("go-to-c-reset");
 const inputGradGrad = document.getElementById("grad-grad");
 const btnGradGo = document.getElementById("grad-go");
 const btnGradReset = document.getElementById("grad-reset");
+const workersSelect = document.getElementById("workers-select");
 
 // this is checked each time a key is pressed, so keep it
 //   here so we don't have to do a DOM query every time
@@ -193,6 +199,17 @@ for (var i = 0; i < presetButtons.length; i++) {
   presetButtons[i].addEventListener('click', activatePresetHandler);
 }
 
+for (let i = 2; i <= maxWorkers; i++) {
+  workersSelect.innerHTML += "<option value=\"" + i + "\">" + i + "</option>";
+}
+workersSelect.addEventListener("change", changeWorkersCount);
+
+function changeWorkersCount() {
+  workersCount = parseInt(workersSelect.value);
+  if (windowCalc.worker !== null) {
+    windowCalc.worker.postMessage({"t": "workers-count", "v": workersCount});
+  }
+}
 
 function changeDirectionDegrees(dir, degrees) {
   var newDir = dir + degrees;
@@ -339,6 +356,14 @@ function parseUrlParams() {
     }
     if (urlParams.has('lineWidth')) {
       params.lineWidth = sanityCheckLineWidth(parseFloat(urlParams.get('lineWidth')) || 1.0, false, plotsByName[params.plot]);
+    }
+    if (urlParams.has('workers')) {
+      try {
+        const w = parseInt(urlParams.get('workers'));
+        if (w > 0 && w <= maxWorkers) {
+          workersCount = w;
+        }
+      } catch (e) {}
     }
   }
   console.log(params);
@@ -1145,11 +1170,9 @@ function kickoffWindowDrawLoop() {
   workerCalc["finalWidth"] = Math.round(historyParams.lineWidth);
   workerCalc["canvasWidth"] = dContext.canvas.width;
   workerCalc["canvasHeight"] = dContext.canvas.height;
-  workerCalc["workers"] = 8; // number of sub-workers to actually compute the chunks
-  //workerCalc["computeFnUrl"] = fn2workerURL(plotsByName[windowCalc.plotName].computeBoundPointColor);
-  //workerCalc["scriptsParentUri"] = window.location.toString().split("?")[0].split("/").slice(0, -1).join("/") + "/";
-  //workerCalc["scriptsToLoad"] = ["infnum.js"];
-  windowCalc.worker.postMessage(workerCalc);
+  workerCalc["workers"] = workersCount;
+
+  windowCalc.worker.postMessage({"t": "worker-calc", "v": workerCalc});
 
 //  if (windowCalc.timeout != null) {
 //    window.clearTimeout(windowCalc.timeout);

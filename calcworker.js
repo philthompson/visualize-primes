@@ -36,31 +36,41 @@ const windowCalc = {
   "xPixelChunks": null,
   "pointsCache": null,
   "totalChunks": null,
+  "workersCount": null,
   "workers": null,
   "scriptsParentUri": null
 };
 
 self.onmessage = function(e) {
-  windowCalc.plot = e.data.plot;
-  windowCalc.eachPixUnits = createInfNumFromExpStr(e.data.eachPixUnits);
-  windowCalc.leftEdge = createInfNumFromExpStr(e.data.leftEdge);
-  windowCalc.rightEdge = createInfNumFromExpStr(e.data.rightEdge);
-  windowCalc.topEdge = createInfNumFromExpStr(e.data.topEdge);
-  windowCalc.bottomEdge = createInfNumFromExpStr(e.data.bottomEdge);
-  windowCalc.n = e.data.n;
-  windowCalc.precision = e.data.precision;
-  windowCalc.mandelbrotFloat = e.data.mandelbrotFloat;
+  if (e.data.t == "worker-calc") {
+    runCalc(e.data.v);
+  } else if (e.data.t == "workers-count") {
+    updateWorkerCount(e.data.v);
+  }
+};
+
+function runCalc(msg) {
+  windowCalc.plot = msg.plot;
+  windowCalc.eachPixUnits = createInfNumFromExpStr(msg.eachPixUnits);
+  windowCalc.leftEdge = createInfNumFromExpStr(msg.leftEdge);
+  windowCalc.rightEdge = createInfNumFromExpStr(msg.rightEdge);
+  windowCalc.topEdge = createInfNumFromExpStr(msg.topEdge);
+  windowCalc.bottomEdge = createInfNumFromExpStr(msg.bottomEdge);
+  windowCalc.n = msg.n;
+  windowCalc.precision = msg.precision;
+  windowCalc.mandelbrotFloat = msg.mandelbrotFloat;
   // the main thread does its own 64-wide pixels synchronously,
   //   so the worker threads should start at 32-wide (set to 64
   //   here so that after dividing by two initially we are at 32)
   windowCalc.lineWidth = 64;
-  windowCalc.finalWidth = e.data.finalWidth;
+  windowCalc.finalWidth = msg.finalWidth;
   windowCalc.chunksComplete = 0;
-  windowCalc.canvasWidth = e.data.canvasWidth;
-  windowCalc.canvasHeight = e.data.canvasHeight;
+  windowCalc.canvasWidth = msg.canvasWidth;
+  windowCalc.canvasHeight = msg.canvasHeight;
   windowCalc.totalChunks = null;
+  windowCalc.workersCount = msg.workers;
   windowCalc.workers = [];
-  for (let i = 0; i < e.data.workers; i++) {
+  for (let i = 0; i < windowCalc.workersCount; i++) {
     if (forceWorkerReload) {
       windowCalc.workers.push(new Worker("calcsubworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now())));
     } else {
@@ -70,6 +80,39 @@ self.onmessage = function(e) {
   }
   calculatePass();
 };
+
+function updateWorkerCount(msg) {
+  windowCalc.workersCount = msg;
+  if (windowCalc.workers === null) {
+    return;
+  }
+  // if the worker count has been decreased, as workers finish their chunks they
+  //   will be terminated
+  // if the worker count has been increased, create workers and give them chunks
+  for (let i = windowCalc.workers.length + 1; i <= windowCalc.workersCount; i++) {
+    let newWorker = null;
+    if (forceWorkerReload) {
+      newWorker = new Worker("calcsubworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+    } else {
+      newWorker = new Worker("calcsubworker.js");
+    }
+    windowCalc.workers.push(newWorker);
+    newWorker.onmessage = onSubWorkerMessage;
+    assignChunkToWorker(newWorker);
+  }
+}
+
+function removeWorkerIfNecessary(worker) {
+  if (windowCalc.workers.length <= windowCalc.workersCount) {
+    return false;
+  }
+  const index = windowCalc.workers.indexOf(worker);
+  if (index < 0) {
+    return false;
+  }
+  windowCalc.workers.splice(index, 1);
+  return true;
+}
 
 var calculatePass = function() {
   calculateWindowPassChunks();
@@ -84,7 +127,7 @@ var calculatePass = function() {
 
 // give next chunk, if any, to the worker
 var assignChunkToWorker = function(worker) {
-  if (windowCalc.xPixelChunks.length === 0) {
+  if (windowCalc.xPixelChunks === null || windowCalc.xPixelChunks.length === 0) {
     return;
   }
   var nextChunk = windowCalc.xPixelChunks.shift();
@@ -118,18 +161,18 @@ var onSubWorkerMessage = function(msg) {
   msg.data.chunkInc.y = infNumExpString(msg.data.chunkInc.y);
   self.postMessage(msg.data);
 
+  // remove this worker if the number of workers has now been reduced
+  const wasWorkerRemoved = removeWorkerIfNecessary(worker);
+
   //console.log("subworker is done, now [" + windowCalc.chunksComplete + "] of [" + windowCalc.totalChunks + "] are done");
   if (windowCalc.chunksComplete >= windowCalc.totalChunks) {
     // start next pass, if there is a next one
     calculatePass();
-  } else {
+  } else if (!wasWorkerRemoved) {
     assignChunkToWorker(worker);
   }
 };
 
-// this needs to be fixed or at least renamed: once
-//   the chunks array is empty, there still may be ongoing
-//   computations in other threads
 function isImageComplete() {
   return windowCalc.chunksComplete === windowCalc.totalChunks && windowCalc.lineWidth === windowCalc.finalWidth;
 }

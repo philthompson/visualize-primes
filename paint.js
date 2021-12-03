@@ -694,15 +694,14 @@ function applyBuiltGradient(gradient, percentage) {
 }
 
 function redraw() {
-  if (windowCalc.worker != null) {
-    windowCalc.worker.terminate();
-  }
-  //if (windowCalc.timeout != null) {
-  //  window.clearTimeout(windowCalc.timeout);
-  //}
   resetWindowCalcContext();
   const plot = plotsByName[historyParams.plot];
   if (plot.calcFrom == "sequence") {
+    // if viewing a sequence plot, ensure there's no window
+    //   worker left running
+    if (windowCalc.worker != null) {
+      windowCalc.worker.terminate();
+    }
     drawPoints(historyParams);
   } else if (plot.calcFrom == "window") {
     calculateAndDrawWindow();
@@ -768,18 +767,28 @@ function drawPoints(params) {
   }
 }
 
+// since the cache lives in the main worker, we can wipe the
+//   cache easily by killing that worker
 function resetWindowCalcCache() {
   //console.log("purging window points cache");
-  //windowCalc.pointsCache = {};
-}
-
-function resetWindowCalcContext() {
   if (windowCalc.worker != null) {
     windowCalc.worker.terminate();
   }
-  //if (windowCalc.timeout != null) {
-  //  window.clearTimeout(windowCalc.timeout);
-  //}
+}
+
+function resetWindowCalcContext() {
+  // for now, while we don't have caching implemented for workers,
+  //   just kill any running worker here (whenever we change any
+  //   param to force a redraw())
+  if (windowCalc.worker != null) {
+    windowCalc.worker.terminate();
+  }
+  // this timeout is used to kick off an image computation
+  //   after a short delay, so always cancel any outstanding
+  //   delayed kickoff when redrawing
+  if (windowCalc.timeout != null) {
+    window.clearTimeout(windowCalc.timeout);
+  }
   fillBg(dContext);
 
   const params = historyParams;
@@ -1112,6 +1121,8 @@ function kickoffWindowDrawLoop() {
   workerCalc["plot"] = windowCalc.plotName;
   workerCalc["eachPixUnits"] = infNumExpString(windowCalc.eachPixUnits);
   workerCalc["leftEdge"] = infNumExpString(windowCalc.leftEdge);
+  workerCalc["rightEdge"] = infNumExpString(windowCalc.rightEdge);
+  workerCalc["topEdge"] = infNumExpString(windowCalc.topEdge);
   workerCalc["bottomEdge"] = infNumExpString(windowCalc.bottomEdge);
   workerCalc["n"] = windowCalc.n;
   workerCalc["precision"] = precision;
@@ -1279,28 +1290,6 @@ function windowAverageTiming() {
     windowCalc.avgRuntimeMs = (sum/num);
     console.log("excluding max [" + maxTime + "] and min [" + minTime + "], the average overall time of [" + num + "] images was [" + windowCalc.avgRuntimeMs + "] ms");
   }
-}
-
-function cleanUpWindowCache() {
-  // now that the image has been completed, delete any cached
-  //   points outside of the window
-  let cachedPointsKept = 0;
-  let cachedPointsToDelete = [];
-  for (let name in windowCalc.pointsCache) {
-    if (infNumLt(windowCalc.pointsCache[name].pt.x, windowCalc.leftEdge) ||
-        infNumGt(windowCalc.pointsCache[name].pt.x, windowCalc.rightEdge) ||
-        infNumLt(windowCalc.pointsCache[name].pt.y, windowCalc.bottomEdge) ||
-        infNumGt(windowCalc.pointsCache[name].pt.y, windowCalc.topEdge)) {
-      cachedPointsToDelete.push(name);
-    } else {
-      cachedPointsKept++;
-    }
-  }
-  for (let i = 0; i < cachedPointsToDelete.length; i++) {
-    delete windowCalc.pointsCache[name];
-  }
-  const deletedPct = Math.round(cachedPointsToDelete.length * 10000.0 / (cachedPointsToDelete.length + cachedPointsKept)) / 100.0;
-  console.log("deleted [" + cachedPointsToDelete.length + "] points from the cache (" + deletedPct + "%)");
 }
 
 function drawColorPoints(windowPoints, pixelSize) {

@@ -22,6 +22,8 @@ const windowCalc = {
   "pointCalcFunction": null,
   "eachPixUnits": null,
   "leftEdge": null,
+  "rightEdge": null,
+  "topEdge": null,
   "bottomEdge": null,
   "n": null,
   "precision": null,
@@ -32,6 +34,7 @@ const windowCalc = {
   "canvasWidth": null,
   "canvasHeight": null,
   "xPixelChunks": null,
+  "pointsCache": null,
   "totalChunks": null,
   "workers": null,
   "scriptsParentUri": null
@@ -41,6 +44,8 @@ self.onmessage = function(e) {
   windowCalc.plot = e.data.plot;
   windowCalc.eachPixUnits = createInfNumFromExpStr(e.data.eachPixUnits);
   windowCalc.leftEdge = createInfNumFromExpStr(e.data.leftEdge);
+  windowCalc.rightEdge = createInfNumFromExpStr(e.data.rightEdge);
+  windowCalc.topEdge = createInfNumFromExpStr(e.data.topEdge);
   windowCalc.bottomEdge = createInfNumFromExpStr(e.data.bottomEdge);
   windowCalc.n = e.data.n;
   windowCalc.precision = e.data.precision;
@@ -71,6 +76,10 @@ var calculatePass = function() {
   for (const worker of windowCalc.workers) {
     assignChunkToWorker(worker);
   }
+  // for the future, when caching is re-implemented:
+  //if (isImageComplete()) {
+  //  cleanUpWindowCache();
+  //}
 };
 
 // give next chunk, if any, to the worker
@@ -207,4 +216,26 @@ var calculateWindowPassChunks = function() {
 
   windowCalc.totalChunks = windowCalc.xPixelChunks.length;
 };
+
+function cleanUpWindowCache() {
+  // now that the image has been completed, delete any cached
+  //   points outside of the window
+  let cachedPointsKept = 0;
+  let cachedPointsToDelete = [];
+  for (let name in windowCalc.pointsCache) {
+    if (infNumLt(windowCalc.pointsCache[name].pt.x, windowCalc.leftEdge) ||
+        infNumGt(windowCalc.pointsCache[name].pt.x, windowCalc.rightEdge) ||
+        infNumLt(windowCalc.pointsCache[name].pt.y, windowCalc.bottomEdge) ||
+        infNumGt(windowCalc.pointsCache[name].pt.y, windowCalc.topEdge)) {
+      cachedPointsToDelete.push(name);
+    } else {
+      cachedPointsKept++;
+    }
+  }
+  for (let i = 0; i < cachedPointsToDelete.length; i++) {
+    delete windowCalc.pointsCache[name];
+  }
+  const deletedPct = Math.round(cachedPointsToDelete.length * 10000.0 / (cachedPointsToDelete.length + cachedPointsKept)) / 100.0;
+  console.log("deleted [" + cachedPointsToDelete.length + "] points from the cache (" + deletedPct + "%)");
+}
 

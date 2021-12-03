@@ -76,27 +76,22 @@ self.onmessage = function(e) {
 
 var calculatePass = function() {
   calculateWindowPassChunks();
-  //const isPassFinished = calculateAndDrawNextChunk();
-  for (let i = 0; i < windowCalc.workers.length; i++) {
-    assignChunkToWorker(i);
+  for (const worker of windowCalc.workers) {
+    assignChunkToWorker(worker);
   }
 };
 
 // give next chunk, if any, to the worker
-var assignChunkToWorker = function(workerIndex) {
-  //console.log("will assign next available chunk, if any, to worker index [" + workerIndex + "]");
+var assignChunkToWorker = function(worker) {
   if (windowCalc.xPixelChunks.length === 0) {
     return;
   }
   var nextChunk = windowCalc.xPixelChunks.shift();
-  nextChunk["subworkerId"] = workerIndex;
   var subWorkerMsg = {
     "chunk": nextChunk
-    //"computeFnUrl": windowCalc.computeFnUrl,
-    //"infNumScriptUri": windowCalc.scriptsParentUri + "infnum.js"
   };
   
-  windowCalc.workers[workerIndex].postMessage(subWorkerMsg);
+  worker.postMessage(subWorkerMsg);
 };
 
 var onSubWorkerMessage = function(msg) {
@@ -104,9 +99,7 @@ var onSubWorkerMessage = function(msg) {
   //console.log(msg);
   windowCalc.chunksComplete++;
 
-  const workerId = msg.data.subworkerId;
-  delete msg.data.subworkerId;
-  //console.log("deleted subworker ID from msg [" + workerId + "]");
+  const worker = msg.target;
 
   // pass results up to main thread, then give next chunk to the worker
   // add status to the data passed up
@@ -129,7 +122,7 @@ var onSubWorkerMessage = function(msg) {
     // start next pass, if there is a next one
     calculatePass();
   } else {
-    assignChunkToWorker(workerId);
+    assignChunkToWorker(worker);
   }
 };
 
@@ -140,11 +133,12 @@ var isPassComputationComplete = function() {
   return windowCalc.xPixelChunks.length == 0;// && privContext.resultPoints.length > 0;
 };
 
+// thanks to https://stackoverflow.com/a/12646864/259456
 function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
 }
 
 // call the plot's computeBoundPoints function in chunks, to better
@@ -212,6 +206,11 @@ var calculateWindowPassChunks = function() {
     windowCalc.xPixelChunks.push(chunk);
   }
 
+  // it's a fun effect to see the image materialize in a random
+  //   way, as opposed to strictly left-to-right, plus it allows
+  //   the user to get a sense for the final image much sooner,
+  //   allowing the user to decide whether to continue panning or
+  //   zooming
   shuffleArray(windowCalc.xPixelChunks);
 
   windowCalc.totalChunks = windowCalc.xPixelChunks.length;

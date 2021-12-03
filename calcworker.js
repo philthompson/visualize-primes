@@ -36,15 +36,8 @@ const windowCalc = {
   "workers": null,
   "scriptsParentUri": null
 };
-// this is set below
-var subWorkerUrl = null;
 
 self.onmessage = function(e) {
-//  windowCalc.scriptsParentUri = e.data.scriptsParentUri;
-//  for (const scriptFilename of e.data.scriptsToLoad) {
-//    //importScripts(windowCalc.scriptsParentUri + "/" + scriptFilename);
-//    importScripts(scriptFilename);
-//  }
   windowCalc.plot = e.data.plot;
   windowCalc.eachPixUnits = createInfNumFromExpStr(e.data.eachPixUnits);
   windowCalc.leftEdge = createInfNumFromExpStr(e.data.leftEdge);
@@ -62,7 +55,6 @@ self.onmessage = function(e) {
   windowCalc.canvasHeight = e.data.canvasHeight;
   windowCalc.totalChunks = null;
   windowCalc.workers = [];
-  windowCalc.computeFnUrl = e.data.computeFnUrl;
   for (let i = 0; i < e.data.workers; i++) {
     if (forceWorkerReload) {
       windowCalc.workers.push(new Worker("calcsubworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now())));
@@ -107,7 +99,7 @@ var onSubWorkerMessage = function(msg) {
     "chunks": windowCalc.totalChunks,
     "chunksComplete": windowCalc.chunksComplete,
     "pixelWidth": windowCalc.lineWidth,
-    "running": true
+    "running": !isImageComplete()
   };
   msg.data["calcStatus"] = status;
   // convert InfNum objects to strings
@@ -129,9 +121,9 @@ var onSubWorkerMessage = function(msg) {
 // this needs to be fixed or at least renamed: once
 //   the chunks array is empty, there still may be ongoing
 //   computations in other threads
-var isPassComputationComplete = function() {
-  return windowCalc.xPixelChunks.length == 0;// && privContext.resultPoints.length > 0;
-};
+function isImageComplete() {
+  return windowCalc.chunksComplete === windowCalc.totalChunks && windowCalc.lineWidth === windowCalc.finalWidth;
+}
 
 // thanks to https://stackoverflow.com/a/12646864/259456
 function shuffleArray(array) {
@@ -159,7 +151,7 @@ var calculateWindowPassChunks = function() {
   } else {
     windowCalc.lineWidth = potentialTempLineWidth;
   }
-  console.log("worker is calculating chunks for the [" + windowCalc.lineWidth + "]-wide pixels pass");
+  //console.log("worker is calculating chunks for the [" + windowCalc.lineWidth + "]-wide pixels pass");
 
   const pixelSize = windowCalc.lineWidth;
 

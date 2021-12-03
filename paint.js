@@ -982,6 +982,8 @@ var calcWorkerOnmessage = function(e) {
   const percentComplete = Math.round(e.data.calcStatus.chunksComplete * 100.0 / e.data.calcStatus.chunks);
   if (percentComplete < 100) {
     drawCalculatingNotice(dContext, e.data.calcStatus.pixelWidth, percentComplete);
+  } else if (!e.data.calcStatus.running && imageParametersCaption) {
+    drawImageParameters();
   }
 };
 

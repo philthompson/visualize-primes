@@ -70,6 +70,8 @@ const plots = [{
       }
     }
 
+    const two = infNum(2n, 0n);
+
     // the coords used for iteration
     var ix = infNum(0n, 0n);
     var iy = infNum(0n, 0n);
@@ -85,7 +87,7 @@ const plots = [{
           break;
         }
         ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
-        iy = infNumAdd(y, infNumMul(privContext.two, infNumMul(ix, iy)));
+        iy = infNumAdd(y, infNumMul(two, infNumMul(ix, iy)));
         ix = ixTemp;
         ix = infNumTruncateToLen(ix, precis);
         iy = infNumTruncateToLen(iy, precis);

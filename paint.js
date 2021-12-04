@@ -63,7 +63,8 @@ const windowCalc = {
   "scale": infNum(1n, 0n),
   "runtimeMs": -1,
   "avgRuntimeMs": -1,
-  "worker": null
+  "worker": null,
+  "workersCountRange": "-"
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];
@@ -847,6 +848,7 @@ function resetWindowCalcContext() {
   windowCalc.totalChunks = 0;
   windowCalc.runtimeMs = -1;
   windowCalc.avgRuntimeMs = -1;
+  windowCalc.workersCountRange = "-";
 
   const two = infNum(2n, 0n);
 
@@ -1011,11 +1013,12 @@ function fn2workerURL(fn) {
 // messages received from main worker:
 // chunk complete
 var calcWorkerOnmessage = function(e) {
-  // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean}
+  // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean, workersCount: string, workersNow: int}
   drawWorkerColorPoints(e);
+  windowCalc.workersCountRange = e.data.calcStatus.workersCount;
   const percentComplete = Math.round(e.data.calcStatus.chunksComplete * 100.0 / e.data.calcStatus.chunks);
   if (percentComplete < 100) {
-    drawCalculatingNotice(dContext, e.data.calcStatus.pixelWidth, percentComplete);
+    drawCalculatingNotice(dContext, e.data.calcStatus.pixelWidth, percentComplete, e.data.calcStatus.workersNow);
 
   // if the pass is complete, the entire image may be complete
   } else if (!e.data.calcStatus.running) {
@@ -1390,16 +1393,17 @@ function repaintOnly() {
   dContext.putImageData(windowCalc.pixelsImage, 0, 0);
 }
 
-function drawCalculatingNotice(ctx, pixelSize, percentComplete) {
+function drawCalculatingNotice(ctx, pixelSize, percentComplete, workersNow) {
   const canvas = ctx.canvas;
   ctx.fillStyle = "rgba(100,100,100,1.0)";
   const noticeHeight = Math.max(24, canvas.height * 0.03);
   const textHeight = Math.round(noticeHeight * 0.6);
-  const noticeWidth = Math.max(200, textHeight * 18);
+  const noticeWidth = Math.max(200, textHeight * 24);
   ctx.fillRect(0,canvas.height-noticeHeight,noticeWidth, noticeHeight);
   ctx.font = textHeight + "px system-ui";
   ctx.fillStyle = "rgba(0,0,0,0.9)";
-  ctx.fillText("Calculating " + pixelSize + "-wide pixels (" + percentComplete + "%) ...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
+  const workersText = workersNow + " worker" + (workersNow > 1 ? "s" : "");
+  ctx.fillText("Calculating " + pixelSize + "-wide pixels (" + percentComplete + "%) with " + workersText + " ...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
 }
 
 function drawMousePosNotice(x, y) {
@@ -1424,33 +1428,34 @@ function drawImageParameters() {
   const textHeight = Math.round(noticeHeight * 0.6);
   const noticeWidth = Math.max(200, textHeight * 18);
   const lines = [];
-  const paramLengthLimit = 20;
+  const lineValLengthLimit = 20;
   let entries = [
-    ["x (re)", infNumExpString(historyParams.centerX)],
-    ["y (im)", infNumExpString(historyParams.centerY)],
-    [" scale", infNumExpString(historyParams.scale)],
-    ["  iter", historyParams.n.toString()],
-    ["  grad", historyParams.gradient],
-    [" bgclr", historyParams.bgColor]
+    [" x (re)", infNumExpString(historyParams.centerX)],
+    [" y (im)", infNumExpString(historyParams.centerY)],
+    ["  scale", infNumExpString(historyParams.scale)],
+    ["   iter", historyParams.n.toString()],
+    ["   grad", historyParams.gradient],
+    ["  bgclr", historyParams.bgColor],
+    ["workers", windowCalc.workersCountRange]
   ];
   if (historyParams.plot.startsWith("Mandelbrot") && mandelbrotFloat) {
-    entries.push(["precis", "floating pt"]);
+    entries.push([" precis", "floating pt"]);
   } else {
-    entries.push(["precis", precision.toString()]);
+    entries.push([" precis", precision.toString()]);
   }
   if (windowCalc.runtimeMs > 0) {
-    entries.push(["run ms", windowCalc.runtimeMs.toString()])
+    entries.push([" run ms", windowCalc.runtimeMs.toString()])
   }
   if (windowCalc.avgRuntimeMs > 0) {
-    entries.push(["avg ms", windowCalc.avgRuntimeMs.toString()])
+    entries.push([" avg ms", windowCalc.avgRuntimeMs.toString()])
   }
   for (let i = 0; i < entries.length; i++) {
     const entryLabel = entries[i][0];
     let entryValue = entries[i][1];
-    lines.push(entryLabel + ": " + entryValue.substring(0,paramLengthLimit));
-    while (entryValue.length > paramLengthLimit) {
-      entryValue = entryValue.substring(paramLengthLimit);
-      lines.push("        " + entryValue.substring(0,paramLengthLimit));
+    lines.push(entryLabel + ": " + entryValue.substring(0,lineValLengthLimit));
+    while (entryValue.length > lineValLengthLimit) {
+      entryValue = entryValue.substring(lineValLengthLimit);
+      lines.push("         " + entryValue.substring(0,lineValLengthLimit));
     }
   }
   ctx.font = textHeight + "px monospace";

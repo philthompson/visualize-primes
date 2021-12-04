@@ -38,7 +38,8 @@ const windowCalc = {
   "totalChunks": null,
   "workersCount": null,
   "workers": null,
-  "scriptsParentUri": null
+  "minWorkersCount": null,
+  "maxWorkersCount": null
 };
 
 self.onmessage = function(e) {
@@ -49,6 +50,8 @@ self.onmessage = function(e) {
   }
 };
 
+// for now, the main thread will not pass a "worker-calc" message to this
+//   worker once a calculation is already running
 function runCalc(msg) {
   windowCalc.plot = msg.plot;
   windowCalc.eachPixUnits = createInfNumFromExpStr(msg.eachPixUnits);
@@ -70,6 +73,8 @@ function runCalc(msg) {
   windowCalc.totalChunks = null;
   windowCalc.workersCount = msg.workers;
   windowCalc.workers = [];
+  windowCalc.minWorkersCount = windowCalc.workersCount;
+  windowCalc.maxWorkersCount = windowCalc.workersCount;
   for (let i = 0; i < windowCalc.workersCount; i++) {
     if (forceWorkerReload) {
       windowCalc.workers.push(new Worker("calcsubworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now())));
@@ -85,6 +90,12 @@ function updateWorkerCount(msg) {
   windowCalc.workersCount = msg;
   if (windowCalc.workers === null) {
     return;
+  }
+  if (windowCalc.minWorkersCount > windowCalc.workersCount) {
+    windowCalc.minWorkersCount = windowCalc.workersCount;
+  }
+  if (windowCalc.maxWorkersCount < windowCalc.workersCount) {
+    windowCalc.maxWorkersCount = windowCalc.workersCount;
   }
   // if the worker count has been decreased, as workers finish their chunks they
   //   will be terminated
@@ -145,13 +156,23 @@ var onSubWorkerMessage = function(msg) {
 
   const worker = msg.target;
 
+  let workersCountToReport = windowCalc.minWorkersCount.toString();
+  if (windowCalc.maxWorkersCount > windowCalc.minWorkersCount) {
+    workersCountToReport += "-" + windowCalc.maxWorkersCount;
+  }
+
+  // remove this worker if the number of workers has now been reduced
+  const wasWorkerRemoved = removeWorkerIfNecessary(worker);
+
   // pass results up to main thread, then give next chunk to the worker
   // add status to the data passed up
   const status = {
     "chunks": windowCalc.totalChunks,
     "chunksComplete": windowCalc.chunksComplete,
     "pixelWidth": windowCalc.lineWidth,
-    "running": !isImageComplete()
+    "running": !isImageComplete(),
+    "workersCount": workersCountToReport,
+    "workersNow": windowCalc.workers.length
   };
   msg.data["calcStatus"] = status;
   // convert InfNum objects to strings
@@ -160,9 +181,6 @@ var onSubWorkerMessage = function(msg) {
   msg.data.chunkInc.x = infNumExpString(msg.data.chunkInc.x);
   msg.data.chunkInc.y = infNumExpString(msg.data.chunkInc.y);
   self.postMessage(msg.data);
-
-  // remove this worker if the number of workers has now been reduced
-  const wasWorkerRemoved = removeWorkerIfNecessary(worker);
 
   //console.log("subworker is done, now [" + windowCalc.chunksComplete + "] of [" + windowCalc.totalChunks + "] are done");
   if (windowCalc.chunksComplete >= windowCalc.totalChunks) {

@@ -616,6 +616,13 @@ function createInfNumFromFastStr(s) {
   return infNum(val, exp);
 }
 
+if (doUnitTests) {
+  for (let unitTest of [infNum(5n, -22n),infNum(5n, 2n),infNum(12345n,4321n),infNum(-123n,99n),infNum(-123n,-99n)]) {
+    console.log(unitTest, " -> infNumFastStr() -> createInfNumFromFastStr() -> ...");
+    console.log(createInfNumFromFastStr(infNumFastStr(unitTest)));
+  }
+}
+
 //function infNumTruncate(n) {
 //  return infNumTruncateToLen(n, infNumPrecision);
 //}

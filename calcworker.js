@@ -400,7 +400,7 @@ var calculateWindowPassChunks = function() {
   //     row or something, and the skipped pixels will remain...
 
 
-  const yPointsPerChunk = Math.ceil(windowCalc.canvasHeight / pixelSize);
+  const yPointsPerChunk = Math.ceil(windowCalc.canvasHeight / pixelSize) + 1;
   
   var incX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
   var cursorX = infNumSub(windowCalc.leftEdge, incX);

@@ -22,10 +22,10 @@ self.onmessage = function(e) {
   //   called "computeBoundPointColor" and is defined by each
   //   window plot
   //importScripts(e.data.computeFnUrl, e.data.infNumScriptUri);
-  computeChunk(e.data.chunk);
+  computeChunk(e.data.chunk, e.data.cachedIndices);
 };
 
-var computeChunk = function(chunk) {
+var computeChunk = function(chunk, cachedIndices) {
   // TODO: just use overall time as measured in main thread, don't keep
   //         separate running times on a per-chunk or per-subworker basis
   //var chunkStartMs = Date.now();
@@ -74,19 +74,25 @@ var computeChunk = function(chunk) {
 
   // pre-allocate array so we don't have to use array.push()
   const results = new Array(chunk.chunkLen);
-  if (moveX) {
-    for (let i = 0; i < chunk.chunkLen; i++) {
-      results[i] = computeFn(self, chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
-      // since we want to start at the given starting position, increment
-      //   the position AFTER computing each result
-      px = infNumAddNorm(px, incX);
-    }
-  } else {
-    for (let i = 0; i < chunk.chunkLen; i++) {
-      results[i] = computeFn(self, chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
-      // since we want to start at the given starting position, increment
-      //   the position AFTER computing each result
-      py = infNumAddNorm(py, incY);
+  if (cachedIndices.length < chunk.chunkLen) {
+    if (moveX) {
+      for (let i = 0; i < chunk.chunkLen; i++) {
+        if (!cachedIndices.includes(i)) {
+          results[i] = computeFn(self, chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
+        }
+        // since we want to start at the given starting position, increment
+        //   the position AFTER computing each result
+        px = infNumAddNorm(px, incX);
+      }
+    } else {
+      for (let i = 0; i < chunk.chunkLen; i++) {
+        if (!cachedIndices.includes(i)) {
+          results[i] = computeFn(self, chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
+        }
+        // since we want to start at the given starting position, increment
+        //   the position AFTER computing each result
+        py = infNumAddNorm(py, incY);
+      }
     }
   }
   chunk["results"] = results;

@@ -590,7 +590,30 @@ function infNumFastStr(n) {
   }
   // using radix 16 because in testing it was 75% faster than
   //   radix 10 and 32
-  return nCopy.v.toString(16) + "e" + nCopy.e.toString(16);
+  return nCopy.v.toString(16) + "E" + nCopy.e.toString(16);
+}
+
+function createInfNumFromFastStr(s) {
+  const split = s.split("E");
+  let negative = false;
+  if (split[0].startsWith("-")) {
+    negative = true;
+    split[0] = split[0].substring(1);
+  }
+  let val = BigInt("0x" + split[0]);
+  if (negative) {
+    val = val * -1n;
+  }
+  negative = false;
+  if (split[1].startsWith("-")) {
+    negative = true;
+    split[1] = split[1].substring(1);
+  }
+  let exp = BigInt("0x" + split[1]);
+  if (negative) {
+    exp = exp * -1n;
+  }
+  return infNum(val, exp);
 }
 
 //function infNumTruncate(n) {

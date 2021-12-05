@@ -796,19 +796,21 @@ function drawPoints(params) {
 // since the cache lives in the main worker, we can wipe the
 //   cache easily by killing that worker
 function resetWindowCalcCache() {
-  //console.log("purging window points cache");
+  console.log("purging window points cache");
   if (windowCalc.worker != null) {
-    windowCalc.worker.terminate();
+    //windowCalc.worker.terminate();
+    windowCalc.worker.postMessage({t:"wipe-cache",v:null});
   }
+
 }
 
 function resetWindowCalcContext() {
   // for now, while we don't have caching implemented for workers,
   //   just kill any running worker here (whenever we change any
   //   param to force a redraw())
-  if (windowCalc.worker != null) {
-    windowCalc.worker.terminate();
-  }
+  //if (windowCalc.worker != null) {
+  //  windowCalc.worker.terminate();
+  //}
   // this timeout is used to kick off an image computation
   //   after a short delay, so always cancel any outstanding
   //   delayed kickoff when redrawing
@@ -1021,20 +1023,28 @@ var calcWorkerOnmessage = function(e) {
     drawCalculatingNotice(dContext, e.data.calcStatus.pixelWidth, percentComplete, e.data.calcStatus.workersNow);
 
   // if the pass is complete, the entire image may be complete
-  } else if (!e.data.calcStatus.running) {
+  } else {
     if (windowLogTiming) {
-      windowLogOverallImage();
-      if (windowCalcRepeat > 1) {
-        windowCalcRepeat -= 1;
-        resetWindowCalcCache();
-        redraw();
-      } else if (windowCalcRepeat === 1) {
-        windowCalcRepeat -= 1;
-        windowAverageTiming();
-      }
+      const totalPts = e.data.calcStatus.passPoints;
+      const cachedPts = e.data.calcStatus.passCachedPoints;
+      const cachedPct = Math.round(cachedPts * 10000.0 / totalPts) / 100.0;
+      console.log("computing [" + totalPts + "] points of width [" + e.data.calcStatus.pixelWidth + "], of which [" + cachedPts + "] were cached (" + cachedPct + "%)");//, took [" + windowCalc.passTimeMs + "] ms");
     }
-    if (imageParametersCaption) {
-      drawImageParameters();
+    if (!e.data.calcStatus.running) {
+      if (windowLogTiming) {
+        windowLogOverallImage();
+        if (windowCalcRepeat > 1) {
+          windowCalcRepeat -= 1;
+          resetWindowCalcCache();
+          redraw();
+        } else if (windowCalcRepeat === 1) {
+          windowCalcRepeat -= 1;
+          windowAverageTiming();
+        }
+      }
+      if (imageParametersCaption) {
+        drawImageParameters();
+      }
     }
   }
 };
@@ -1151,15 +1161,17 @@ function calculateAndDrawWindow() {
 }
 
 function kickoffWindowDrawLoop() {
-  if (windowCalc.worker != null) {
-    windowCalc.worker.terminate();
-  }
-  if (forceWorkerReload) {
-    windowCalc.worker = new Worker("calcworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+  if (windowCalc.worker === null) {
+    if (forceWorkerReload) {
+      windowCalc.worker = new Worker("calcworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+    } else {
+      windowCalc.worker = new Worker("calcworker.js");
+    }
+    windowCalc.worker.onmessage = calcWorkerOnmessage;
   } else {
-    windowCalc.worker = new Worker("calcworker.js");
+    //windowCalc.worker.terminate();
+    windowCalc.worker.postMessage({"t": "cancel-calc", "v": ""});
   }
-  windowCalc.worker.onmessage = calcWorkerOnmessage;
   const workerCalc = {};
   workerCalc["plot"] = windowCalc.plotName;
   workerCalc["eachPixUnits"] = infNumExpString(windowCalc.eachPixUnits);

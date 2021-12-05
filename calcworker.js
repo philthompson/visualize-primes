@@ -35,6 +35,10 @@ const windowCalc = {
   "canvasHeight": null,
   "xPixelChunks": null,
   "pointsCache": null,
+  "cacheScannedChunks": null,
+  "cacheScannedChunksCursor": null,
+  "passTotalPoints": null,
+  "passCachedPoints": null,
   "totalChunks": null,
   "workersCount": null,
   "workers": null,
@@ -43,10 +47,18 @@ const windowCalc = {
 };
 
 self.onmessage = function(e) {
+  console.log("got mesage [" + e.data.t + "]");
   if (e.data.t == "worker-calc") {
     runCalc(e.data.v);
   } else if (e.data.t == "workers-count") {
     updateWorkerCount(e.data.v);
+  } else if (e.data.t == "cancel-calc") {
+    for (let i = 0; i < windowCalc.workers.length; i++) {
+      windowCalc.workers[i].terminate();
+    }
+    windowCalc.workers = [];
+  } else if (e.data.t == "wipe-cache") {
+    windowCalc.pointsCache = {};
   }
 };
 
@@ -70,6 +82,11 @@ function runCalc(msg) {
   windowCalc.chunksComplete = 0;
   windowCalc.canvasWidth = msg.canvasWidth;
   windowCalc.canvasHeight = msg.canvasHeight;
+  if (windowCalc.pointsCache === null) {
+    windowCalc.pointsCache = {};
+  }
+  windowCalc.cacheScannedChunks = {},
+  windowCalc.cacheScannedChunksCursor = -1;
   windowCalc.totalChunks = null;
   windowCalc.workersCount = msg.workers;
   windowCalc.workers = [];
@@ -130,24 +147,130 @@ var calculatePass = function() {
   for (const worker of windowCalc.workers) {
     assignChunkToWorker(worker);
   }
-  // for the future, when caching is re-implemented:
   //if (isImageComplete()) {
   //  cleanUpWindowCache();
   //}
 };
+
+function buildChunkId(chunkPos) {
+  return infNumFastStr(chunkPos.x) + "," + infNumFastStr(chunkPos.y);
+}
 
 // give next chunk, if any, to the worker
 var assignChunkToWorker = function(worker) {
   if (windowCalc.xPixelChunks === null || windowCalc.xPixelChunks.length === 0) {
     return;
   }
-  var nextChunk = windowCalc.xPixelChunks.shift();
-  var subWorkerMsg = {
-    "chunk": nextChunk
+
+  // take the first chunk in the array, and decrement the cursor
+  let nextChunk = windowCalc.xPixelChunks.shift();
+  windowCalc.cacheScannedChunksCursor--;
+
+  const chunkId = buildChunkId(nextChunk.chunkPos);
+  let cacheScan = windowCalc.cacheScannedChunks[chunkId];
+  if (cacheScan === undefined) {
+    scanCacheForChunk(nextChunk);
+    cacheScan = windowCalc.cacheScannedChunks[chunkId];
+  }
+
+  let subWorkerMsg = {
+    "chunk": nextChunk,
+    "cachedIndices": Object.keys(cacheScan.cachedByIndex).sort((a, b) => a-b)
   };
-  
+
   worker.postMessage(subWorkerMsg);
+
+  scanCacheForChunkBeyondCursor();
+  scanCacheForChunkBeyondCursor();
 };
+
+function scanCacheForChunkBeyondCursor() {
+  if (windowCalc.cacheScannedChunksCursor >= windowCalc.xPixelChunks.length - 1 ||
+      windowCalc.xPixelChunks.length === 0) {
+    return;
+  }
+  windowCalc.cacheScannedChunksCursor++;
+  // this shouldn't happen but if after incrementing it's still <0,
+  //   ensure we are pointing at the first element in the array
+  if (windowCalc.cacheScannedChunksCursor < 0) {
+    windowCalc.cacheScannedChunksCursor = 0;
+  }
+  scanCacheForChunk(windowCalc.xPixelChunks[windowCalc.cacheScannedChunksCursor]);
+}
+
+// this assumes all chunks move along the y axis, only
+function scanCacheForChunk(chunk) {
+  const pxStr = infNumFastStr(chunk.chunkPos.x);
+  const pyStr = infNumFastStr(chunk.chunkPos.y);
+  const id = pxStr + "," + pyStr;
+  if (! pxStr in windowCalc.pointsCache) {
+    // store empty cache scan object
+    windowCalc.cacheScannedChunks[id] = {cachedByIndex:{}};
+    return;
+  }
+
+  let py = chunk.chunkPos.y;
+  let incY = chunk.chunkInc.y;
+  let norm = normInfNum(py, incY);
+  py = norm[0];
+  incY = norm[1];
+
+  const cachedValues = {};
+  let cachedValue = null;
+  const xCache = windowCalc.pointsCache[pxStr];
+  if (xCache !== undefined) {
+    for (let i = 0; i < chunk.chunkLen; i++) {
+      // look up the cached value at that point along the y axis
+      cachedValue = xCache[infNumFastStr(py)];
+      // if that point was previously cached, grab that value and
+      //   associate it with it's index along the chunk
+      if (cachedValue !== undefined) {
+        cachedValues[i] = cachedValue;
+      }
+
+      // since we want to start at the given starting position, increment
+      //   the position AFTER checking each py value
+      py = infNumAddNorm(py, incY);
+    }
+  }
+  // store both the cached indices for the chunk, and the cached values at those indicdes
+  windowCalc.cacheScannedChunks[id] = {cachedByIndex: cachedValues};
+}
+
+// this assumes all chunks move along the y axis, only
+function cacheComputedPointsInChunk(chunk) {
+  let count = 0;
+  const pxStr = infNumFastStr(chunk.chunkPos.x);
+
+  let xCache = windowCalc.pointsCache[pxStr];
+  if (xCache === undefined) {
+    windowCalc.pointsCache[pxStr] = {};
+    xCache = windowCalc.pointsCache[pxStr];
+  }
+
+  let py = chunk.chunkPos.y;
+  let incY = chunk.chunkInc.y;
+  let norm = normInfNum(py, incY);
+  py = norm[0];
+  incY = norm[1];
+
+  let calculatedValue = null;
+  for (let i = 0; i < chunk.chunkLen; i++) {
+    calculatedValue = chunk.results[i];
+    if (calculatedValue === undefined) {
+      continue;
+    }
+    count++;
+
+    // set the cached value at that point
+    xCache[infNumFastStr(py)] = calculatedValue;
+
+    // since we want to start at the given starting position, increment
+    //   the position AFTER checking each py value
+    py = infNumAddNorm(py, incY);
+  }
+  return count;
+}
 
 var onSubWorkerMessage = function(msg) {
   //console.log("subworker called back to worker with msg:");
@@ -164,6 +287,35 @@ var onSubWorkerMessage = function(msg) {
   // remove this worker if the number of workers has now been reduced
   const wasWorkerRemoved = removeWorkerIfNecessary(worker);
 
+  // let the subworker start working on next chunk while we combine
+  //   its results with the cached values
+  if (!wasWorkerRemoved && windowCalc.chunksComplete < windowCalc.totalChunks) {
+    assignChunkToWorker(worker);
+  }
+
+  // insert any newly-calculated points along the chunk into the cache
+  const computedPoints = cacheComputedPointsInChunk(msg.data);
+  const prevCachedCount = windowCalc.passCachedPoints;
+  windowCalc.passTotalPoints += computedPoints;
+
+  // insert any cached values into the subworker's results array
+  const chunkId = buildChunkId(msg.data.chunkPos);
+  let cacheScan = windowCalc.cacheScannedChunks[chunkId];
+  if (cacheScan !== undefined) {
+    // the key values in the "cachedByIndex" object are the same
+    //   index position along the chunk that the subworker uses,
+    //   so we just insert the cached values directly into the
+    //   results array at those index positions
+    for (const idx in cacheScan.cachedByIndex) {
+      msg.data.results[idx] = cacheScan.cachedByIndex[idx];
+      windowCalc.passCachedPoints++;
+    }
+    delete windowCalc.cacheScannedChunks[chunkId];
+  }
+  const newlySeenCachedPoints = windowCalc.passCachedPoints - prevCachedCount;
+  windowCalc.passTotalPoints += newlySeenCachedPoints;
+  //console.log("chunk cached points [" + newlySeenCachedPoints + "]");
+
   // pass results up to main thread, then give next chunk to the worker
   // add status to the data passed up
   const status = {
@@ -172,7 +324,9 @@ var onSubWorkerMessage = function(msg) {
     "pixelWidth": windowCalc.lineWidth,
     "running": !isImageComplete(),
     "workersCount": workersCountToReport,
-    "workersNow": windowCalc.workers.length
+    "workersNow": windowCalc.workers.length,
+    "passPoints": windowCalc.passTotalPoints,
+    "passCachedPoints": windowCalc.passCachedPoints
   };
   msg.data["calcStatus"] = status;
   // convert InfNum objects to strings
@@ -182,12 +336,13 @@ var onSubWorkerMessage = function(msg) {
   msg.data.chunkInc.y = infNumExpString(msg.data.chunkInc.y);
   self.postMessage(msg.data);
 
-  //console.log("subworker is done, now [" + windowCalc.chunksComplete + "] of [" + windowCalc.totalChunks + "] are done");
+  // start next pass, if there is a next one
   if (windowCalc.chunksComplete >= windowCalc.totalChunks) {
-    // start next pass, if there is a next one
-    calculatePass();
-  } else if (!wasWorkerRemoved) {
-    assignChunkToWorker(worker);
+    if (isImageComplete()) {
+      cleanUpWindowCache();
+    } else {
+      calculatePass();
+    }
   }
 };
 
@@ -206,6 +361,8 @@ function shuffleArray(array) {
 // call the plot's computeBoundPoints function in chunks, to better
 //   allow interuptions for long-running calculations
 var calculateWindowPassChunks = function() {
+  windowCalc.passTotalPoints = 0;
+  windowCalc.passCachedPoints = 0;
   windowCalc.chunksComplete = 0;
   windowCalc.xPixelChunks = [];
   if (windowCalc.lineWidth === windowCalc.finalWidth) {
@@ -281,22 +438,37 @@ var calculateWindowPassChunks = function() {
 function cleanUpWindowCache() {
   // now that the image has been completed, delete any cached
   //   points outside of the window
+  let cachedPointsDeleted = 0;
   let cachedPointsKept = 0;
-  let cachedPointsToDelete = [];
-  for (let name in windowCalc.pointsCache) {
-    if (infNumLt(windowCalc.pointsCache[name].pt.x, windowCalc.leftEdge) ||
-        infNumGt(windowCalc.pointsCache[name].pt.x, windowCalc.rightEdge) ||
-        infNumLt(windowCalc.pointsCache[name].pt.y, windowCalc.bottomEdge) ||
-        infNumGt(windowCalc.pointsCache[name].pt.y, windowCalc.topEdge)) {
-      cachedPointsToDelete.push(name);
+
+  let cachedPxToDelete = [];
+  let px = null;
+  let py = null;
+  for (const pxStr in windowCalc.pointsCache) {
+    px = createInfNumFromFastStr(pxStr);
+    if (infNumLt(px, windowCalc.leftEdge) || infNumGt(px, windowCalc.rightEdge)) {
+      cachedPxToDelete.push(pxStr);
     } else {
-      cachedPointsKept++;
+      let cachedPyToDelete = [];
+      for (const pyStr in windowCalc.pointsCache[pxStr]) {
+        py = createInfNumFromFastStr(pyStr);
+        if (infNumLt(py, windowCalc.bottomEdge) || infNumGt(py, windowCalc.topEdge)) {
+          cachedPyToDelete.push(pyStr);
+        } else {
+          cachedPointsKept++;
+        }
+      }
+      for (const pyStr of cachedPyToDelete) {
+        delete windowCalc.pointsCache[pxStr][pyStr];
+      }
+      cachedPointsDeleted += cachedPyToDelete.length;
     }
   }
-  for (let i = 0; i < cachedPointsToDelete.length; i++) {
-    delete windowCalc.pointsCache[name];
+  for (const px of cachedPxToDelete) {
+    cachedPointsDeleted += Object.keys(windowCalc.pointsCache[px]).length;
+    delete windowCalc.pointsCache[px];
   }
-  const deletedPct = Math.round(cachedPointsToDelete.length * 10000.0 / (cachedPointsToDelete.length + cachedPointsKept)) / 100.0;
-  console.log("deleted [" + cachedPointsToDelete.length + "] points from the cache (" + deletedPct + "%)");
+  const deletedPct = Math.round(cachedPointsDeleted * 10000.0 / (cachedPointsDeleted + cachedPointsKept)) / 100.0;
+  console.log("deleted [" + cachedPointsDeleted + "] points from the cache (" + deletedPct + "%)");
 }
 

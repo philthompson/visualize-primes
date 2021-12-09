@@ -257,13 +257,11 @@ function cacheComputedPointsInChunk(chunk) {
   let calculatedValue = null;
   for (let i = 0; i < chunk.chunkLen; i++) {
     calculatedValue = chunk.results[i];
-    if (calculatedValue === undefined) {
-      continue;
+    if (calculatedValue !== undefined) {
+      count++;
+      // set the cached value at that point
+      xCache[infNumFastStr(py)] = calculatedValue;
     }
-    count++;
-
-    // set the cached value at that point
-    xCache[infNumFastStr(py)] = calculatedValue;
 
     // since we want to start at the given starting position, increment
     //   the position AFTER checking each py value

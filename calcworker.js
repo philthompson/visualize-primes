@@ -58,7 +58,7 @@ self.onmessage = function(e) {
     }
     windowCalc.workers = [];
   } else if (e.data.t == "wipe-cache") {
-    windowCalc.pointsCache = {};
+    windowCalc.pointsCache = new Map();
   }
 };
 
@@ -83,7 +83,7 @@ function runCalc(msg) {
   windowCalc.canvasWidth = msg.canvasWidth;
   windowCalc.canvasHeight = msg.canvasHeight;
   if (windowCalc.pointsCache === null) {
-    windowCalc.pointsCache = {};
+    windowCalc.pointsCache = new Map();
   }
   windowCalc.totalChunks = null;
   windowCalc.workersCount = msg.workers;
@@ -210,11 +210,11 @@ function scanCacheForChunk(chunk) {
 
   const cachedValues = new Map();
   let cachedValue = null;
-  const xCache = windowCalc.pointsCache[pxStr];
+  const xCache = windowCalc.pointsCache.get(pxStr);
   if (xCache !== undefined) {
     for (let i = 0; i < chunk.chunkLen; i++) {
       // look up the cached value at that point along the y axis
-      cachedValue = xCache[infNumFastStr(py)];
+      cachedValue = xCache.get(infNumFastStr(py));
       // if that point was previously cached, grab that value and
       //   associate it with it's index along the chunk
       if (cachedValue !== undefined) {
@@ -235,10 +235,10 @@ function cacheComputedPointsInChunk(chunk) {
   let count = 0;
   const pxStr = infNumFastStr(chunk.chunkPos.x);
 
-  let xCache = windowCalc.pointsCache[pxStr];
+  let xCache = windowCalc.pointsCache.get(pxStr);
   if (xCache === undefined) {
-    windowCalc.pointsCache[pxStr] = {};
-    xCache = windowCalc.pointsCache[pxStr];
+    windowCalc.pointsCache.set(pxStr, new Map());
+    xCache = windowCalc.pointsCache.get(pxStr);
   }
 
   let py = chunk.chunkPos.y;
@@ -253,7 +253,7 @@ function cacheComputedPointsInChunk(chunk) {
     if (calculatedValue !== undefined) {
       count++;
       // set the cached value at that point
-      xCache[infNumFastStr(py)] = calculatedValue;
+      xCache.set(infNumFastStr(py), calculatedValue);
     }
 
     // since we want to start at the given starting position, increment
@@ -437,13 +437,14 @@ function cleanUpWindowCache() {
   let cachedPxToDelete = [];
   let px = null;
   let py = null;
-  for (const pxStr in windowCalc.pointsCache) {
-    px = createInfNumFromFastStr(pxStr);
+  for (const pxEntry of windowCalc.pointsCache) {
+    px = createInfNumFromFastStr(pxEntry[0]);
     if (infNumLt(px, windowCalc.leftEdge) || infNumGt(px, windowCalc.rightEdge)) {
-      cachedPxToDelete.push(pxStr);
+      cachedPxToDelete.push(pxEntry[0]);
+      cachedPointsDeleted += pxEntry[1].size;
     } else {
       let cachedPyToDelete = [];
-      for (const pyStr in windowCalc.pointsCache[pxStr]) {
+      for (const pyStr of pxEntry[1].keys()) {
         py = createInfNumFromFastStr(pyStr);
         if (infNumLt(py, windowCalc.bottomEdge) || infNumGt(py, windowCalc.topEdge)) {
           cachedPyToDelete.push(pyStr);
@@ -452,14 +453,13 @@ function cleanUpWindowCache() {
         }
       }
       for (const pyStr of cachedPyToDelete) {
-        delete windowCalc.pointsCache[pxStr][pyStr];
+        pxEntry[1].delete(pyStr);
       }
       cachedPointsDeleted += cachedPyToDelete.length;
     }
   }
   for (const px of cachedPxToDelete) {
-    cachedPointsDeleted += Object.keys(windowCalc.pointsCache[px]).length;
-    delete windowCalc.pointsCache[px];
+    windowCalc.pointsCache.delete(px);
   }
   const deletedPct = Math.round(cachedPointsDeleted * 10000.0 / (cachedPointsDeleted + cachedPointsKept)) / 100.0;
   console.log("deleted [" + cachedPointsDeleted + "] points from the cache (" + deletedPct + "%)");

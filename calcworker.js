@@ -85,8 +85,6 @@ function runCalc(msg) {
   if (windowCalc.pointsCache === null) {
     windowCalc.pointsCache = {};
   }
-  windowCalc.cacheScannedChunks = {},
-  windowCalc.cacheScannedChunksCursor = -1;
   windowCalc.totalChunks = null;
   windowCalc.workersCount = msg.workers;
   windowCalc.workers = [];
@@ -167,15 +165,15 @@ var assignChunkToWorker = function(worker) {
   windowCalc.cacheScannedChunksCursor--;
 
   const chunkId = buildChunkId(nextChunk.chunkPos);
-  let cacheScan = windowCalc.cacheScannedChunks[chunkId];
+  let cacheScan = windowCalc.cacheScannedChunks.get(chunkId);
   if (cacheScan === undefined) {
     scanCacheForChunk(nextChunk);
-    cacheScan = windowCalc.cacheScannedChunks[chunkId];
+    cacheScan = windowCalc.cacheScannedChunks.get(chunkId);
   }
 
   let subWorkerMsg = {
     "chunk": nextChunk,
-    "cachedIndices": Object.keys(cacheScan.cachedByIndex).sort((a, b) => a-b)
+    "cachedIndices": Array.from(cacheScan.keys()).sort((a, b) => a-b)
   };
 
   worker.postMessage(subWorkerMsg);
@@ -203,11 +201,6 @@ function scanCacheForChunk(chunk) {
   const pxStr = infNumFastStr(chunk.chunkPos.x);
   const pyStr = infNumFastStr(chunk.chunkPos.y);
   const id = pxStr + "," + pyStr;
-  if (! pxStr in windowCalc.pointsCache) {
-    // store empty cache scan object
-    windowCalc.cacheScannedChunks[id] = {cachedByIndex:{}};
-    return;
-  }
 
   let py = chunk.chunkPos.y;
   let incY = chunk.chunkInc.y;
@@ -215,7 +208,7 @@ function scanCacheForChunk(chunk) {
   py = norm[0];
   incY = norm[1];
 
-  const cachedValues = {};
+  const cachedValues = new Map();
   let cachedValue = null;
   const xCache = windowCalc.pointsCache[pxStr];
   if (xCache !== undefined) {
@@ -225,7 +218,7 @@ function scanCacheForChunk(chunk) {
       // if that point was previously cached, grab that value and
       //   associate it with it's index along the chunk
       if (cachedValue !== undefined) {
-        cachedValues[i] = cachedValue;
+        cachedValues.set(i, cachedValue);
       }
 
       // since we want to start at the given starting position, increment
@@ -234,7 +227,7 @@ function scanCacheForChunk(chunk) {
     }
   }
   // store both the cached indices for the chunk, and the cached values at those indicdes
-  windowCalc.cacheScannedChunks[id] = {cachedByIndex: cachedValues};
+  windowCalc.cacheScannedChunks.set(id, cachedValues);
 }
 
 // this assumes all chunks move along the y axis, only
@@ -298,17 +291,17 @@ var onSubWorkerMessage = function(msg) {
 
   // insert any cached values into the subworker's results array
   const chunkId = buildChunkId(msg.data.chunkPos);
-  let cacheScan = windowCalc.cacheScannedChunks[chunkId];
+  let cacheScan = windowCalc.cacheScannedChunks.get(chunkId);
   if (cacheScan !== undefined) {
     // the key values in the "cachedByIndex" object are the same
     //   index position along the chunk that the subworker uses,
     //   so we just insert the cached values directly into the
     //   results array at those index positions
-    for (const idx in cacheScan.cachedByIndex) {
-      msg.data.results[idx] = cacheScan.cachedByIndex[idx];
-      windowCalc.passCachedPoints++;
+    for (const entry of cacheScan) {
+      msg.data.results[entry[0]] = entry[1];
     }
-    delete windowCalc.cacheScannedChunks[chunkId];
+    windowCalc.passCachedPoints += cacheScan.size;
+    windowCalc.cacheScannedChunks.delete(chunkId);
   }
   const newlySeenCachedPoints = windowCalc.passCachedPoints - prevCachedCount;
   windowCalc.passTotalPoints += newlySeenCachedPoints;
@@ -363,6 +356,8 @@ var calculateWindowPassChunks = function() {
   windowCalc.passCachedPoints = 0;
   windowCalc.chunksComplete = 0;
   windowCalc.xPixelChunks = [];
+  windowCalc.cacheScannedChunks = new Map();
+  windowCalc.cacheScannedChunksCursor = -1;
   if (windowCalc.lineWidth === windowCalc.finalWidth) {
     return;
   }

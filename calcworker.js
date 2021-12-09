@@ -43,7 +43,8 @@ const windowCalc = {
   "workersCount": null,
   "workers": null,
   "minWorkersCount": null,
-  "maxWorkersCount": null
+  "maxWorkersCount": null,
+  "plotId": null
 };
 
 self.onmessage = function(e) {
@@ -65,6 +66,7 @@ self.onmessage = function(e) {
 // for now, the main thread will not pass a "worker-calc" message to this
 //   worker once a calculation is already running
 function runCalc(msg) {
+  windowCalc.plotId = msg.plotId;
   windowCalc.plot = msg.plot;
   windowCalc.eachPixUnits = createInfNumFromExpStr(msg.eachPixUnits);
   windowCalc.leftEdge = createInfNumFromExpStr(msg.leftEdge);
@@ -172,6 +174,7 @@ var assignChunkToWorker = function(worker) {
   }
 
   let subWorkerMsg = {
+    "plotId": windowCalc.plotId,
     "chunk": nextChunk,
     "cachedIndices": Array.from(cacheScan.keys()).sort((a, b) => a-b)
   };
@@ -264,16 +267,16 @@ function cacheComputedPointsInChunk(chunk) {
 }
 
 var onSubWorkerMessage = function(msg) {
+  // if the worker was working on an old plot, note this...
+  const isOutdatedWorker = msg.data.plotId !== windowCalc.plotId;
+
   //console.log("subworker called back to worker with msg:");
   //console.log(msg);
-  windowCalc.chunksComplete++;
+  if (!isOutdatedWorker) {
+    windowCalc.chunksComplete++;
+  }
 
   const worker = msg.target;
-
-  let workersCountToReport = windowCalc.minWorkersCount.toString();
-  if (windowCalc.maxWorkersCount > windowCalc.minWorkersCount) {
-    workersCountToReport += "-" + windowCalc.maxWorkersCount;
-  }
 
   // remove this worker if the number of workers has now been reduced
   const wasWorkerRemoved = removeWorkerIfNecessary(worker);
@@ -282,6 +285,28 @@ var onSubWorkerMessage = function(msg) {
   //   its results with the cached values
   if (!wasWorkerRemoved && windowCalc.chunksComplete < windowCalc.totalChunks) {
     assignChunkToWorker(worker);
+  }
+
+  // for an outdated worker, just throw away its data and don't
+  //   do anything with the cache for it
+  if (!isOutdatedWorker) {
+    settleChunkWithCacheAndPublish(msg);
+  }
+
+  // start next pass, if there is a next one
+  if (windowCalc.chunksComplete >= windowCalc.totalChunks) {
+    if (isImageComplete()) {
+      cleanUpWindowCache();
+    } else {
+      calculatePass();
+    }
+  }
+};
+
+function settleChunkWithCacheAndPublish(msg) {
+  let workersCountToReport = windowCalc.minWorkersCount.toString();
+  if (windowCalc.maxWorkersCount > windowCalc.minWorkersCount) {
+    workersCountToReport += "-" + windowCalc.maxWorkersCount;
   }
 
   // insert any newly-calculated points along the chunk into the cache
@@ -326,16 +351,7 @@ var onSubWorkerMessage = function(msg) {
   msg.data.chunkInc.x = infNumExpString(msg.data.chunkInc.x);
   msg.data.chunkInc.y = infNumExpString(msg.data.chunkInc.y);
   self.postMessage(msg.data);
-
-  // start next pass, if there is a next one
-  if (windowCalc.chunksComplete >= windowCalc.totalChunks) {
-    if (isImageComplete()) {
-      cleanUpWindowCache();
-    } else {
-      calculatePass();
-    }
-  }
-};
+}
 
 function isImageComplete() {
   return windowCalc.chunksComplete === windowCalc.totalChunks && windowCalc.lineWidth === windowCalc.finalWidth;

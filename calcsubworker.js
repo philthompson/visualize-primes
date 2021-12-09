@@ -22,10 +22,10 @@ self.onmessage = function(e) {
   //   called "computeBoundPointColor" and is defined by each
   //   window plot
   //importScripts(e.data.computeFnUrl, e.data.infNumScriptUri);
-  computeChunk(e.data.chunk, e.data.cachedIndices);
+  computeChunk(e.data.plotId, e.data.chunk, e.data.cachedIndices);
 };
 
-var computeChunk = function(chunk, cachedIndices) {
+var computeChunk = function(plotId, chunk, cachedIndices) {
   // TODO: just use overall time as measured in main thread, don't keep
   //         separate running times on a per-chunk or per-subworker basis
   //var chunkStartMs = Date.now();
@@ -96,5 +96,6 @@ var computeChunk = function(chunk, cachedIndices) {
     }
   }
   chunk["results"] = results;
+  chunk["plotId"] = plotId;
   postMessage(chunk);
 };

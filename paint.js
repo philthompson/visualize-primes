@@ -64,7 +64,8 @@ const windowCalc = {
   "runtimeMs": -1,
   "avgRuntimeMs": -1,
   "worker": null,
-  "workersCountRange": "-"
+  "workersCountRange": "-",
+  "plotId": 0
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];
@@ -851,6 +852,7 @@ function resetWindowCalcContext() {
   windowCalc.runtimeMs = -1;
   windowCalc.avgRuntimeMs = -1;
   windowCalc.workersCountRange = "-";
+  windowCalc.plotId++; // int wrapping around is fine
 
   const two = infNum(2n, 0n);
 
@@ -1015,6 +1017,9 @@ function fn2workerURL(fn) {
 // messages received from main worker:
 // chunk complete
 var calcWorkerOnmessage = function(e) {
+  if (e.data.plotId !== windowCalc.plotId) {
+    return;
+  }
   // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean, workersCount: string, workersNow: int}
   drawWorkerColorPoints(e);
   windowCalc.workersCountRange = e.data.calcStatus.workersCount;
@@ -1186,6 +1191,7 @@ function kickoffWindowDrawLoop() {
   workerCalc["canvasWidth"] = dContext.canvas.width;
   workerCalc["canvasHeight"] = dContext.canvas.height;
   workerCalc["workers"] = workersCount;
+  workerCalc["plotId"] = windowCalc.plotId;
 
   windowCalc.worker.postMessage({"t": "worker-calc", "v": workerCalc});
 

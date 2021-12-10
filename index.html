@@ -25,7 +25,7 @@
          to https://stackoverflow.com/a/28411556/259456 */
     body, html {  height: 100%; overflow: hidden; }
     #dc { position:absolute; width: 100%; height: 100%; z-index:10; }
-    #menu, #help-menu, #menu-open-wrap {
+    #menu, #help-menu, #controls-menu, #menu-open-wrap {
         position:fixed;
         width: 96%;
         padding: 2%;
@@ -34,7 +34,7 @@
         color: #999999;
         text-shadow: 0px 0px 5px #222;
         font-family: arial;
-        font-size: 1.5rem;
+        font-size: 1.2rem;
     }
     #menu {
       max-height: 80%;
@@ -46,12 +46,12 @@
       width: 97%;
       right: 0px;
     }
-    #menu, #help-menu {
+    #menu, #help-menu, #controls-menu {
         background-color: rgba(0,0,0,0.8);
         display: none;
         overflow-y: auto;
     }
-    #menu p, #help-menu p {
+    #menu p, #help-menu p, #controls-menu p {
         padding-bottom: 1rem;
         margin-top: 0;
         margin-bottom: 0.5rem;
@@ -61,7 +61,7 @@
         cursor: pointer;
         z-index: 12;
     }
-    #menu-close, #help-menu-close, #menu-open-wrap span {
+    #menu-close, #help-menu-close, #controls-menu-close, #menu-open-wrap span {
         color: #aaa;
         font-size: 1.75rem;
         font-weight: 700;
@@ -70,27 +70,56 @@
         z-index: 12;
     }
     #help-menu {
+      padding-top: 2.6rem;
+      position: absolute;
+      padding-bottom: 20.0rem;
+      width: 100%;
+      left: 0px;
+      top: 0px;
+      height: 100%;
+    }
+    #help-menu, #controls-menu {
       font-family: monospace;
       padding-left: 2.0rem;
       padding-bottom: 20.0rem;
       max-height: 80%;
     }
-    #help-menu details>div div, #keyboard-keycaps div {
+    #controls-menu details>div div, #keyboard-keycaps div {
       float: left;
       margin-right: 4.0rem;
     }
-    #help-menu button {
+    #controls-menu {
+      padding-top: 2.6rem;
+      position: absolute;
+      padding-bottom: 20.0rem;
+      /* for small screens, take up the whole width, and
+       *   for large screens, only get up to 32 chars wide
+           (thanks to https://stackoverflow.com/a/30515342/259456) */
+      max-width: 32.0rem;
+      width: 97%;
+      left: 0px;
+      top: 0px;
+      height: 100%;
+    }
+    #controls-menu button {
       padding: 0.4rem 1.5rem 0.4rem 1.5rem;
     }
-    #help-menu summary {
+    #controls-menu summary {
       cursor: pointer;
-      padding-bottom: 1.0rem;
+      padding-bottom: 0.8rem;
     }
-    #help-menu details>div {
+    #controls-menu details>div {
       padding: 0.5rem 0 1.5rem 1.5rem;
     }
-    #help-menu  input {
+    #controls-menu input {
       text-align:  right;
+      font-size: 1.2rem;
+    }
+    #controls-menu table {
+      padding-bottom: 0.5rem;
+    }
+    #controls-menu td:nth-child(1) {
+      text-align: right;
     }
     #menu-contents {
     }
@@ -156,37 +185,84 @@
         user-select: none;
         cursor: pointer;
     }
-    #menu-open {
-        height: 1.5rem;
-        width: 1.7rem;
-        /* create three horizontal bars to serve as menu bar, since on linux the unicode glyph i was using didn't work */
-        background: linear-gradient(to bottom, transparent 0%, transparent 5%, #999999 5%, #999999 23%, transparent 23%, transparent 41%, #999999 41%, #999999 59%, transparent 59%, transparent 77%, #999999 77%, #999999 95%, transparent 95%, transparent 100%);
-        color: rgba(0,0,0,0) !important;
-        text-shadow: none !important;
+    .frosted-bg {
+      background-color: rgba(255, 255, 255, 0.6);
+      color: #6e6e6e;
+      text-shadow: none !important;;
     }
     </style>
 </head>
 <body>
     <canvas id="dc"></canvas>
     <div id="menu-open-wrap">
-        <span class="fixed-top-left-btn" id="help-menu-open"><kbd>?</kbd></span>
-        <span class="fixed-top-right-btn" id="menu-open">M</span>
+        <div class="fixed-top-left-btn">
+          <span id="help-menu-open"><kbd class="frosted-bg">?</kbd></span>
+          <span id="controls-menu-open"><kbd class="frosted-bg">
+<svg
+   style="position:relative; top:0.1rem;"
+   width="1.25rem"
+   height="1.25rem"
+   viewBox="0 0 12.7 12.7"
+   version="1.1"
+   id="svg5"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs2" />
+  <g
+     id="layer1">
+    <path
+       id="path42"
+       style="fill:#6e6e6e;fill-opacity:1;stroke:#5a5a5a;stroke-width:0.320145px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 9.5171963,0.49079552 c 0,0 -1.3927992,0.0233937 -2.144837,0.26838086 C 6.620322,1.0041637 5.5921828,1.7300922 5.4101282,2.6780777 5.228074,3.6260636 4.9467988,4.2025534 5.7253763,5.0864316 4.2178041,6.5940036 1.5270944,9.3138949 0.69113445,10.149855 c -0.61567466,0.791434 0.30186849,1.534951 0.31303745,1.543964 0,0 0.00172,0.0016 0.00178,0.0018 0.00891,0.01101 0.7524724,0.928758 1.5439646,0.313034 0.8359516,-0.836 3.5562851,-3.5262672 5.0638571,-5.0338394 0.8838752,0.7786327 1.4603648,0.4973575 2.4083504,0.3153031 0.947986,-0.1820544 1.673912,-1.2101939 1.9189,-1.9622309 C 12.186015,4.5758076 12.20941,3.1830091 12.20941,3.1830091 L 10.674285,4.7305068 8.7602469,5.2853958 8.0488385,4.6518048 7.4148054,3.9399543 7.969695,2.0259166 Z" />
+  </g>
+</svg></kbd>
+          </span>
+        </div>
+        <div class="fixed-top-right-btn">
+          <span id="menu-open"><kbd class="frosted-bg">
+<svg
+   style="position:relative; top:0.1rem;"
+   width="1.25rem"
+   height="1.25rem"
+   viewBox="0 0 12.7 12.7"
+   version="1.1"
+   id="svg5"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs2" />
+  <g
+     id="layer1">
+    <path
+       id="path905"
+       style="fill:#6e6e6e;stroke:#5a5a5a;stroke-width:1.00157481;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;fill-opacity:1"
+       d="M 4 8 L 4 14 L 44 14 L 44 8 L 4 8 z M 4 21 L 4 27 L 44 27 L 44 21 L 4 21 z M 4 34 L 4 40 L 44 40 L 44 34 L 4 34 z "
+       transform="scale(0.26458333)" />
+  </g>
+</svg></kbd>
+          </span>
+        </div>
     </div>
     <div id="menu">
-        <span style="position: fixed; right: 2.0rem; top: 2.0rem;" id="menu-close">×</span>
+        <span style="position: fixed; right: 1.8rem; top: 1.2rem;" id="menu-close">×</span>
         <p style="padding-right: 4rem;"c>Use a "View" button below to select a plot.  Or, use the
         buttons below or the number keys <kbd id="kbd-1">1</kbd>&nbsp;to&nbsp;<kbd id="kbd-5">5</kbd>
         to view presets.
         <div id="menu-contents"></div>
     </div>
-    <div id="help-menu">
-        <span style="position: fixed; right: 2.0rem; top: 2.0rem;" id="help-menu-close">×</span>
+    <div id="controls-menu">
+        <span style="position: fixed; left: 1.2rem; top: 1.2rem;" id="controls-menu-close">×</span>
         <details>
           <summary>go to location by center and scale</summary>
           <div>
-            <div>center: <label>x<input id="go-to-c-x"/></label>, <label>y<input id="go-to-c-y"/></label></div><br/>
-            <div>&nbsp;scale:&nbsp;&nbsp;<input id="go-to-scale" type="" name="" /></div><br/>
-            <p style="clear: both;">scale is (pixels/unit)</p>
+            <table>
+              <tr><td>center x:</td><td><input size="22" id="go-to-c-x"/></td></tr>
+              <tr><td>center y:</td><td><input size="22" id="go-to-c-y"/></td></tr>
+              <tr><td>&nbsp;</td></tr>
+              <tr><td>scale:</td><td><input size="22" id="go-to-scale"/></td></tr>
+              <tr><td colspan="2">scale is (pixels/unit)</td></tr>
+            </table>
             <button id="go-to-c-go">Go</button>
             <button id="go-to-c-reset">Reset to Current Window</button>
           </div>
@@ -194,9 +270,13 @@
         <details>
           <summary>go to location by bounds</summary>
           <div>
-            <div>top left: <label>x<input id="go-to-tl-x"/></label>, <label>y<input id="go-to-tl-y"/></label></div><br/>
-            <div>bot right:<label>x<input id="go-to-br-x"/></label>, <label>y<input id="go-to-br-y"/></label></div>
-            <p style="clear: both;"></p>
+            <table>
+              <tr><td>top left x:</td><td><input size="22" id="go-to-tl-x"/></td></tr>
+              <tr><td>top left y:</td><td><input size="22" id="go-to-tl-y"/></td></tr>
+              <tr><td>&nbsp;</td></tr>
+              <tr><td>bottom right x:</td><td><input size="22" id="go-to-br-x"/></td></tr>
+              <tr><td>bottom right y:</td><td><input size="22" id="go-to-br-y"/></td></tr>
+            </table>
             <button id="go-to-b-go">Go</button>
             <button id="go-to-b-reset">Reset to Current Window</button>
           </div>
@@ -204,24 +284,31 @@
         <details>
           <summary>gradient editor</summary>
           <div>
-            <div>gradient:<label>x<input id="grad-grad"/></label></div>
-            <p style="clear: both;"></p>
+            <table>
+              <tr><td>gradient:</td><td><input size="26" id="grad-grad"/></td></tr>
+            </table>
             <button id="grad-go">Go</button>
             <button id="grad-reset">Reset to Current Gradient</button>
           </div>
         </details>
-        <p style="clear: both; margin-left: -1.0rem">mouse</p>
+        <label for="workers-select">workers </label>
+        <select style="font-size:1.2rem;" id="workers-select"></select>
+    </div>
+    <div id="help-menu">
+        <span style="position: fixed; left: 1.2rem; top: 1.2rem;" id="help-menu-close">×</span>
+        <p style="clear: both; margin-left: -1.0rem; padding-top: 1.0rem">mouse</p>
         <p>drag mouse to move &mdash; scroll mouse wheel to zoom</p>
         <p>hold shift and click to re-center (good for slow-to-draw plots)</p>
         <p style="clear: both; margin-left: -1.0rem">keyboard (or click/tap key icons below)</p>
         <div id="keyboard-keycaps">
           <div>help<br/>&nbsp;<kbd id="kbd-H">H</kbd></div>
           <div>plots<br/>&nbsp;<kbd id="kbd-P">P</kbd></div>
+          <div>controls<br/>&nbsp;&nbsp;<kbd id="kbd-O">O</kbd></div>
           <div>presets<br/>&nbsp;<kbd id="kbd-1">1</kbd>&nbsp;-&nbsp;<kbd id="kbd-5">5</kbd></div>
           <div>center&nbsp;at (0,0)<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<kbd id="kbd-C">C</kbd></div>
           <p style="clear: both"></p>
-          <div>move<br/>&nbsp;<kbd id="kbd-W">W</kbd><br/><kbd id="kbd-A">A</kbd><kbd id="kbd-S">S</kbd><kbd id="kbd-D">D</kbd></div>
-          <div>move&nbsp;less<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd id="kbd-ArrowUp">↑</kbd><br/>&nbsp;&nbsp;<kbd id="kbd-ArrowLeft">←</kbd><kbd id="kbd-ArrowDown">↓</kbd><kbd id="kbd-ArrowRight">→</kbd></div>
+          <div>move<br/>&nbsp;&nbsp;<kbd id="kbd-W">W</kbd><br/><kbd id="kbd-A">A</kbd><kbd id="kbd-S">S</kbd><kbd id="kbd-D">D</kbd></div>
+          <div>move&nbsp;less<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<kbd id="kbd-ArrowUp">↑</kbd><br/>&nbsp;&nbsp;<kbd id="kbd-ArrowLeft">←</kbd><kbd id="kbd-ArrowDown">↓</kbd><kbd id="kbd-ArrowRight">→</kbd></div>
           <div>zoom<br/><kbd id="kbd-Q">Q</kbd>&nbsp;&nbsp;<kbd id="kbd-E">E</kbd></div>
           <div>zoom&nbsp;less<br/>&nbsp;&nbsp;&nbsp;<kbd id="kbd-−">−</kbd>&nbsp;<kbd id="kbd-+">+</kbd></div>
           <p style="clear: both"></p>
@@ -234,12 +321,16 @@
           <p style="clear: both"></p>
           <div>show&nbsp;mouse&nbsp;pos<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd id="kbd-R">R</kbd></div>
           <div>show&nbsp;params<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd id="kbd-T">T</kbd></div>
+          <p style="clear: both"></p>
+          <div>fewer/more&nbsp;workers<br/>&nbsp;&nbsp;&nbsp;&nbsp;<kbd id="kbd-Y">Y</kbd>&nbsp;<kbd id="kbd-U">U</kbd></div>
         </div>
     </div>
     <div id="footer">
         <span style="float:left; pointer-events: visible"><a target="_blank" href="https://philthompson.me/2021/Very-Plotter.html">What is this?</a></span>
         <button id="tip-btn" style="float:right; pointer-events: visible"><a target="_blank" href="https://philthompson.me/tip-jar/">Tip Jar<a/></button>
     </div>
+    <script src="infnum.js"></script>
+    <script src="plots.js"></script>
     <script src="paint.js"></script>
 </body>
 </html>

@@ -19,15 +19,22 @@ var replaceStateTimeout = null;
 var historyTimeout = null;
 var resizeTimeout = null;
 var helpVisible = false;
+var controlsVisible = false;
 var menuVisible = false;
 
-const doUnitTests = true;
 const windowLogTiming = true;
+const forceWorkerReloadUrlParam = "force-worker-reload=true";
+const forceWorkerReload = window.location.toString().includes(forceWorkerReloadUrlParam);
 const mandelbrotCircleHeuristic = false;
-var truncateLength = 24;
+var precision = 24;
 var mandelbrotFloat = false;
 const windowCalcIgnorePointColor = -2;
 var builtGradient = null;
+
+// since user machines and user needs are different, the number of
+//   workers is not a URL param
+var workersCount = 1;
+const maxWorkers = 32;
 
 const windowCalc = {
   "timeout": null,
@@ -56,7 +63,10 @@ const windowCalc = {
   "n": 1,
   "scale": infNum(1n, 0n),
   "runtimeMs": -1,
-  "avgRuntimeMs": -1
+  "avgRuntimeMs": -1,
+  "worker": null,
+  "workersCountRange": "-",
+  "plotId": 0
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];
@@ -76,1396 +86,11 @@ const btnGotoCenterReset = document.getElementById("go-to-c-reset");
 const inputGradGrad = document.getElementById("grad-grad");
 const btnGradGo = document.getElementById("grad-go");
 const btnGradReset = document.getElementById("grad-reset");
+const workersSelect = document.getElementById("workers-select");
 
 // this is checked each time a key is pressed, so keep it
 //   here so we don't have to do a DOM query every time
 const inputFields = document.getElementsByTagName("input");
-
-function infNum(value, exponent) {
-  return {"v": value, "e": exponent};
-}
-
-function trimZeroesOld(stringNum) {
-  var trimmed = stringNum.trim();
-  const negative = trimmed.startsWith('-');
-  if (negative) {
-    trimmed = trimmed.substr(1);
-  }
-  while (trimmed.length > 1 && trimmed.startsWith('0')) {
-    trimmed = trimmed.substr(1);
-  }
-  if (negative) {
-    trimmed = "-" + trimmed;
-  }
-  const parts = trimmed.split('.');
-  if (parts.length == 1) {
-    return trimmed;
-  }
-  while (parts[1].length > 0 && parts[1].endsWith('0')) {
-    parts[1] = parts[1].slice(0, -1);
-  }
-  if (parts[1].length == 0) {
-    return trimmed;
-  }
-  return parts[0] + "." + parts[1];
-}
-
-function trimZeroes(stringNum) {
-  var parts = stringNum.trim().split('.');
-  const negative = parts[0].startsWith('-');
-  if (negative) {
-    parts[0] = parts[0].substr(1);
-  }
-  let leadingZeroes = 0;
-  for (let i = 0; i < parts[0].length - 1; i++) {
-    if (parts[0].charAt(i) === '0') {
-      leadingZeroes++;
-    } else {
-      break;
-    }
-  }
-  parts[0] = parts[0].substring(leadingZeroes);
-  if (parts[0].length == 0) {
-    parts[0] = "0";
-  }
-  if (negative) {
-    parts[0] = "-" + parts[0];
-  }
-  if (parts.length == 1 || parts[1].length == 0) {
-    return parts[0];
-  }
-  let trailingZeroes = 0;
-  for (let i = parts[1].length - 1; i >= 0; i--) {
-    if (parts[1].charAt(i) === '0') {
-      trailingZeroes--;
-    } else {
-      break;
-    }
-  }
-  if (trailingZeroes < 0) {
-    parts[1] = parts[1].slice(0, trailingZeroes);
-    if (parts[1].length == 0) {
-      return parts[0];
-    }
-  }
-  return parts[0] + "." + parts[1];
-}
-
-if (doUnitTests) {
-  let unitTest = "50000";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 50000");
-
-  unitTest = "050";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 50");
-
-  unitTest = "-050";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // -50");
-
-  unitTest = "-022.00";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // -22");
-
-  unitTest = "022.002200";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 22.0022");
-
-  unitTest = "-22.002200";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // -22.0022");
-
-  unitTest = "000.002200";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 0.0022");
-
-  unitTest = "-.0022";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // -0.0022");
-
-  unitTest = "5.";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 5");
-}
-
-function createInfNum(stringNum) {
-  if (stringNum.includes("e") || stringNum.includes("E")) {
-    const split = replaceAllEachChar(stringNum, ", ", "").replaceAll("E", "e").split("e");
-    let value = split[0];
-    let exponent = 0;
-    if (value.includes(".")) {
-      let valSplit = value.split(".");
-      exponent -= valSplit[1].length;
-      value = valSplit[0] + valSplit[1];
-    }
-    exponent += parseInt(split[1]);
-    return infNum(BigInt(value), BigInt(exponent));
-  } else {
-    var trimmed = trimZeroes(stringNum);
-    const parts = trimmed.split('.');
-    if (parts.length == 1) {
-      return infNum(BigInt(parts[0]), 0n);
-    }
-    return infNum(BigInt(parts[0] + "" + parts[1]), BigInt("-" + parts[1].length));
-  }
-}
-
-if (doUnitTests) {
-  console.log(createInfNum("0.0"));
-  console.log(createInfNum("0"));
-  console.log(createInfNum("123"));
-  console.log(createInfNum("123.456"));
-  console.log(createInfNum("  3 "));
-  console.log(createInfNum("  123456789.000000000012345"));
-  console.log(createInfNum("  -4.00321"));
-  console.log(createInfNum("  -0.009 "));
-  let unitTest = "123e4";
-  console.log("createInfNum(" + unitTest + ") = ... // (123n, 4n)");
-  console.log(createInfNum(unitTest));
-
-  unitTest = "1.23e4";
-  console.log("createInfNum(" + unitTest + ") = ... // (123n, 2n)");
-  console.log(createInfNum(unitTest));
-
-  unitTest = "5. E22";
-  console.log("createInfNum(" + unitTest + ") = ... // (5n, 22n)");
-  console.log(createInfNum(unitTest));
-
-  unitTest = "  1.23 e -10";
-  console.log("createInfNum(" + unitTest + ") = ... // (123n, -12n)");
-  console.log(createInfNum(unitTest));
-
-  unitTest = "  1,234 E -10";
-  console.log("createInfNum(" + unitTest + ") = ... // (1234n, -10n)");
-  console.log(createInfNum(unitTest));
-}
-
-// after a quick test this seems to actually create a copy
-function copyInfNum(n) {
-  return infNum(n.v+0n, n.e+0n);
-}
-
-// only reads values from a and b, so the given objects are never modified
-function infNumMul(a, b) {
-  // the product of the values
-  // the sum of the exponents
-  return infNum(a.v * b.v, a.e + b.e);
-}
-
-if (doUnitTests) {
-  console.log("100 * 1.5 = ... // 150 (1500, -1)");
-  console.log(infNumMul(createInfNum("100"), createInfNum("1.5")));
-
-  console.log("123.5 * 1.5 = ... // 185.25 (18525, -2)");
-  console.log(infNumMul(createInfNum("123.5"), createInfNum("1.5")));
-
-  console.log("123.5 * 1.5 = ... // 185.25 (18525, -2)");
-  console.log(infNumMul(createInfNum("123.5"), createInfNum("1.5")));
-
-  console.log("15000 * 0.0006 = ... // 9 (9, 0)");
-  console.log(infNumMul(createInfNum("15000"), createInfNum("0.0006")));
-}
-
-// adjust the exponents to make them the same, by
-//   increasing the value part of the InfNum with the
-//   larger exponent
-function normInfNum(argA, argB) {
-  var a = copyInfNum(argA);
-  var b = copyInfNum(argB);
-  // if they already have the same exponent, our work is done
-  if (a.e === b.e) {
-    return [a, b];
-  }
-  var swapped = false;
-  // find which operand has smaller exponent
-  var s = a;
-  var l = b;
-  if (l.e < s.e) {
-    swapped = true;
-    s = b;
-    l = a;
-  }
-
-  var expDiff = l.e - s.e;
-  // multiply larger value, and reduce its exponent accordingly,
-  //   to get matching exponents
-  const newL = infNum(l.v * (10n ** expDiff), l.e - expDiff);
-
-  // ensure we return the args in the same order
-  if (swapped) {
-    return [newL, s];
-  }
-  return [s, newL];
-}
-
-if (doUnitTests) {
-  console.log("100 and 123.456"); // (100000, -3) and (123456, -3)
-  console.log(normInfNum(createInfNum("100"), createInfNum("123.456")));
-
-  console.log("0.0321 and 5"); // (321, -4) and (50000, -4)
-  console.log(normInfNum(createInfNum("0.0321"), createInfNum("5")));
-
-  console.log("22 and 5"); // (22, 0) and (5, 0)
-  console.log(normInfNum(createInfNum("22"), createInfNum("5")));
-}
-
-// more optimized way to normalize this number of InfNums with each other
-// no loops, and minimum number of if statements
-// the first arg, only, is copied and returned
-function normInPlaceInfNum(argA, b, c, d, e, f) {
-  let a = copyInfNum(argA);
-  // assume they do not already all have same the exponent to save all the checking
-  let smallestExponent = a.e;
-  if (b.e < smallestExponent) {
-    smallestExponent = b.e;
-  }
-  if (c.e < smallestExponent) {
-    smallestExponent = c.e;
-  }
-  if (d.e < smallestExponent) {
-    smallestExponent = d.e;
-  }
-  if (e.e < smallestExponent) {
-    smallestExponent = e.e;
-  }
-  if (f.e < smallestExponent) {
-    smallestExponent = f.e;
-  }
-  // multiply all values by 10^diff, and reduce each exponent accordingly,
-  //   to get all matching exponents
-  let expDiff = a.e - smallestExponent;
-  a.v = a.v * (10n ** expDiff);
-  a.e = a.e - expDiff;
-  expDiff = b.e - smallestExponent;
-  b.v = b.v * (10n ** expDiff);
-  b.e = b.e - expDiff;
-  expDiff = c.e - smallestExponent;
-  c.v = c.v * (10n ** expDiff);
-  c.e = c.e - expDiff;
-  expDiff = d.e - smallestExponent;
-  d.v = d.v * (10n ** expDiff);
-  d.e = d.e - expDiff;
-  expDiff = e.e - smallestExponent;
-  e.v = e.v * (10n ** expDiff);
-  e.e = e.e - expDiff;
-  expDiff = f.e - smallestExponent;
-  f.v = f.v * (10n ** expDiff);
-  f.e = f.e - expDiff;
-
-  return a;
-}
-
-if (doUnitTests) {
-  let testA = infNum(5n, -2n);
-  let testB = infNum(5n, -1n);
-  let testC = infNum(5n, 0n);
-  let testD = infNum(5n, 1n);
-  let testE = infNum(5n, 2n);
-  let testF = infNum(5n, 3n);
-  let normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
-  console.log("testA -> (" + normA.v + " ," + normA.e + ")");
-  console.log("testB -> (" + testB.v + " ," + testB.e + ")");
-  console.log("testC -> (" + testC.v + " ," + testC.e + ")");
-  console.log("testD -> (" + testD.v + " ," + testD.e + ")");
-  console.log("testE -> (" + testE.v + " ," + testE.e + ")");
-  console.log("testF -> (" + testF.v + " ," + testF.e + ")");
-
-  testA = infNum(5n, -2n);
-  testB = infNum(5n, -11n);
-  testC = infNum(5n, -3n);
-  testD = infNum(5n, -22n);
-  testE = infNum(5n, -2n);
-  testF = infNum(5n, -5n);
-  normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
-  console.log("testA -> (" + normA.v + " ," + normA.e + ")");
-  console.log("testB -> (" + testB.v + " ," + testB.e + ")");
-  console.log("testC -> (" + testC.v + " ," + testC.e + ")");
-  console.log("testD -> (" + testD.v + " ," + testD.e + ")");
-  console.log("testE -> (" + testE.v + " ," + testE.e + ")");
-  console.log("testF -> (" + testF.v + " ," + testF.e + ")");
-
-  testA = infNum(5n, 2n);
-  testB = infNum(5n, 11n);
-  testC = infNum(5n, 3n);
-  testD = infNum(5n, 22n);
-  testE = infNum(5n, 2n);
-  testF = infNum(5n, 5n);
-  normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
-  console.log("testA -> (" + normA.v + " ," + normA.e + ")");
-  console.log("testB -> (" + testB.v + " ," + testB.e + ")");
-  console.log("testC -> (" + testC.v + " ," + testC.e + ")");
-  console.log("testD -> (" + testD.v + " ," + testD.e + ")");
-  console.log("testE -> (" + testE.v + " ," + testE.e + ")");
-  console.log("testF -> (" + testF.v + " ," + testF.e + ")");
-}
-
-
-// copies values from a and b, so the given objects are never modified
-function infNumAdd(a, b) {
-  const norm = normInfNum(a, b);
-  return infNum(norm[0].v + norm[1].v, norm[0].e);
-}
-
-if (doUnitTests) {
-  console.log("100 + 1.5 = ... // 101.5 (1015, -1)");
-  console.log(infNumAdd(createInfNum("100"), createInfNum("1.5")));
-
-  console.log("123 + 0.456 = ... // 123.456 (123456, -3)");
-  console.log(infNumAdd(createInfNum("123"), createInfNum("0.456")));
-
-  console.log("0.00001 + 5.05 = ... // 5.05001 (505001, -5)");
-  console.log(infNumAdd(createInfNum("0.00001"), createInfNum("5.05")));
-}
-
-// assumes arguments have the same exponent
-function infNumAddNorm(a, b) {
-  return infNum(a.v + b.v, a.e);
-}
-
-// copies values from a and b, so the given objects are not modified
-function infNumSub(a, b) {
-  const norm = normInfNum(a, b);
-  return infNum(norm[0].v - norm[1].v, norm[0].e);
-}
-
-if (doUnitTests) {
-  console.log("100 - 1.5 = ... // 98.5 (985, -1)");
-  console.log(infNumSub(createInfNum("100"), createInfNum("1.5")));
-
-  console.log("123 - 0.01 = ... // 122.99 (12299, -2)");
-  console.log(infNumSub(createInfNum("123"), createInfNum("0.01")));
-
-  console.log("0.00001 - 50 = ... // -49.99999 (-4999999, -5)");
-  console.log(infNumSub(createInfNum("0.00001"), createInfNum("50")));
-}
-
-// assumes arguments have the same exponent
-function infNumSubNorm(a, b) {
-  return infNum(a.v - b.v, a.e);
-}
-
-function infNumDiv(argA, argB) {
-  const norm = normInfNum(argA, argB);
-  var a = norm[0];
-  var b = norm[1];
-
-  var truncated = infNum(a.v / b.v, a.e - b.e);
-
-  var remainder = infNum(a.v % b.v, a.e - b.e);
-
-  if (remainder.v === 0n) {
-    return truncated;
-  }
-
-  // this may give 16 digits of precision?
-  // seems easy enough to go to 32 or 64....
-  var remInf = infNumMul(remainder, infNum(10000000000000000n, 0n));
-  var remTrunc = infNum(remInf.v / b.v, -16n);
-
-  return infNumAdd(truncated, remTrunc);
-}
-
-if (doUnitTests) {
-  let unitTest = infNumDiv(createInfNum("50000"), createInfNum("20"));
-  console.log("50000 / 20 = [" + infNumToString(unitTest) + "] // 2500 (25, 2)");
-  console.log(unitTest);
-
-  unitTest = infNumDiv(createInfNum("100"), createInfNum("7"));
-  console.log("100 / 7 = [" + infNumToString(unitTest) + "] // 14.28571428571428...");
-  console.log(unitTest);
-
-  unitTest = infNumDiv(createInfNum("100"), createInfNum("64"));
-  console.log("100 / 64 = [" + infNumToString(unitTest) + "] // 1.5625 (15625, -4)");
-  console.log(unitTest);
-
-  unitTest = infNumDiv(createInfNum("1302"), createInfNum("10.5"));
-  console.log("1302 / 10.5 = [" + infNumToString(unitTest) + "] // 124");
-  console.log(unitTest);
-}
-
-function infNumEq(a, b) {
-  const normalized = normInfNum(a, b);
-  return normalized[0].v === normalized[1].v;
-}
-function infNumLt(a, b) {
-  const normalized = normInfNum(a, b);
-  return normalized[0].v < normalized[1].v;
-}
-function infNumLe(a, b) {
-  const normalized = normInfNum(a, b);
-  return normalized[0].v <= normalized[1].v;
-}
-function infNumGt(a, b) {
-  if (a.v > b.v && a.e >= b.e) {
-    return true;
-  }
-  const normalized = normInfNum(a, b);
-  return normalized[0].v > normalized[1].v;
-}
-function infNumGe(a, b) {
-  const normalized = normInfNum(a, b);
-  return normalized[0].v >= normalized[1].v;
-}
-
-// assumes the argumments have the same exponent
-function infNumGtNorm(a, b) {
-  return a.v > b.v;
-}
-
-if (doUnitTests) {
-  console.log("100 < 123.456 // true");
-  console.log(infNumLt(createInfNum("100"), createInfNum("123.456")));
-
-  console.log("0.0321 > 5 // false");
-  console.log(infNumGt(createInfNum("0.0321"), createInfNum("5")));
-
-  console.log("5 > 0.0321 // true");
-  console.log(infNumGt(createInfNum("5"), createInfNum("0.0321")));
-
-  console.log("22 === 5 // false");
-  console.log(infNumEq(createInfNum("22"), createInfNum("5")));
-
-  console.log("-22 > 5 // false");
-  console.log(infNumGt(createInfNum("-22"), createInfNum("5")));
-
-  console.log("-22 <= -22.0000 // true");
-  console.log(infNumLe(createInfNum("-22"), createInfNum("-22.0000")));
-}
-
-function infNumToString(n) {
-  var value = n.v.toString();
-  if (n.e === 0n) {
-    return value;
-  }
-  if (n.e > 0n) {
-    let i = 0n;
-    while (i < n.e) {
-      value = value + "0";
-      i = i + 1n;
-    }
-    return value;
-  }
-  var i = 0n;
-  var dec = "";
-  var neg = false;
-  if (value.startsWith("-")) {
-    neg = true;
-    value = value.substr(1);
-  }
-  while (i > n.e) {
-    if (value.length > 0) {
-      dec = value.slice(-1) + dec;
-      value = value.slice(0, -1);
-    } else {
-      dec = "0" + dec;
-    }
-    i = i - 1n;
-  }
-  if (value.length == 0) {
-    value = "0";
-  }
-  if (neg) {
-    value = "-" + value;
-  }
-  return trimZeroes(value + "." + dec);
-}
-
-if (doUnitTests) {
-  console.log("(22,0) // 22");
-  console.log(infNumToString(infNum(22n, 0n)));
-
-  console.log("(22,1) // 220");
-  console.log(infNumToString(infNum(22n, 1n)));
-
-  console.log("22,-1) // 2.2");
-  console.log(infNumToString(infNum(22n, -1n)));
-
-  console.log("22,-2) // 0.22");
-  console.log(infNumToString(infNum(22n, -2n)));
-
-  console.log("22,-4) // 0.0022");
-  console.log(infNumToString(infNum(22n, -4n)));
-
-  console.log("(-22,0) // -22");
-  console.log(infNumToString(infNum(-22n, 0n)));
-
-  console.log("(-22,1) // -220");
-  console.log(infNumToString(infNum(-22n, 1n)));
-
-  console.log("-22,-4) // -0.0022");
-  console.log(infNumToString(infNum(-22n, -4n)));
-}
-
-function infNumExpString(n) {
-  return infNumExpStringTruncToLen(n, -1);
-}
-
-function infNumExpStringTrunc(n) {
-  return infNumExpStringTruncToLen(n, truncateLength);
-}
-
-function infNumExpStringTruncToLen(n, truncDecimals) {
-  var value = n.v.toString();
-  let negative = false;
-  if (n.v < 0) {
-    negative = true;
-    value = value.substring(1);
-  }
-  let bd = value.length;
-  let ad = value.length - 1;
-  let finalExponent = n.e + BigInt(ad.toString());
-  let decimal = trimZeroes(value.substring(0, 1) + "." + value.substring(1));
-  if (!decimal.includes(".")) {
-    decimal = decimal + ".0";
-  }
-  if (truncDecimals > 0) {
-    decimal = decimal.substring(0, truncDecimals + 2);
-  }
-  if (negative) {
-    decimal = "-" + decimal;
-  }
-  return decimal + "e" + finalExponent.toString();
-}
-
-if (doUnitTests) {
-  let unitTest = "22";
-  console.log("infNumExpString(\"" + unitTest + "\") = [" + infNumExpString(createInfNum(unitTest)) + "]// 2.2e1");
-
-  unitTest = "123456789";
-  console.log("infNumExpStringTruncToLen(\"" + unitTest + "\", 5) = [" + infNumExpStringTruncToLen(createInfNum(unitTest), 5) + "]// 1.23456e8");
-}
-
-// this is not suitable for displaying to users (it's in base 16)
-// divides the value portion of n as long as it's divisible by 10
-function infNumFastStr(n) {
-  let nCopy = copyInfNum(n);
-  while (nCopy.v % 10n === 0n && nCopy.v !== 0n) {
-    nCopy.v /= 10n;
-    nCopy.e += 1n;
-  }
-  // using radix 16 because in testing it was 75% faster than
-  //   radix 10 and 32
-  return nCopy.v.toString(16) + "e" + nCopy.e.toString(16);
-}
-
-function infNumTruncate(n) {
-  return infNumTruncateToLen(n, truncateLength);
-}
-
-function infNumTruncateToLen(n, len) {
-  var a = copyInfNum(n);
-  const orig = a.v.toString();
-  if (orig.length <= len) {
-    return a;
-  }
-  a.v = BigInt(a.v.toString().substring(0,len));
-  a.e = a.e + BigInt(orig.length - len);
-  return a;
-}
-
-// each "plot" has its own "privContext" that can contain whatever data/functions
-//   it needs to compute points
-const plots = [{
-  "name": "Mandelbrot-set",
-  "calcFrom": "window",
-  "desc": "The Mandelbrot set is the set of complex numbers, that when repeatedly plugged into the following " +
-    "simple function, does <i>not</i> run away to infinity.  The function is z<sub>n+1</sub> = z<sub>n</sub><sup>2</sup> + c.<br/>" +
-    "For each plotted point <code>c</code>, we repeat the above function many times.<br/>" +
-    "If the value jumps off toward infinity after say 10 iterations, we display a color at the pixel for point <code>c</code>.<br/>" +
-    "If the value doesn't go off toward infinity until say 50 iterations, we pick a quite different color for that point.<br/>" +
-    "If, after our alloted number of iterations has been computed, the value still hasn't gone off to infinity, we color that pixel the backgrond color (defaulting to black)." +
-    "<br/><br/>Wikipedia has a terrific <a target='_blank' href='https://en.wikipedia.org/wiki/Mandelbrot_set'>article with pictures</a>." +
-    "<br/><br/>My favorite explanation I've found so far is <a target='_blank' href='https://www.youtube.com/watch?v=FFftmWSzgmk'>this Numberphile video on YouTube</a>." +
-    "<br/><br/><b>Tips for using this Mandelbrot set viewer</b>:" +
-    "<br/>- When not zoomed in very far, keep the <code>n</code> (iterations) parameter low for faster calculation (use N and M keys to decrease/increase the <code>n</code> value)." +
-    "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower.",
-  // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeBoundPointColor": function(privContext, x, y) {
-    const maxIter = historyParams.n;
-
-    if (mandelbrotFloat) {
-      let xFloat = parseFloat(infNumExpString(infNumTruncateToLen(x, 16)));
-      let yFloat = parseFloat(infNumExpString(infNumTruncateToLen(y, 16)));
-      let ix = 0;
-      let iy = 0;
-      let ixSq = 0;
-      let iySq = 0;
-      let ixTemp = 0;
-      let iter = 0;
-      while (iter < maxIter) {
-        ixSq = ix * ix;
-        iySq = iy * iy;
-        if (ixSq + iySq > 4) {
-          break;
-        }
-        ixTemp = xFloat + (ixSq - iySq);
-        iy = yFloat + (2 * ix * iy);
-        ix = ixTemp;
-        iter++;
-      }
-
-      if (iter == maxIter) {
-        return -1.0; // background color
-      } else {
-        //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        return privContext.applyColorCurve(iter / maxIter);
-      }
-    }
-
-    // circle heuristics to speed up zoomed-out viewing
-    if (mandelbrotCircleHeuristic) {
-      for (var i = 0; i < privContext.circles.length; i++) {
-        const xDist = infNumSub(x, privContext.circles[i].centerX);
-        const yDist = infNumSub(y, privContext.circles[i].centerY);
-        if (infNumLe(infNumAdd(infNumMul(xDist, xDist), infNumMul(yDist, yDist)), privContext.circles[i].radSq)) {
-          return -1.0; // background color
-        }
-      }
-    }
-
-    // the coords used for iteration
-    var ix = infNum(0n, 0n);
-    var iy = infNum(0n, 0n);
-    var ixSq = infNum(0n, 0n);
-    var iySq = infNum(0n, 0n);
-    var ixTemp = infNum(0n, 0n);
-    var iter = 0;
-    try {
-      while (iter < maxIter) {
-        ixSq = infNumMul(ix, ix);
-        iySq = infNumMul(iy, iy);
-        if (infNumGt(infNumAdd(ixSq, iySq), privContext.boundsRadiusSquared)) {
-          break;
-        }
-        ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
-        iy = infNumAdd(y, infNumMul(privContext.two, infNumMul(ix, iy)));
-        ix = ixTemp;
-        ix = infNumTruncate(ix);
-        iy = infNumTruncate(iy);
-        iter++;
-      }
-
-      if (iter == maxIter) {
-        return -1.0; // background color
-      } else {
-        //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        return privContext.applyColorCurve(iter / maxIter);
-      }
-    } catch (e) {
-      console.log("ERROR CAUGHT when processing point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
-      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
-      return windowCalcIgnorePointColor; // special color value that will not be displayed
-    }
-  },
-  // version using normInPlaceInfNum
-  // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeBoundPointColorNew": function(privContext, x, y) {
-    const maxIter = historyParams.n;
-
-    // circle heuristics to speed up zoomed-out viewing
-    //if (mandelbrotCircleHeuristic) {
-    //  for (var i = 0; i < privContext.circles.length; i++) {
-    //    const xDist = infNumSub(x, privContext.circles[i].centerX);
-    //    const yDist = infNumSub(y, privContext.circles[i].centerY);
-    //    if (infNumLe(infNumAdd(infNumMul(xDist, xDist), infNumMul(yDist, yDist)), privContext.circles[i].radSq)) {
-    //      return -1.0; // background color
-    //    }
-    //  }
-    //}
-
-    // the coords used for iteration
-    var ix = infNum(0n, 0n);
-    var iy = infNum(0n, 0n);
-    // temporary things needed multiple times per iteration
-    var ixSq = null;//infNum(0n, 0n);
-    var iySq = null;//infNum(0n, 0n);
-    var ixiy = null;
-    var boundsRadiusSquaredNorm = null;
-    var ixTemp = null;//infNum(0n, 0n);
-    var xNorm = null;
-    var yNorm = null;
-    var iter = 0;
-    try {
-      while (iter < maxIter) {
-        ixSq = infNumMul(ix, ix);
-        iySq = infNumMul(iy, iy);
-        ixiy = infNumMul(ix, iy);
-        xNorm = copyInfNum(x);
-        yNorm = copyInfNum(y);
-        boundsRadiusSquaredNorm = normInPlaceInfNum(privContext.boundsRadiusSquared, ixSq, iySq, xNorm, yNorm, ixiy);
-        if (infNumGtNorm(infNumAddNorm(ixSq, iySq), boundsRadiusSquaredNorm)) {
-          break;
-        }
-        ixTemp = infNumAddNorm(xNorm, infNumSubNorm(ixSq, iySq));
-        // multiplying by 2 (v=2n, e=0n) does not affect the exponent, so no need to normalize afterwards
-        iy = infNumAddNorm(yNorm, infNumMul(privContext.two, ixiy));
-        ix = infNumTruncate(ixTemp);
-        iy = infNumTruncate(iy);
-        iter++;
-      }
-
-      if (iter == maxIter) {
-        return -1.0; // background color
-      } else {
-        //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        return privContext.applyColorCurve(iter / maxIter);
-      }
-    } catch (e) {
-      console.log("ERROR CAUGHT when processing point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
-      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
-      return windowCalcIgnorePointColor; // special color value that will not be displayed
-    }
-  },
-  // these settings are auto-applied when this plot is activated
-  "forcedDefaults": {
-    "n": 50,
-    "scale": infNum(400n, 0n),
-    "centerX": createInfNum("-0.65"),
-    "centerY": infNum(0n, 0n)
-  },
-  "privContext": {
-    "usesImaginaryCoordinates": true,
-    "two": infNum(2n, 0n),
-    "black": getColor(0, 0, 0),
-    "boundsRadiusSquared": infNum(4n, 0n),
-    "colors": {},
-    "applyColorCurve": function(pct) {
-      const result = pct;
-      ////////////////////////////////////////////////////////
-      // curve 1
-      // computed using wolfram alpha:
-      // quadratic fit {0.0,0.0},{0.1,0.2},{0.5, 0.7},{0.7,0.9},{1.0,1.0}
-      // -0.851578x^2 + 1.84602x + 0.00888177
-      //const result = (-0.851578*pct*pct) + (1.84602*pct) + 0.00888177;
-      ////////////////////////////////////////////////////////
-      // curve 2
-      // quadratic fit {0.0,0.0},{0.1,0.3},{0.5, 0.75},{0.75,0.92},{1.0,1.0}
-      // -0.970592x^2 + 1.90818x + 0.0509381
-      //const result = (-0.970592*pct*pct) + (1.90818*pct) + 0.0509381;
-      ////////////////////////////////////////////////////////
-      // curve 3
-      // quadratic fit {0.01,0.01},{0.2,0.4},{0.6, 0.75},{1.0,1.0}
-      // -0.76991x^2 + 1.73351x + 0.0250757
-      //const result = (-0.76991*pct*pct) + (1.73351*pct) + 0.0250757;
-      ////////////////////////////////////////////////////////
-      // curve 4
-      // log fit {0.01,0.01},{0.1,0.4},{0.4, 0.75},{0.75,0.92},{1.0,1.0}
-      // 0.21566log(88.12x)
-      if (result < 0.0) {
-        return 0.0;
-      }
-      if (result > 1.0) {
-        return 1.0;
-      }
-      return result;
-    },
-    "circles": [{
-      "centerX": createInfNum("-0.29"),
-      "centerY": infNum(0n, 0n),
-      "radSq": createInfNum("0.18")
-    },{
-      "centerX": createInfNum("-0.06"),
-      "centerY": createInfNum("0.22"),
-      "radSq": createInfNum("0.13")
-    },{
-      "centerX": createInfNum("-0.06"),
-      "centerY": createInfNum("-0.22"),
-      "radSq": createInfNum("0.13")
-    },{
-      "centerX": createInfNum("-1.0"),
-      "centerY": createInfNum("0.0"),
-      "radSq": createInfNum("0.04")
-    }],
-    "adjustTruncate": function() {
-      // these values need more testing to ensure they create pixel-identical images
-      //   to higher-precision images
-      if (infNumLt(historyParams.scale, createInfNum("1000"))) {
-        mandelbrotFloat = true;
-        truncateLength = 12;
-      } else if (infNumLt(historyParams.scale, createInfNum("2,000,000".replaceAll(",", "")))) {
-        mandelbrotFloat = true;
-        truncateLength = 12;
-      } else if (infNumLt(historyParams.scale, createInfNum("30,000,000,000,000".replaceAll(",", "")))) {
-        mandelbrotFloat = true;
-        truncateLength = 20;
-      } else {
-        mandelbrotFloat = false;
-        truncateLength = 24;
-      }
-      console.log("set truncateLength to [" + truncateLength + "], using floats for mandelbrot [" + mandelbrotFloat + "]");
-    },
-    "minScale": createInfNum("20")
-  }
-},{
-  "name": "Primes-1-Step-90-turn",
-  "calcFrom": "sequence",
-  "desc": "Move 1 step forward per integer, but for primes, turn 90 degrees clockwise before moving.",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-
-    // 5 million steps takes a while to compute, at least with this
-    //   method of computing primes and drawing points
-    if (historyParams.n > 5000000) {
-      historyParams.n = 5000000;
-    }
-    const params = historyParams;
-
-    var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = 0;
-
-    for (var i = 1.0; i < params.n; i+=1.0) {
-      if (isPrime(i)) {
-        //console.log(i + " is prime");
-        // only add points right before we change direction, and once at the end
-        resultPoints.push(nextPoint);
-        privContext.direction = privContext.changeDirection(privContext.direction);
-      }
-      // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
-      resultLength += 1;
-    }
-    // add the last point
-    resultPoints.push(nextPoint);
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this plot is activated
-  "forcedDefaults": {
-    "n": 60000,
-    "scale": createInfNum("1.2"),
-    "centerX": createInfNum("-240"),
-    "centerY": createInfNum("288")
-  },
-  "privContext": {
-    // degrees clockwise, 0 is right (3 o'clock)
-    "direction": 0,
-    // turn "right"
-    "changeDirection": function(dir) {
-      return changeDirectionDegrees(dir, 90);
-    },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, 1, x, y);
-    }
-  }
-},{
-  "name": "Primes-1-Step-45-turn",
-  "calcFrom": "sequence",
-  "desc": "Move 1 step forward per integer, but for primes, turn 45 degrees clockwise before moving.  " +
-          "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
-          "moving ~1.414 steps diagonally.",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-
-    // 5 million steps takes a while to compute, at least with this
-    //   imethod of computing primes and drawing points
-    if (historyParams.n > 5000000) {
-      historyParams.n = 5000000;
-    }
-    const params = historyParams;
-
-    var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = 315;
-
-    for (var i = 1.0; i < params.n; i+=1.0) {
-      if (isPrime(i)) {
-        //console.log(i + " is prime");
-        // only add points right before we change direction, and once at the end
-        resultPoints.push(nextPoint);
-        privContext.direction = privContext.changeDirection(privContext.direction);
-      }
-      // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
-      resultLength += 1;
-    }
-    // add the last point
-    resultPoints.push(nextPoint);
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this plot is activated
-  "forcedDefaults": {
-    "n": 60000,
-    "scale": createInfNum("0.85"),
-    "centerX": infNum(0n, 0n),
-    "centerY": infNum(0n, 0n)
-  },
-  "privContext": {
-    // degrees clockwise, 0 is right (3 o'clock)
-    "direction": 0,
-    // turn "right"
-    "changeDirection": function(dir) {
-      return changeDirectionDegrees(dir, 45);
-    },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, 1, x, y);
-    }
-  }
-},{
-  "name": "Squares-1-Step-90-turn",
-  "calcFrom": "sequence",
-  "desc": "Move 1 step forward per integer, but for perfect squares, turn 90 degrees clockwise before moving.",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-
-    // this is a straightforward predictable plot, so there's no point in
-    //   going beyond a few thousand points let alone a million
-    if (historyParams.n > 1000000) {
-      historyParams.n = 1000000;
-    }
-    const params = historyParams;
-
-    var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
-
-    for (var i = 1.0; i < params.n; i+=1.0) {
-      if (privContext.isSquare(i)) {
-        // only add points right before we change direction, and once at the end
-        resultPoints.push(nextPoint);
-        privContext.direction = privContext.changeDirection(privContext.direction);
-      }
-      // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
-      resultLength += 1;
-    }
-    // add the last point
-    resultPoints.push(nextPoint);
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this plot is activated
-  "forcedDefaults": {
-    "n": 5000,
-    "scale": createInfNum("6.5"),
-    "centerX": infNum(0n, 0n),
-    "centerY": infNum(0n, 0n)
-  },
-  "privContext": {
-    // degrees clockwise, 0 is right (3 o'clock)
-    "direction": 0,
-    // turn "right"
-    "changeDirection": function(dir) {
-      return changeDirectionDegrees(dir, 90);
-    },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, 1, x, y);
-    },
-    "isSquare": function(n) {
-      const sqrt = Math.sqrt(n);
-      return sqrt == Math.trunc(sqrt);
-    }
-  }
-},{
-  "name": "Squares-1-Step-45-turn",
-  "calcFrom": "sequence",
-  "desc": "Move 1 step forward per integer, but for perfect squares, turn 45 degrees clockwise before moving.  " +
-          "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
-          "moving ~1.414 steps diagonally.",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-    const diagHypot = Math.sqrt(2);
-
-    // this is a straightforward predictable plot, so there's no point in
-    //   going beyond a few thousand points let alone a million
-    if (historyParams.n > 1000000) {
-      historyParams.n = 1000000;
-    }
-    const params = historyParams;
-
-    var nextPoint = getPoint(0.0, 0.0);
-    privContext.direction = 270; // start with up, 270 degree clockwise from 3 o'clock
-
-    for (var i = 1.0; i < params.n; i+=1.0) {
-      if (privContext.isSquare(i)) {
-        // only add points right before we change direction, and once at the end
-        resultPoints.push(nextPoint);
-        privContext.direction = privContext.changeDirection(privContext.direction);
-      }
-      // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
-      resultLength += privContext.direction % 90 == 0 ? 1 : diagHypot;
-    }
-    // add the last point
-    resultPoints.push(nextPoint);
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this plot is activated
-  "forcedDefaults": {
-    "n": 5000,
-    "scale": createInfNum("2.3"),
-    "centerX": infNum(0n, 0n),
-    "centerY": infNum(0n, 0n)
-  },
-  "privContext": {
-    // degrees clockwise, 0 is right (3 o'clock)
-    "direction": 0,
-    // turn "right"
-    "changeDirection": function(dir) {
-      return changeDirectionDegrees(dir, 45);
-    },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, 1, x, y);
-    },
-    "isSquare": function(n) {
-      const sqrt = Math.sqrt(n);
-      return sqrt == Math.trunc(sqrt);
-    }
-  }
-},{
-  "name": "Primes-X-Y-neg-mod-3",
-  "calcFrom": "sequence",
-  "desc": "Where each plotted point <code>(x,y)</code> consists of the primes, in order.  " +
-          "Those points are (2,3), (5,7), (11,13), and so on.<br/><br/>" +
-          "Then we take the sum of the digits of both the <code>x</code> and <code>y</code> of each point.<br/>" +
-          "If that sum, mod 3, is 1, the <code>x</code> is negated.<br/>" +
-          "If that sum, mod 3, is 2, the <code>y</code> is negated.<br/><br/>" +
-          "After applying the negation rule, the first three plotted points become:<br/>" +
-          "<code>(2,3)&nbsp;&nbsp;→ sum digits = 5&nbsp;&nbsp;mod 3 = 2 → -y → (2,-3)</code><br/>" +
-          "<code>(5,7)&nbsp;&nbsp;→ sum digits = 12 mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (5,7)</code><br/>" +
-          "<code>(11,13)→ sum digits = 6&nbsp;&nbsp;mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (11,13)</code>",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-
-    // this is a straightforward predictable plot, so there's no point in
-    //   going beyond a few thousand points let alone a million
-    if (historyParams.n > 1000000) {
-      historyParams.n = 1000000;
-    }
-    const params = historyParams;
-
-    var lastX = -1;
-    var lastPoint = getPoint(0.0, 0.0);
-    resultPoints.push(lastPoint);
-
-    for (var i = 1; i < params.n; i+=1) {
-      if (!isPrime(i)) {
-        continue;
-      }
-      if (lastX == -1) {
-        lastX = i;
-      } else {
-        var thisY = i;
-        const digits = (lastX.toString() + thisY.toString()).split("");
-        var digitsSum = 0;
-        for (var j = 0; j < digits.length; j++) {
-          digitsSum += digits[j];
-        }
-        // makes a pyramid
-        // const digitsSumMod4 = digitsSum % 4;
-        // if (digitsSumMod4 == 1) {
-        //   lastX = lastX * -1;
-        // } else if (digitsSumMod4 == 2) {
-        //   thisY = thisY * -1;
-        // } else if (digitsSumMod4 == 3) {
-        //   lastX = lastX * -1;
-        //   thisY = thisY * -1;
-        // }
-        const digitsSumMod4 = digitsSum % 3;
-        if (digitsSumMod4 == 1) {
-          lastX = lastX * -1;
-        } else if (digitsSumMod4 == 2) {
-          thisY = thisY * -1;
-        }
-        const nextPoint = getPoint(parseFloat(lastX), parseFloat(thisY));
-        resultLength += Math.hypot(nextPoint.x - lastPoint.x, nextPoint.y - lastPoint.y);
-        resultPoints.push(nextPoint);
-        //console.log("point [" + i + "]: (" + nextPoint.x + ", " + nextPoint.y + ")");
-        lastX = -1;
-        lastPoint = nextPoint;
-      }
-    }
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this plot is activated
-  "forcedDefaults": {
-    "n": 5000,
-    "scale": createInfNum("0.08"),
-    "centerX": infNum(0n, 0n),
-    "centerY": infNum(0n, 0n)
-  },
-  "privContext": {
-  }
-},{
-  "name": "Trapped-Knight",
-  "calcFrom": "sequence",
-  "desc": "On a chessboard, where the squares are numbered in a spiral, " +
-          "find the squares a knight can jump to in sequence where the " +
-          "smallest-numbered square must always be taken.  Previously-" +
-          "visited squares cannot be returned to again.  After more than " +
-          "2,000 jumps the knight has no valid squares to jump to, so the " +
-          "sequence ends.<br/><br/>" +
-          "Credit to The Online Encyclopedia of Integer Sequences:<br/>" +
-          "<a target='_blank' href='https://oeis.org/A316667'>https://oeis.org/A316667</a><br/>" +
-          "and to Numberphile:<br/>" +
-          "<a target='_blank' href='https://www.youtube.com/watch?v=RGQe8waGJ4w'>https://www.youtube.com/watch?v=RGQe8waGJ4w</a>",
-  "computePointsAndLength": function(privContext) {
-    var resultPoints = [];
-    var resultLength = 0;
-    privContext.visitedSquares = {};
-
-    const params = historyParams;
-
-    var nextPoint = getPoint(0.0, 0.0);
-    if (!privContext.isNumberedSquare(privContext, nextPoint)) {
-      let testPoint = nextPoint;
-      privContext.trackNumberedSquare(privContext, 0, nextPoint);
-
-      let testDirection = 0;
-      let direction = 90;
-
-      // spiral out from starting square, finding coordinates of all numbered squares
-      // used trial and error to figure out how many numbered squares are needed
-      for (let i = 1; i < 3562; i+=1) {
-        testDirection = privContext.changeDirection(direction);
-        testPoint = privContext.computeNextPoint(testDirection, 1, nextPoint.x, nextPoint.y);
-        if (!privContext.isNumberedSquare(privContext, testPoint)) {
-          direction = testDirection;
-          nextPoint = testPoint;
-        } else {
-          nextPoint = privContext.computeNextPoint(direction, 1, nextPoint.x, nextPoint.y);
-        }
-        privContext.trackNumberedSquare(privContext, i, nextPoint);
-      }
-    }
-
-    var lastPoint = getPoint(0.0, 0.0);
-    resultPoints.push(lastPoint);
-    privContext.visitSquare(privContext, 0, lastPoint);
-
-    var reachable = [];
-    var lowestReachableN = -1;
-    var lowestReachableP = null;
-
-    for (let i = 0; i < params.n; i+=1) {
-      reachable = privContext.reachableSquares(lastPoint);
-      for (let j = 0; j < reachable.length; j++) {
-        if (lowestReachableN == -1 || privContext.getSquareNumber(privContext, reachable[j]) < lowestReachableN) {
-          if (!privContext.isVisited(privContext, reachable[j])) {
-            lowestReachableP = reachable[j];
-            lowestReachableN = privContext.getSquareNumber(privContext, lowestReachableP);
-          }
-        }
-      }
-      if (lowestReachableN == -1) {
-        break;
-      }
-      resultLength += Math.hypot(lowestReachableP.x - lastPoint.x, lowestReachableP.y - lastPoint.y);
-
-      lastPoint = lowestReachableP;
-      resultPoints.push(getPoint(lastPoint.x, -1 * lastPoint.y));
-      privContext.visitSquare(privContext, lowestReachableN, lastPoint);
-      lowestReachableN = -1;
-    }
-
-    return {
-      "points": resultPoints,
-      "length": resultLength
-    };
-  },
-  // these settings are auto-applied when this plot is activated
-  "forcedDefaults": {
-    "n": 2016,
-    "scale": infNum(15n, 0n),
-    "centerX": infNum(0n, 0n),
-    "centerY": infNum(0n, 0n)
-  },
-  "privContext": {
-    // by "x-y" coordinates, store chessboard square numbers, starting with center square at "0-0"
-    "boardPoints": {},
-    "visitedSquares": {},
-    "trackNumberedSquare": function(privContext, n, point) {
-      privContext.boardPoints[point.x + "-" + point.y] = n;
-    },
-    "isNumberedSquare": function(privContext, point) {
-      return (point.x + "-" + point.y) in privContext.boardPoints;
-    },
-    "getSquareNumber": function(privContext, point) {
-      const id = point.x + "-" + point.y;
-      if (! id in privContext.boardPoints) {
-        console.log("MISSING SQUARE - " + id);
-      }
-      return privContext.boardPoints[id];
-    },
-    "visitSquare": function(privContext, n, point) {
-      privContext.visitedSquares[point.x + "-" + point.y] = n;
-    },
-    "isVisited": function(privContext, point) {
-      return (point.x + "-" + point.y) in privContext.visitedSquares;
-    },
-    // turn "left"
-    "changeDirection": function(dir) {
-      return changeDirectionDegrees(dir, -90);
-    },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, n, x, y);
-    },
-    // from a square at point s, return the 8 squares that
-    //   a knight could jump to
-    "reachableSquares": function(s) {
-      return [
-        getPoint(s.x + 1, s.y - 2),
-        getPoint(s.x + 2, s.y - 1),
-        getPoint(s.x + 2, s.y + 1),
-        getPoint(s.x + 1, s.y + 2),
-        getPoint(s.x - 1, s.y - 2),
-        getPoint(s.x - 2, s.y - 1),
-        getPoint(s.x - 2, s.y + 1),
-        getPoint(s.x - 1, s.y + 2)
-      ];
-    },
-    "isSquare": function(n) {
-      const sqrt = Math.sqrt(n);
-      return sqrt == Math.trunc(sqrt);
-    }
-  }
-// },{
-//   "name": "Circle",
-//   "calcFrom": "window",
-//   "desc": "Draws a purple circle, for testing the window calculation+drawing methods",
-//   "computeBoundPointColor": function(privContext, x, y) {
-//     if (infNumLe(infNumAdd(infNumMul(x, x), infNumMul(y, y)), privContext.circleRadiusSquared)) {
-//       //return getColor(100, 40, 90);
-//       return 1.0;
-//     } else {
-//       return -1.0;
-//     }
-//   },
-//   // these settings are auto-applied when this plot is activated
-//   "forcedDefaults": {
-//     "scale": infNum(40n, 0n),
-//     "offsetX": infNum(0n, 0n),
-//     "offsetY": infNum(0n, 0n)
-//   },
-//   "privContext": {
-//     "black": getColor(0, 0, 0),
-//     "circleRadiusSquared": infNum(100n, 0n)
-//   }
-}];
-
-function isPassComputationComplete() {
-  return windowCalc.xPixelChunks.length == 0;// && privContext.resultPoints.length > 0;
-}
-
-// call the plot's computeBoundPoints function in chunks, to better
-//   allow interuptions for long-running calculations
-function calculateWindowPassChunks() {
-  windowCalc.chunksComplete = 0;
-  const roundedParamLineWidth =  Math.round(historyParams.lineWidth);
-  const potentialTempLineWidth = Math.round(windowCalc.lineWidth / 2);
-  if (potentialTempLineWidth <= roundedParamLineWidth) {
-    windowCalc.lineWidth = roundedParamLineWidth;
-  } else {
-    windowCalc.lineWidth = potentialTempLineWidth;
-  }
-
-  // use lineWidth to determine how large to make the calculated/displayed
-  //   pixels, so round to integer
-  // use Math.round(), not Math.trunc(), because we want the minimum
-  //   lineWidth of 0.5 to result in a pixel size of 1
-  const pixelSize = Math.round(windowCalc.lineWidth);
-
-  const pixWidth = dContext.canvas.width;
-  // use way fewer chunks for larger pixels, which mostly fixes mouse-dragging issues
-  var numXChunks = 128;
-  if (pixelSize == 64) {
-    numXChunks = 1;
-  } else if (pixelSize == 32) {
-    numXChunks = 4;
-  } else if (pixelSize == 16) {
-    numXChunks = 32;
-  } else if (pixelSize == 8 || pixelSize == 4) {
-    numXChunks = 64;
-  }
-  var pixPerChunk = 1;
-  var realPixelsPerChunk = pixWidth/numXChunks;
-  pixPerChunk = Math.trunc(realPixelsPerChunk / pixelSize) + 1;
-
-  // split the x-axis, to break the computation down into interruptable chunks
-  var xChunkPix = 0;
-  var xChunk = [];
-  for (var x = 0; x < pixWidth; x+=pixelSize) {
-    xChunkPix++;
-    if (xChunkPix > pixPerChunk) {
-      windowCalc.xPixelChunks.push(xChunk);
-      xChunkPix = 1;
-      xChunk = [];
-    }
-    xChunk.push(x);
-  }
-  windowCalc.xPixelChunks.push(xChunk);
-  windowCalc.totalChunks = windowCalc.xPixelChunks.length;
-}
-
-function computeBoundPointsChunk(xChunk) {
-  var chunkStartMs = Date.now();
-  const plot = plotsByName[historyParams.plot];
-  const privContext = plot.privContext;
-  var resultPoints = [];
-
-  // use lineWidth to determine how large to make the calculated/displayed
-  //   pixels, so round to integer
-  // use Math.round(), not Math.trunc(), because we want the minimum
-  //   lineWidth of 0.5 to result in a pixel size of 1
-  const pixelSizeFloat = Math.round(windowCalc.lineWidth);
-  const pixelSize = createInfNum(pixelSizeFloat.toString());
-  //const params = historyParams;
-
-  // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
-  //const pixWidth = createInfNum(dContext.canvas.width.toString());
-  const pixHeight = createInfNum(dContext.canvas.height.toString());
-
-  let px = null;
-  let py = null;
-  let x = 0;
-  const yStep = infNumMul(windowCalc.eachPixUnits, pixelSize);
-  const yNorm = normInfNum(yStep, windowCalc.topEdge);
-  const yStepNorm = yNorm[0];
-  const topNorm = yNorm[1];
-  for (let i = 0; i < xChunk.length; i++) {
-    x = xChunk[i];
-    xInfNum = infNum(BigInt(xChunk[i]), 0n);
-
-    px = infNumAdd(infNumMul(windowCalc.eachPixUnits, xInfNum), windowCalc.leftEdge);
-    pxStr = infNumFastStr(px) + ",";
-    py = topNorm;
-    for (let y = 0; y < dCanvas.height; y += pixelSizeFloat) {
-      const pointPixel = pxStr + infNumFastStr(py);
-      if (pointPixel in windowCalc.pointsCache) {
-        windowCalc.cachedPoints++;
-        // update the pixel on the screen, in case we've panned since
-        //   the point was originally cached
-        windowCalc.pointsCache[pointPixel].px.x = x;
-        windowCalc.pointsCache[pointPixel].px.y = y;
-        resultPoints.push(windowCalc.pointsCache[pointPixel]);
-      } else {
-        const pointColor = plot.computeBoundPointColor(privContext, px, py);
-
-        // x and y are integer (actual pixel) values, with no decimal component
-        const point = getColorPoint(x, y, pointColor);
-        // px -- the pixel "color point"
-        // pt -- the abstract coordinate on the plane
-        let wrappedPoint = {"px": point, "pt": {"x":copyInfNum(px), "y":copyInfNum(py)}};
-        windowCalc.pointsCache[pointPixel] = wrappedPoint;
-        resultPoints.push(wrappedPoint);
-      }
-      py = infNumSubNorm(py, yStepNorm);
-    }
-  }
-  windowCalc.passTimeMs += (Date.now() - chunkStartMs);
-  windowCalc.totalPoints += resultPoints.length;
-  windowCalc.chunksComplete++;
-  return {
-    "points": resultPoints,
-  };
-}
 
 const presets = [{
   "plot": "Mandelbrot-set",
@@ -1577,6 +202,21 @@ for (var i = 0; i < presetButtons.length; i++) {
   presetButtons[i].addEventListener('click', activatePresetHandler);
 }
 
+for (let i = 1; i <= maxWorkers; i++) {
+  workersSelect.innerHTML += "<option " + (i === workersCount ? "selected" : "") + " value=\"" + i + "\">" + i + "</option>";
+}
+workersSelect.addEventListener("change", setWorkersCountWithSelect);
+
+function setWorkersCountWithSelect() {
+  workersCount = parseInt(workersSelect.value);
+  changeWorkersCount();
+}
+
+function changeWorkersCount() {
+  if (windowCalc.worker !== null) {
+    windowCalc.worker.postMessage({"t": "workers-count", "v": workersCount});
+  }
+}
 
 function changeDirectionDegrees(dir, degrees) {
   var newDir = dir + degrees;
@@ -1724,6 +364,15 @@ function parseUrlParams() {
     if (urlParams.has('lineWidth')) {
       params.lineWidth = sanityCheckLineWidth(parseFloat(urlParams.get('lineWidth')) || 1.0, false, plotsByName[params.plot]);
     }
+    if (urlParams.has('workers')) {
+      try {
+        const w = parseInt(urlParams.get('workers'));
+        if (w > 0 && w <= maxWorkers) {
+          workersCount = w;
+          workersSelect.value = workersCount;
+        }
+      } catch (e) {}
+    }
   }
   console.log(params);
 
@@ -1830,12 +479,12 @@ function setDScaleVars(dCtx) {
 function replaceHistoryWithParams(params) {
   var paramsCopy = Object.assign({}, params);
   if ("significantDigits" in paramsCopy) {
-    truncateLength = paramsCopy.significantDigits;
+    precision = paramsCopy.significantDigits;
     delete paramsCopy["significantDigits"];
   }
-  paramsCopy.scale = infNumExpStringTrunc(params.scale);
-  paramsCopy.centerX = infNumExpStringTrunc(params.centerX);
-  paramsCopy.centerY = infNumExpStringTrunc(params.centerY);
+  paramsCopy.scale = infNumExpStringTruncToLen(params.scale, precision);
+  paramsCopy.centerX = infNumExpStringTruncToLen(params.centerX, precision);
+  paramsCopy.centerY = infNumExpStringTruncToLen(params.centerY, precision);
   history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
   replaceStateTimeout = null;
 }
@@ -1846,9 +495,9 @@ var replaceHistory = function() {
 
 var pushToHistory = function() {
   var paramsCopy = Object.assign({}, historyParams);
-  paramsCopy.scale = infNumExpStringTrunc(historyParams.scale);
-  paramsCopy.centerX = infNumExpStringTrunc(historyParams.centerX);
-  paramsCopy.centerY = infNumExpStringTrunc(historyParams.centerY);
+  paramsCopy.scale = infNumExpStringTruncToLen(historyParams.scale, precision);
+  paramsCopy.centerX = infNumExpStringTruncToLen(historyParams.centerX, precision);
+  paramsCopy.centerY = infNumExpStringTruncToLen(historyParams.centerY, precision);
   // no need to replaceState() here -- we'll replaceState() on param
   //   changes except for mouse dragging, which happen too fast
   history.pushState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
@@ -2078,12 +727,14 @@ function applyBuiltGradient(gradient, percentage) {
 }
 
 function redraw() {
-  if (windowCalc.timeout != null) {
-    window.clearTimeout(windowCalc.timeout);
-  }
   resetWindowCalcContext();
   const plot = plotsByName[historyParams.plot];
   if (plot.calcFrom == "sequence") {
+    // if viewing a sequence plot, ensure there's no window
+    //   worker left running
+    if (windowCalc.worker != null) {
+      windowCalc.worker.terminate();
+    }
     drawPoints(historyParams);
   } else if (plot.calcFrom == "window") {
     calculateAndDrawWindow();
@@ -2149,12 +800,27 @@ function drawPoints(params) {
   }
 }
 
+// since the cache lives in the main worker, we can wipe the
+//   cache easily by killing that worker
 function resetWindowCalcCache() {
   console.log("purging window points cache");
-  windowCalc.pointsCache = {};
+  if (windowCalc.worker != null) {
+    //windowCalc.worker.terminate();
+    windowCalc.worker.postMessage({t:"wipe-cache",v:null});
+  }
+
 }
 
 function resetWindowCalcContext() {
+  // for now, while we don't have caching implemented for workers,
+  //   just kill any running worker here (whenever we change any
+  //   param to force a redraw())
+  //if (windowCalc.worker != null) {
+  //  windowCalc.worker.terminate();
+  //}
+  // this timeout is used to kick off an image computation
+  //   after a short delay, so always cancel any outstanding
+  //   delayed kickoff when redrawing
   if (windowCalc.timeout != null) {
     window.clearTimeout(windowCalc.timeout);
   }
@@ -2164,15 +830,16 @@ function resetWindowCalcContext() {
   windowCalc.plotName = params.plot;
   windowCalc.stage = "";
 
+  // set the plot-specific global precision to use first
+  if ("adjustPrecision" in plotsByName[params.plot].privContext) {
+    plotsByName[params.plot].privContext.adjustPrecision(historyParams.scale);
+  }
+
   // attempt to resolve slowdown experienced when repeatedly panning/zooming,
   //   where the slowdown is resolved when refreshing the page
-  historyParams.scale = infNumTruncate(historyParams.scale);
-  historyParams.centerX = infNumTruncate(historyParams.centerX);
-  historyParams.centerY = infNumTruncate(historyParams.centerY);
-
-  if ("adjustTruncate" in plotsByName[params.plot].privContext) {
-    plotsByName[params.plot].privContext.adjustTruncate();
-  }
+  historyParams.scale = infNumTruncateToLen(historyParams.scale, precision);
+  historyParams.centerX = infNumTruncateToLen(historyParams.centerX, precision);
+  historyParams.centerY = infNumTruncateToLen(historyParams.centerY, precision);
 
   // since line width is halved each time the draw occurs, use 128 to get
   //   the initial draw to use a 64-wide pixels
@@ -2190,6 +857,8 @@ function resetWindowCalcContext() {
   windowCalc.totalChunks = 0;
   windowCalc.runtimeMs = -1;
   windowCalc.avgRuntimeMs = -1;
+  windowCalc.workersCountRange = "-";
+  windowCalc.plotId++; // int wrapping around is fine
 
   const two = infNum(2n, 0n);
 
@@ -2197,7 +866,7 @@ function resetWindowCalcContext() {
   const canvasHeight = createInfNum(dContext.canvas.offsetHeight.toString());
 
   // rather than calculate this for each chunk, compute it once here
-  windowCalc.eachPixUnits = infNumTruncate(infNumDiv(infNum(1n, 0n), params.scale));
+  windowCalc.eachPixUnits = infNumTruncateToLen(infNumDiv(infNum(1n, 0n), params.scale), precision);
 
   // find the visible abstract points using offset and scale
   const scaledWidth = infNumDiv(canvasWidth, params.scale);
@@ -2246,14 +915,6 @@ function resetGoToCenterValues() {
   inputGotoCenterX.value = infNumToFloat(historyParams.centerX);
   inputGotoCenterY.value = infNumToFloat(historyParams.centerY) + (imaginaryCoordinates ? "i" : "");
   inputGotoScale.value = infNumToFloat(historyParams.scale);
-}
-
-function replaceAllEachChar(subject, replaceThese, replaceWith) {
-  var s = subject;
-  for (let i = 0; i < replaceThese.length; i++) {
-    s = s.replaceAll(replaceThese.charAt(i), replaceWith);
-  }
-  return s;
 }
 
 function applyGoToBoundsValues() {
@@ -2353,28 +1014,198 @@ btnGotoBoundsReset.addEventListener("click", resetGoToBoundsValues);
 btnGotoCenterGo.addEventListener("click", applyGoToCenterValues);
 btnGotoCenterReset.addEventListener("click", resetGoToCenterValues);
 
+// from https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers
+function fn2workerURL(fn) {
+  var blob = new Blob(['('+fn.toString()+')()'], {type: 'text/javascript'})
+  return URL.createObjectURL(blob);
+}
+
+// messages received from main worker:
+// chunk complete
+var calcWorkerOnmessage = function(e) {
+  if (e.data.plotId !== windowCalc.plotId) {
+    return;
+  }
+  // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean, workersCount: string, workersNow: int}
+  drawWorkerColorPoints(e);
+  windowCalc.workersCountRange = e.data.calcStatus.workersCount;
+  const percentComplete = Math.round(e.data.calcStatus.chunksComplete * 100.0 / e.data.calcStatus.chunks);
+  if (percentComplete < 100) {
+    drawCalculatingNotice(dContext, e.data.calcStatus.pixelWidth, percentComplete, e.data.calcStatus.workersNow);
+
+  // if the pass is complete, the entire image may be complete
+  } else {
+    if (windowLogTiming) {
+      const totalPts = e.data.calcStatus.passPoints;
+      const cachedPts = e.data.calcStatus.passCachedPoints;
+      const cachedPct = Math.round(cachedPts * 10000.0 / totalPts) / 100.0;
+      console.log("computing [" + totalPts + "] points of width [" + e.data.calcStatus.pixelWidth + "], of which [" + cachedPts + "] were cached (" + cachedPct + "%)");//, took [" + windowCalc.passTimeMs + "] ms");
+    }
+    if (!e.data.calcStatus.running) {
+      if (windowLogTiming) {
+        windowLogOverallImage();
+        if (windowCalcRepeat > 1) {
+          windowCalcRepeat -= 1;
+          resetWindowCalcCache();
+          redraw();
+        } else if (windowCalcRepeat === 1) {
+          windowCalcRepeat -= 1;
+          windowAverageTiming();
+        }
+      }
+      if (imageParametersCaption) {
+        drawImageParameters();
+      }
+    }
+  }
+};
+
+function drawWorkerColorPoints(workerMessage) {
+  const e = workerMessage.data;
+  // e.chunkPix - {x: int, y: int} - starting point of the chunk's pixel on canvas
+  // e.chunkPixInc - {x: int, y: int} - coordinate to add to previous pixel to move to next pixel
+  // e.chunkPos - {x: InfNumExpStr, y: InfNumExpStr} - starting point of the chunk
+  // e.chunkInc - {x: InfNumExpStr, y: InfNumExpStr} - the coordinate to add to the previous point to move to the next point
+  // e.chunkLen - int - the number of points in the chunk
+  // e.results -  [float,int,...] - array of results values, one per point in the chunk
+  // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean}
+  let posX = createInfNumFromExpStr(e.chunkPos.x);
+  let posY = createInfNumFromExpStr(e.chunkPos.y);
+  let incX = createInfNumFromExpStr(e.chunkInc.x);
+  let incY = createInfNumFromExpStr(e.chunkInc.y);
+  const pixIncX = e.chunkPixInc.x;
+  const pixIncY = e.chunkPixInc.y;
+  const pixelSize = e.calcStatus.pixelWidth;
+  // assume exactly one of x or y increments is zero
+  let moveX = true;
+  if (infNumEq(infNum(0n, 0n), incX)) {
+    moveX = false;
+  }
+  if (moveX) {
+    let norm = normInfNum(posX, incX);
+    posX = norm[0];
+    incX = norm[1];
+  } else {
+    let norm = normInfNum(posY, incY);
+    posY = norm[0];
+    incY = norm[1];
+  }
+  let pixX = e.chunkPix.x;
+  let pixY = e.chunkPix.y;
+  // pre-allocate array so we don't have to use array.push()
+  const results = new Array(e.chunkLen);
+  if (moveX) {
+    for (let i = 0; i < e.chunkLen; i++) {
+      // x and y are integer (actual pixel) values, with no decimal component
+      const point = getColorPoint(pixX, pixY, e.results[i]);
+      // create a wrappedPoint
+      // px -- the pixel "color point"
+      // pt -- the abstract coordinate on the plane
+      results[i] = {"px": point, "pt": {"x":copyInfNum(posX), "y":copyInfNum(posY)}};
+      // since we want to start at the given starting position, increment
+      //   both the position and pixel AFTER creating each result
+      pixX += pixIncX;
+      posX = infNumAddNorm(posX, incX);
+    }
+  } else {
+    posY = infNumSubNorm(posY, incY);
+    for (let i = 0; i < e.chunkLen; i++) {
+      // x and y are integer (actual pixel) values, with no decimal component
+      const point = getColorPoint(pixX, pixY, e.results[i]);
+      // create a wrappedPoint
+      // px -- the pixel "color point"
+      // pt -- the abstract coordinate on the plane
+      results[i] = {"px": point, "pt": {"x":copyInfNum(posX), "y":copyInfNum(posY)}};
+      // since we want to start at the given starting position, increment
+      //   both the position and pixel AFTER creating each result
+      pixY += pixIncY;
+      posY = infNumAddNorm(posY, incY);
+    }
+  }
+  drawColorPoints(results, pixelSize);
+}
+
+// simple, synchronous/blocking function to calculate and draw
+//   the entire image
+function calculateAndDrawWindowSync(pixelSize) {
+  const compute = plotsByName[windowCalc.plotName].computeBoundPointColor;
+  let step = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
+  let xNorm = normInfNum(windowCalc.leftEdge, step);
+  let px = xNorm[0];
+  let xStep = xNorm[1];
+  // pre-allocate array so we don't have to use array.push()
+  const results = new Array(Math.ceil(dContext.canvas.width/pixelSize) * Math.ceil(dContext.canvas.height/pixelSize));
+  let resultCounter = 0;
+  for (let x = 0; x < dContext.canvas.width; x+=pixelSize) {
+    let yNorm = normInfNum(windowCalc.topEdge, step);
+    let py = yNorm[0];
+    let yStep = yNorm[1];
+    for (let y = 0; y < dContext.canvas.height; y+=pixelSize) {
+      // create a wrappedPoint
+      // px -- the pixel "color point"
+      // pt -- the abstract coordinate on the plane
+      results[resultCounter] = {
+        "px": getColorPoint(x, y, compute(this, windowCalc.n, precision, mandelbrotFloat, px, py)),
+        "pt": {"x":copyInfNum(px), "y":copyInfNum(py)}
+      };
+      resultCounter++;
+      py = infNumSubNorm(py, yStep);
+    }
+    px = infNumAddNorm(px, xStep);
+  }
+  drawColorPoints(results, pixelSize);
+}
+
 function calculateAndDrawWindow() {
   // since we are just starting a new image, calculate and draw the first
   //   pass synchronously, so that as the user drags a mouse/finger, or
   //   zooms, the canvas is updated as rapidly as possible
-  calculateWindowPassChunks();
-  calculateAndDrawNextChunk();
+  calculateAndDrawWindowSync(64);
 
   if (windowCalc.timeout != null) {
     window.clearTimeout(windowCalc.timeout);
   }
   // after drawing the fist pass synchronously, we'll do all subsequent
-  //   passes via the windowDrawLoop
+  //   passes via the worker and its subworkers
   // BUT FIRST wait 1/4 second because the user might still be panning/zooming
   windowCalc.timeout = window.setTimeout(kickoffWindowDrawLoop, 250);
 }
 
 function kickoffWindowDrawLoop() {
-  if (windowCalc.timeout != null) {
-    window.clearTimeout(windowCalc.timeout);
+  if (windowCalc.worker === null) {
+    if (forceWorkerReload) {
+      windowCalc.worker = new Worker("calcworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+    } else {
+      windowCalc.worker = new Worker("calcworker.js");
+    }
+    windowCalc.worker.onmessage = calcWorkerOnmessage;
+  } else {
+    //windowCalc.worker.terminate();
+    windowCalc.worker.postMessage({"t": "cancel-calc", "v": ""});
   }
-  windowCalc.stage = windowCalcStages.calculateChunks;
-  windowCalc.timeout = window.setInterval(windowDrawLoop, 5);
+  const workerCalc = {};
+  workerCalc["plot"] = windowCalc.plotName;
+  workerCalc["eachPixUnits"] = infNumExpString(windowCalc.eachPixUnits);
+  workerCalc["leftEdge"] = infNumExpString(windowCalc.leftEdge);
+  workerCalc["rightEdge"] = infNumExpString(windowCalc.rightEdge);
+  workerCalc["topEdge"] = infNumExpString(windowCalc.topEdge);
+  workerCalc["bottomEdge"] = infNumExpString(windowCalc.bottomEdge);
+  workerCalc["n"] = windowCalc.n;
+  workerCalc["precision"] = precision;
+  workerCalc["mandelbrotFloat"] = mandelbrotFloat;
+  workerCalc["finalWidth"] = Math.round(historyParams.lineWidth);
+  workerCalc["canvasWidth"] = dContext.canvas.width;
+  workerCalc["canvasHeight"] = dContext.canvas.height;
+  workerCalc["workers"] = workersCount;
+  workerCalc["plotId"] = windowCalc.plotId;
+
+  windowCalc.worker.postMessage({"t": "worker-calc", "v": workerCalc});
+
+//  if (windowCalc.timeout != null) {
+//    window.clearTimeout(windowCalc.timeout);
+//  }
+//  windowCalc.stage = windowCalcStages.calculateChunks;
+//  windowCalc.timeout = window.setInterval(windowDrawLoop, 5);
 }
 
 var resetGradientInput = function() {
@@ -2488,9 +1319,9 @@ function windowLogOverallImage() {
     "h:" + dCanvas.height + ", " +
     "lineWidth:" + Math.round(historyParams.lineWidth) + ", " +
     "n:" + historyParams.n + ", " +
-    "centerX:" + infNumToString(infNumTruncate(historyParams.centerX)) + ", " +
-    "centerY:" + infNumToString(infNumTruncate(historyParams.centerY)) + ", " +
-    "scale:" + infNumToString(infNumTruncate(historyParams.scale)) +
+    "centerX:" + infNumToString(infNumTruncateToLen(historyParams.centerX, precision)) + ", " +
+    "centerY:" + infNumToString(infNumTruncateToLen(historyParams.centerY, precision)) + ", " +
+    "scale:" + infNumToString(infNumTruncateToLen(historyParams.scale, precision)) +
     "] took: " +
     "[" + overallTimeMs + "] ms of overall time, " +
     "[" + windowCalc.totalTimeMs + "] ms of compute/draw time, " +
@@ -2526,29 +1357,7 @@ function windowAverageTiming() {
   }
 }
 
-function cleanUpWindowCache() {
-  // now that the image has been completed, delete any cached
-  //   points outside of the window
-  let cachedPointsKept = 0;
-  let cachedPointsToDelete = [];
-  for (let name in windowCalc.pointsCache) {
-    if (infNumLt(windowCalc.pointsCache[name].pt.x, windowCalc.leftEdge) ||
-        infNumGt(windowCalc.pointsCache[name].pt.x, windowCalc.rightEdge) ||
-        infNumLt(windowCalc.pointsCache[name].pt.y, windowCalc.bottomEdge) ||
-        infNumGt(windowCalc.pointsCache[name].pt.y, windowCalc.topEdge)) {
-      cachedPointsToDelete.push(name);
-    } else {
-      cachedPointsKept++;
-    }
-  }
-  for (let i = 0; i < cachedPointsToDelete.length; i++) {
-    delete windowCalc.pointsCache[name];
-  }
-  const deletedPct = Math.round(cachedPointsToDelete.length * 10000.0 / (cachedPointsToDelete.length + cachedPointsKept)) / 100.0;
-  console.log("deleted [" + cachedPointsToDelete.length + "] points from the cache (" + deletedPct + "%)");
-}
-
-function drawColorPoints(windowPoints) {
+function drawColorPoints(windowPoints, pixelSize) {
   // change URL bar to reflect current params, only if no params change
   //   for 1/4 second
   if (replaceStateTimeout != null) {
@@ -2556,7 +1365,7 @@ function drawColorPoints(windowPoints) {
   }
   replaceStateTimeout = window.setTimeout(replaceHistory, 250);
 
-  const pixelSize = Math.round(windowCalc.lineWidth);
+  //const pixelSize = Math.round(windowCalc.lineWidth);
   const canvas = dContext.canvas;
   const width = canvas.width;
   const height = canvas.height;
@@ -2608,17 +1417,17 @@ function repaintOnly() {
   dContext.putImageData(windowCalc.pixelsImage, 0, 0);
 }
 
-function drawCalculatingNotice(ctx) {
+function drawCalculatingNotice(ctx, pixelSize, percentComplete, workersNow) {
   const canvas = ctx.canvas;
   ctx.fillStyle = "rgba(100,100,100,1.0)";
   const noticeHeight = Math.max(24, canvas.height * 0.03);
   const textHeight = Math.round(noticeHeight * 0.6);
-  const noticeWidth = Math.max(200, textHeight * 18);
+  const noticeWidth = Math.max(200, textHeight * 24);
   ctx.fillRect(0,canvas.height-noticeHeight,noticeWidth, noticeHeight);
   ctx.font = textHeight + "px system-ui";
   ctx.fillStyle = "rgba(0,0,0,0.9)";
-  const percentComplete = Math.round(windowCalc.chunksComplete * 100.0 / windowCalc.totalChunks);
-  ctx.fillText("Calculating " + windowCalc.lineWidth + "-wide pixels (" + percentComplete + "%) ...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
+  const workersText = workersNow + " worker" + (workersNow > 1 ? "s" : "");
+  ctx.fillText("Calculating " + pixelSize + "-wide pixels (" + percentComplete + "%) with " + workersText + " ...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
 }
 
 function drawMousePosNotice(x, y) {
@@ -2643,33 +1452,34 @@ function drawImageParameters() {
   const textHeight = Math.round(noticeHeight * 0.6);
   const noticeWidth = Math.max(200, textHeight * 18);
   const lines = [];
-  const paramLengthLimit = 20;
+  const lineValLengthLimit = 20;
   let entries = [
-    ["x (re)", infNumExpString(historyParams.centerX)],
-    ["y (im)", infNumExpString(historyParams.centerY)],
-    [" scale", infNumExpString(historyParams.scale)],
-    ["  iter", historyParams.n.toString()],
-    ["  grad", historyParams.gradient],
-    [" bgclr", historyParams.bgColor]
+    [" x (re)", infNumExpString(historyParams.centerX)],
+    [" y (im)", infNumExpString(historyParams.centerY)],
+    ["  scale", infNumExpString(historyParams.scale)],
+    ["   iter", historyParams.n.toString()],
+    ["   grad", historyParams.gradient],
+    ["  bgclr", historyParams.bgColor],
+    ["workers", windowCalc.workersCountRange]
   ];
   if (historyParams.plot.startsWith("Mandelbrot") && mandelbrotFloat) {
-    entries.push(["precis", "floating pt"]);
+    entries.push([" precis", "floating pt"]);
   } else {
-    entries.push(["precis", truncateLength.toString()]);
+    entries.push([" precis", precision.toString()]);
   }
   if (windowCalc.runtimeMs > 0) {
-    entries.push(["run ms", windowCalc.runtimeMs.toString()])
+    entries.push([" run ms", windowCalc.runtimeMs.toString()])
   }
   if (windowCalc.avgRuntimeMs > 0) {
-    entries.push(["avg ms", windowCalc.avgRuntimeMs.toString()])
+    entries.push([" avg ms", windowCalc.avgRuntimeMs.toString()])
   }
   for (let i = 0; i < entries.length; i++) {
     const entryLabel = entries[i][0];
     let entryValue = entries[i][1];
-    lines.push(entryLabel + ": " + entryValue.substring(0,paramLengthLimit));
-    while (entryValue.length > paramLengthLimit) {
-      entryValue = entryValue.substring(paramLengthLimit);
-      lines.push("        " + entryValue.substring(0,paramLengthLimit));
+    lines.push(entryLabel + ": " + entryValue.substring(0,lineValLengthLimit));
+    while (entryValue.length > lineValLengthLimit) {
+      entryValue = entryValue.substring(lineValLengthLimit);
+      lines.push("         " + entryValue.substring(0,lineValLengthLimit));
     }
   }
   ctx.font = textHeight + "px monospace";
@@ -2927,6 +1737,12 @@ window.addEventListener("keydown", function(e) {
     } else {
       openHelpMenu();
     }
+  } else if (e.keyCode == 79 || e.key == "o" || e.key == "O") {
+    if (controlsVisible) {
+      closeControlsMenu();
+    } else {
+      openControlsMenu();
+    }
   } else if (e.keyCode == 80 || e.key == "p" || e.key == "P") {
     if (menuVisible) {
       closeMenu();
@@ -2948,6 +1764,18 @@ window.addEventListener("keydown", function(e) {
     } else {
       repaintOnly();
     }
+  } else if (e.key == "y" || e.key == "Y" || e.keyCode == 89) {
+    if (workersCount > 1) {
+      workersCount--;
+    }
+    workersSelect.value = workersCount;
+    changeWorkersCount();
+  } else if (e.key == "u" || e.key == "U" || e.keyCode == 85) {
+    if (workersCount < maxWorkers) {
+      workersCount++;
+    }
+    workersSelect.value = workersCount;
+    changeWorkersCount();
   } else if (e.keyCode == 49 || e.keyCode == 97 || e.key == "1") {
     activatePreset(presets[0]);
   } else if (e.keyCode == 50 || e.keyCode == 98 || e.key == "2") {
@@ -3216,12 +2044,23 @@ document.getElementById('menu-open').addEventListener("click", function(e) {
 document.getElementById('menu-close').addEventListener("click", function(e) {
   closeMenu();
   closeHelpMenu();
+  closeControlsMenu();
 }, true);
 document.getElementById('help-menu-open').addEventListener("click", function(e) {
   openHelpMenu();
 }, true);
 document.getElementById('help-menu-close').addEventListener("click", function(e) {
+  closeMenu();
   closeHelpMenu();
+  closeControlsMenu();
+}, true);
+document.getElementById('controls-menu-open').addEventListener("click", function(e) {
+  openControlsMenu();
+}, true);
+document.getElementById('controls-menu-close').addEventListener("click", function(e) {
+  closeMenu();
+  closeHelpMenu();
+  closeControlsMenu();
 }, true);
 
 function closeMenu() {
@@ -3234,6 +2073,7 @@ function closeMenu() {
 function openMenu() {
   menuVisible = true;
   closeHelpMenu();
+  closeControlsMenu();
   showFooter();
   document.getElementById('menu').style.display = 'block';
   document.getElementById('menu-open-wrap').style.display = 'none';
@@ -3248,9 +2088,26 @@ function closeHelpMenu() {
 
 function openHelpMenu() {
   closeMenu();
+  closeControlsMenu();
   showFooter();
   helpVisible = true;
   document.getElementById('help-menu').style.display = 'block';
+  document.getElementById('menu-open-wrap').style.display = 'none';
+}
+
+function closeControlsMenu() {
+  controlsVisible = false;
+  hideFooter();
+  document.getElementById('controls-menu').style.display = 'none';
+  document.getElementById('menu-open-wrap').style.display = 'block';
+}
+
+function openControlsMenu() {
+  closeMenu();
+  closeHelpMenu();
+  showFooter();
+  controlsVisible = true;
+  document.getElementById('controls-menu').style.display = 'block';
   document.getElementById('menu-open-wrap').style.display = 'none';
 }
 

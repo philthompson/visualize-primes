@@ -1041,7 +1041,9 @@ var calcWorkerOnmessage = function(e) {
       const cachedPct = Math.round(cachedPts * 10000.0 / totalPts) / 100.0;
       console.log("computing [" + totalPts + "] points of width [" + e.data.calcStatus.pixelWidth + "], of which [" + cachedPts + "] were cached (" + cachedPct + "%)");//, took [" + windowCalc.passTimeMs + "] ms");
     }
-    if (!e.data.calcStatus.running) {
+    if (e.data.calcStatus.running) {
+      drawStartingPassNotice();
+    } else {
       if (windowLogTiming) {
         windowLogOverallImage();
         if (windowCalcRepeat > 1) {
@@ -1428,6 +1430,19 @@ function drawCalculatingNotice(ctx, pixelSize, percentComplete, workersNow) {
   ctx.fillStyle = "rgba(0,0,0,0.9)";
   const workersText = workersNow + " worker" + (workersNow > 1 ? "s" : "");
   ctx.fillText("Calculating " + pixelSize + "-wide pixels (" + percentComplete + "%) with " + workersText + " ...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
+}
+
+function drawStartingPassNotice() {
+  const ctx = dContext;
+  const canvas = ctx.canvas;
+  ctx.fillStyle = "rgba(100,100,100,1.0)";
+  const noticeHeight = Math.max(24, canvas.height * 0.03);
+  const textHeight = Math.round(noticeHeight * 0.6);
+  const noticeWidth = Math.max(200, textHeight * 24);
+  ctx.fillRect(0,canvas.height-noticeHeight,noticeWidth, noticeHeight);
+  ctx.font = textHeight + "px system-ui";
+  ctx.fillStyle = "rgba(0,0,0,0.9)";
+  ctx.fillText("Starting next pass ...", Math.round(noticeHeight*0.2), dCanvas.height - Math.round(noticeHeight* 0.2));
 }
 
 function drawMousePosNotice(x, y) {

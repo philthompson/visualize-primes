@@ -29,8 +29,10 @@ const plots = [{
     const four = infNum(4n, 0n);
 
     if (useFloat) {
-      let xFloat = parseFloat(infNumExpString(infNumTruncateToLen(x, 16)));
-      let yFloat = parseFloat(infNumExpString(infNumTruncateToLen(y, 16)));
+      // truncating to 15 decimal digits here is equivalent to truncating
+      //   to 16 significant digits, but it's more efficient to do both at once
+      let xFloat = parseFloat(infNumExpStringTruncToLen(x, 15));
+      let yFloat = parseFloat(infNumExpStringTruncToLen(y, 15));
       let ix = 0;
       let iy = 0;
       let ixSq = 0;

@@ -202,13 +202,17 @@ for (var i = 0; i < presetButtons.length; i++) {
   presetButtons[i].addEventListener('click', activatePresetHandler);
 }
 
-for (let i = 2; i <= maxWorkers; i++) {
-  workersSelect.innerHTML += "<option value=\"" + i + "\">" + i + "</option>";
+for (let i = 1; i <= maxWorkers; i++) {
+  workersSelect.innerHTML += "<option " + (i === workersCount ? "selected" : "") + " value=\"" + i + "\">" + i + "</option>";
 }
-workersSelect.addEventListener("change", changeWorkersCount);
+workersSelect.addEventListener("change", setWorkersCountWithSelect);
+
+function setWorkersCountWithSelect() {
+  workersCount = parseInt(workersSelect.value);
+  changeWorkersCount();
+}
 
 function changeWorkersCount() {
-  workersCount = parseInt(workersSelect.value);
   if (windowCalc.worker !== null) {
     windowCalc.worker.postMessage({"t": "workers-count", "v": workersCount});
   }
@@ -365,6 +369,7 @@ function parseUrlParams() {
         const w = parseInt(urlParams.get('workers'));
         if (w > 0 && w <= maxWorkers) {
           workersCount = w;
+          workersSelect.value = workersCount;
         }
       } catch (e) {}
     }
@@ -1732,6 +1737,12 @@ window.addEventListener("keydown", function(e) {
     } else {
       openHelpMenu();
     }
+  } else if (e.keyCode == 79 || e.key == "o" || e.key == "O") {
+    if (controlsVisible) {
+      closeControlsMenu();
+    } else {
+      openControlsMenu();
+    }
   } else if (e.keyCode == 80 || e.key == "p" || e.key == "P") {
     if (menuVisible) {
       closeMenu();
@@ -1753,6 +1764,18 @@ window.addEventListener("keydown", function(e) {
     } else {
       repaintOnly();
     }
+  } else if (e.key == "y" || e.key == "Y" || e.keyCode == 89) {
+    if (workersCount > 1) {
+      workersCount--;
+    }
+    workersSelect.value = workersCount;
+    changeWorkersCount();
+  } else if (e.key == "u" || e.key == "U" || e.keyCode == 85) {
+    if (workersCount < maxWorkers) {
+      workersCount++;
+    }
+    workersSelect.value = workersCount;
+    changeWorkersCount();
   } else if (e.keyCode == 49 || e.keyCode == 97 || e.key == "1") {
     activatePreset(presets[0]);
   } else if (e.keyCode == 50 || e.keyCode == 98 || e.key == "2") {

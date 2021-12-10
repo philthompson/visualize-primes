@@ -19,6 +19,7 @@ var replaceStateTimeout = null;
 var historyTimeout = null;
 var resizeTimeout = null;
 var helpVisible = false;
+var controlsVisible = false;
 var menuVisible = false;
 
 const windowLogTiming = true;
@@ -2020,12 +2021,23 @@ document.getElementById('menu-open').addEventListener("click", function(e) {
 document.getElementById('menu-close').addEventListener("click", function(e) {
   closeMenu();
   closeHelpMenu();
+  closeControlsMenu();
 }, true);
 document.getElementById('help-menu-open').addEventListener("click", function(e) {
   openHelpMenu();
 }, true);
 document.getElementById('help-menu-close').addEventListener("click", function(e) {
+  closeMenu();
   closeHelpMenu();
+  closeControlsMenu();
+}, true);
+document.getElementById('controls-menu-open').addEventListener("click", function(e) {
+  openControlsMenu();
+}, true);
+document.getElementById('controls-menu-close').addEventListener("click", function(e) {
+  closeMenu();
+  closeHelpMenu();
+  closeControlsMenu();
 }, true);
 
 function closeMenu() {
@@ -2038,6 +2050,7 @@ function closeMenu() {
 function openMenu() {
   menuVisible = true;
   closeHelpMenu();
+  closeControlsMenu();
   showFooter();
   document.getElementById('menu').style.display = 'block';
   document.getElementById('menu-open-wrap').style.display = 'none';
@@ -2052,9 +2065,26 @@ function closeHelpMenu() {
 
 function openHelpMenu() {
   closeMenu();
+  closeControlsMenu();
   showFooter();
   helpVisible = true;
   document.getElementById('help-menu').style.display = 'block';
+  document.getElementById('menu-open-wrap').style.display = 'none';
+}
+
+function closeControlsMenu() {
+  controlsVisible = false;
+  hideFooter();
+  document.getElementById('controls-menu').style.display = 'none';
+  document.getElementById('menu-open-wrap').style.display = 'block';
+}
+
+function openControlsMenu() {
+  closeMenu();
+  closeHelpMenu();
+  showFooter();
+  controlsVisible = true;
+  document.getElementById('controls-menu').style.display = 'block';
   document.getElementById('menu-open-wrap').style.display = 'none';
 }
 

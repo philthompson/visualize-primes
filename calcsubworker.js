@@ -77,7 +77,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
   if (cachedIndices.length < chunk.chunkLen) {
     if (moveX) {
       for (let i = 0; i < chunk.chunkLen; i++) {
-        if (!cachedIndices.includes(i)) {
+        if (!binarySearchIncludesNumber(cachedIndices, i)) {
           results[i] = computeFn(self, chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
         }
         // since we want to start at the given starting position, increment
@@ -86,7 +86,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       }
     } else {
       for (let i = 0; i < chunk.chunkLen; i++) {
-        if (!cachedIndices.includes(i)) {
+        if (!binarySearchIncludesNumber(cachedIndices, i)) {
           results[i] = computeFn(self, chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
         }
         // since we want to start at the given starting position, increment
@@ -99,3 +99,24 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
   chunk["plotId"] = plotId;
   postMessage(chunk);
 };
+
+// based on the function at https://stackoverflow.com/a/29018745/259456
+// this version returns true if the target is found
+function binarySearchIncludesNumber(sortedArray, target) {
+  let lo = 0;
+  let hi = sortedArray.length - 1;
+  let x = null;
+  let diff = null;
+  while (lo <= hi) {
+    x = (lo + hi) >>1;
+    diff = target - sortedArray[x];
+    if (diff > 0) {
+      lo = x + 1;
+    } else if (diff < 0) {
+      hi = x - 1;
+    } else {
+      return true;
+    }
+  }
+  return false;
+}

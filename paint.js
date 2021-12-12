@@ -414,6 +414,13 @@ function start() {
   // run the selected plot
   const plot = plotsByName[params.plot];
   if (plot.calcFrom == "sequence") {
+    // if viewing a sequence plot, ensure there's no window
+    //   worker left running
+    if (windowCalc.worker != null) {
+      windowCalc.worker.terminate();
+      windowCalc.worker = null;
+    }
+
     const out = plot.computePointsAndLength(plot.privContext);
 
     // copy the results
@@ -734,6 +741,7 @@ function redraw() {
     //   worker left running
     if (windowCalc.worker != null) {
       windowCalc.worker.terminate();
+      windowCalc.worker = null;
     }
     drawPoints(historyParams);
   } else if (plot.calcFrom == "window") {
@@ -805,7 +813,6 @@ function drawPoints(params) {
 function resetWindowCalcCache() {
   console.log("purging window points cache");
   if (windowCalc.worker != null) {
-    //windowCalc.worker.terminate();
     windowCalc.worker.postMessage({t:"wipe-cache",v:null});
   }
 
@@ -1182,7 +1189,6 @@ function kickoffWindowDrawLoop() {
     }
     windowCalc.worker.onmessage = calcWorkerOnmessage;
   } else {
-    //windowCalc.worker.terminate();
     windowCalc.worker.postMessage({"t": "cancel-calc", "v": ""});
   }
   const workerCalc = {};

@@ -420,13 +420,6 @@ var calculateWindowPassChunks = function() {
   //   shape, where successively bigger squares of pixels are
   //   computed, each made up of 4 chunks (2 vertical, 2 horizontal) 
 
-  // !! T O D O !!
-  // use modulo to effectively "cache" points?
-  // since we are drawing on top of the existing N-wide pixels,
-  //   we might be able to skip every other pixel in every other
-  //     row or something, and the skipped pixels will remain...
-
-
   const yPointsPerChunk = Math.ceil(windowCalc.canvasHeight / pixelSize) + 1;
   
   var incX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));

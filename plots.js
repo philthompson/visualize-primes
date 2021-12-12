@@ -23,8 +23,7 @@ const plots = [{
     "<br/>- When not zoomed in very far, keep the <code>n</code> (iterations) parameter low for faster calculation (use N and M keys to decrease/increase the <code>n</code> value)." +
     "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower.",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeBoundPointColor": function(caller, n, precis, useFloat, x, y) {
-    //if (typeof importScripts === 'function') { importScripts("infnum.js"); caller = this; }
+  "computeBoundPointColor": function(n, precis, useFloat, x, y) {
     const maxIter = n;
     const four = infNum(4n, 0n);
 

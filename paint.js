@@ -1176,7 +1176,7 @@ function calculateAndDrawWindowSync(pixelSize) {
       // px -- the pixel "color point"
       // pt -- the abstract coordinate on the plane
       results[resultCounter] = {
-        "px": getColorPoint(x, y, compute(this, windowCalc.n, precision, mandelbrotFloat, px, py)),
+        "px": getColorPoint(x, y, compute(windowCalc.n, precision, mandelbrotFloat, px, py)),
         "pt": {"x":copyInfNum(px), "y":copyInfNum(py)}
       };
       resultCounter++;

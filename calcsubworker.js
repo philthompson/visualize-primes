@@ -16,12 +16,6 @@ for (let i = 0; i < plots.length; i++) {
 }
 
 self.onmessage = function(e) {
-  //console.log("loading: " + e.data.infNumScriptUri);
-  // load the script blob that contains the function used to
-  //   actually compute each point -- that function is always
-  //   called "computeBoundPointColor" and is defined by each
-  //   window plot
-  //importScripts(e.data.computeFnUrl, e.data.infNumScriptUri);
   computeChunk(e.data.plotId, e.data.chunk, e.data.cachedIndices);
 };
 
@@ -78,7 +72,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
     if (moveX) {
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = computeFn(self, chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
+          results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result
@@ -87,7 +81,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
     } else {
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = computeFn(self, chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
+          results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result

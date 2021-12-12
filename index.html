@@ -190,6 +190,10 @@
       color: #6e6e6e;
       text-shadow: none !important;;
     }
+    .help-text {
+      padding-left: 2.0rem;
+      font-size: 1.0rem;
+    }
     </style>
 </head>
 <body>
@@ -255,6 +259,11 @@
         <span style="position: fixed; left: 1.2rem; top: 1.2rem;" id="controls-menu-close">×</span>
         <details>
           <summary>go to location by center and scale</summary>
+          <details class="help-text">
+          <summary>?</summary>
+            At very large scales (above 3.0e13) arbitrary precision math must be used, which is much
+            slower than the floating point math that can be used at smaller scales.
+          </details>
           <div>
             <table>
               <tr><td>center x:</td><td><input size="22" id="go-to-c-x"/></td></tr>
@@ -269,6 +278,11 @@
         </details>
         <details>
           <summary>go to location by bounds</summary>
+          <details class="help-text">
+            <summary>?</summary>
+            The entered points will be fit into the screen.  Depending on the window proportions,
+            additional area beyond the entered points may be displayed.
+          </details>
           <div>
             <table>
               <tr><td>top left x:</td><td><input size="22" id="go-to-tl-x"/></td></tr>
@@ -293,6 +307,43 @@
         </details>
         <details>
           <summary>gradient editor</summary>
+          <details class="help-text">
+            <summary>?</summary>
+            Enter a series of colors to form a gradient with which to draw the plot.<br/><br/>
+            <b>Colors</b> are entered as a single letter:
+            <ul>
+              <li>r - red</li>
+              <li>o - orange</li>
+              <li>y - yellow</li>
+              <li>g - green</li>
+              <li>b - blue</li>
+              <li>v - violet/purple</li>
+              <li>p - violet/purple</li>
+              <li>w - white</li>
+              <li>B - Black</li>
+            </ul>
+            Colors may be defined or re-defined with an <b>option</b> like "G~90.90.90" which defines an rgb gray color for the letter G.  See below about options.<br/>
+            <br/>
+            <b>Options</b>: after the series of color letters are given, zero or more gradient options may be entered.
+            Each option must be preceded with a dash "-".<br/>
+            <ul>
+                <li>repeat# - where # is the number of times to repeat the color series</li>
+                <li>shift# - where # is the number of colors to shift off the end of the series and move onto the beginning</li>
+                <!--
+                <li>mirror# - like "repeat" but reverses the series from one repetition to the next</li>
+                <li>width# - where # is the percentage of width the gradient should be squeezed into (if not given, the gradient takes up 100% of the possible colors to draw)</li>
+                <li>offset# - where # is the percentage to move the gradient if squeezed into a smaller width using the "width" option</li>
+                -->
+            </ul>
+            Examples:<br/>
+            <br/>
+            "roygbv-repeat2" creates a gradient with "roygbvroygbv"<br/>
+            <br/>
+            "pBpw-p~240.160.200" creates a gradient with "p" re-defined as pink<br/>
+            <!--<br/>
+            "roygbv-mirror1" creates a gradient with "roygbvbgyor"
+            -->
+          </details>
           <div>
             <table>
               <tr><td>gradient:</td><td><input size="26" id="grad-grad"/></td></tr>
@@ -303,6 +354,12 @@
         </details>
         <label for="workers-select">workers </label>
         <select style="font-size:1.2rem;" id="workers-select"></select>
+        <details class="help-text">
+          <summary>?</summary>
+            Increase workers to increase computation speed, depending on your computer/device.<br/><br/>
+            Increasing the number of workers will cause your computer/device to consume more power/battery, but the computation will be completed faster.<br/><br/>
+            Increasing the number of workers beyond a certain point will have no effect depending on the number of cores/threads your computer or browser can devote to this page.
+          </details
         <p id="workers-warning"></p>
     </div>
     <div id="help-menu">
@@ -338,7 +395,7 @@
         </div>
     </div>
     <div id="footer">
-        <span style="float:left; pointer-events: visible"><a target="_blank" href="https://philthompson.me/2021/Very-Plotter.html">What is this?</a></span>
+        <span style="float:left; pointer-events: visible"><a target="_blank" href="https://philthompson.me/2021/Very-Plotter.html">What is this?</a>&nbsp;&nbsp;<small>(v0.2)</small></span>
         <button id="tip-btn" style="float:right; pointer-events: visible"><a target="_blank" href="https://philthompson.me/tip-jar/">Tip Jar<a/></button>
     </div>
     <script src="infnum.js"></script>

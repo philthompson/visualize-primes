@@ -727,6 +727,9 @@ const customColorRegex = /^[a-zA-z]~[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
 // build global gradient stops from format:
 //   roygbvx-saturation60-brightness90-width80-offset30-repeat10-mirror2-shift3-x~30.30.30
 function buildGradient(gradientString) {
+  if (gradientString.trim().length === 0) {
+    throw "gradient must not be empty";
+  }
   const colorsByName = {
     "r": [240,0,0],
     "o": [240,120,0],
@@ -740,7 +743,7 @@ function buildGradient(gradientString) {
   };
   const grad = {};
   const args = {};
-  const splitArgs = gradientString.split("-");
+  const splitArgs = gradientString.trim().split("-");
   const colorArgs = splitArgs[0];
   const argNames = ["saturation","brightness","width","offset","repeat","mirror","shift"];
   let colorMatch = null;
@@ -1467,9 +1470,13 @@ var resetGradientInput = function() {
 };
 
 btnGradGo.addEventListener("click", function() {
-  historyParams.gradient = inputGradGrad.value;
-  buildGradient(historyParams.gradient);
-  redraw();
+  try {
+    buildGradient(inputGradGrad.value);
+    historyParams.gradient = inputGradGrad.value;
+    redraw();
+  } catch (e) {
+    alert(e);
+  }
 });
 btnGradReset.addEventListener("click", resetGradientInput);
 

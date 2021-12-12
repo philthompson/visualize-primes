@@ -88,6 +88,9 @@ const btnGotoBoundsGo = document.getElementById("go-to-b-go");
 const btnGotoBoundsReset = document.getElementById("go-to-b-reset");
 const btnGotoCenterGo = document.getElementById("go-to-c-go");
 const btnGotoCenterReset = document.getElementById("go-to-c-reset");
+const inputNIterations = document.getElementById("n-iter-n");
+const btnNIterationsGo = document.getElementById("n-iter-go");
+const btnNIterationsReset = document.getElementById("n-iter-reset");
 const inputGradGrad = document.getElementById("grad-grad");
 const btnGradGo = document.getElementById("grad-go");
 const btnGradReset = document.getElementById("grad-reset");
@@ -920,6 +923,7 @@ function resetWindowCalcContext() {
 
   resetGoToBoundsValues();
   resetGoToCenterValues();
+  resetNIterationsValue();
   resetGradientInput();
 }
 
@@ -941,6 +945,18 @@ function resetGoToCenterValues() {
   inputGotoCenterX.value = infNumToFloat(historyParams.centerX);
   inputGotoCenterY.value = infNumToFloat(historyParams.centerY) + (imaginaryCoordinates ? "i" : "");
   inputGotoScale.value = infNumExpString(historyParams.scale);
+}
+
+function resetNIterationsValue() {
+  // if plot is mandelbrot, change "N" to "iterations"
+  if (windowCalc.plotName === "Mandelbrot-set") {
+    document.getElementById("n-iter-label1").innerHTML = "iterations";
+    document.getElementById("n-iter-label2").innerHTML = "iterations:";
+  } else {
+    document.getElementById("n-iter-label1").innerHTML = "N";
+    document.getElementById("n-iter-label2").innerHTML = "N:";
+  }
+  inputNIterations.value = (historyParams.n).toLocaleString();
 }
 
 function applyGoToBoundsValues() {
@@ -1023,6 +1039,15 @@ function applyGoToCenterValues() {
   redraw();
 }
 
+function applyNIterationsValue() {
+  const newN = parseInt(inputNIterations.value.replaceAll(",", ""));
+  if (newN > 0) {
+    historyParams.n = newN;
+    resetNIterationsValue();
+    start();
+  }
+}
+
 function textInputHasFocus() {
   var anyHasFocus = false;
   for (let i = 0; i < inputFields.length; i++) {
@@ -1040,11 +1065,8 @@ btnGotoBoundsReset.addEventListener("click", resetGoToBoundsValues);
 btnGotoCenterGo.addEventListener("click", applyGoToCenterValues);
 btnGotoCenterReset.addEventListener("click", resetGoToCenterValues);
 
-// from https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers
-function fn2workerURL(fn) {
-  var blob = new Blob(['('+fn.toString()+')()'], {type: 'text/javascript'})
-  return URL.createObjectURL(blob);
-}
+btnNIterationsGo.addEventListener("click", applyNIterationsValue);
+btnNIterationsReset.addEventListener("click", resetNIterationsValue);
 
 // messages received from main worker:
 // chunk complete
@@ -1713,21 +1735,16 @@ window.addEventListener("keydown", function(e) {
   } else if (e.keyCode == 77 || e.key == "m" || e.key == "M") {
     if (plotsByName[historyParams.plot].calcFrom == "sequence") {
       historyParams.n += 500;
+      start();
     } else {
       historyParams.n += 100;
+      start();
     }
-    start();
   } else if (e.keyCode == 78  || e.key == "n" || e.key == "N") {
-    if (plotsByName[historyParams.plot].calcFrom == "sequence") {
-      if (historyParams.n > 100) {
-        historyParams.n -= 100;
-      }
-    } else {
-      if (historyParams.n > 10) {
-        historyParams.n -= 10;
-      }
+    if (historyParams.n > 100) {
+      historyParams.n -= 100;
+      start();
     }
-    start();
   } else if (e.keyCode == 86 || e.key == "v" || e.key == "V") {
     let schemeNum = -1;
     for (let i = 0; i < lineColorSchemes.length; i++) {

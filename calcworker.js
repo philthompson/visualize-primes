@@ -1,4 +1,12 @@
 
+var useWorkers = true;
+
+if (!self.Worker) {
+  useWorkers = false;
+  self.postMessage({subworkerNoWorky: true});
+  self.close();
+}
+
 const forceWorkerReloadUrlParam = "force-worker-reload=true";
 const forceWorkerReload = self.location.toString().includes(forceWorkerReloadUrlParam);
 
@@ -49,6 +57,10 @@ const windowCalc = {
 };
 
 self.onmessage = function(e) {
+  if (!useWorkers) {
+    self.postMessage({subworkerNoWorky: true});
+    return;
+  }
   console.log("got mesage [" + e.data.t + "]");
   if (e.data.t == "worker-calc") {
     runCalc(e.data.v);

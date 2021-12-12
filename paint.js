@@ -37,6 +37,22 @@ var builtGradient = null;
 //   workers is not a URL param
 var workersCount = 1;
 const maxWorkers = 32;
+// Safari doesn't support subworkers, and other browsers
+//   may not support workers at all -- in these cases,
+//   detect this and fall back to iterated main thread
+//   computation/drawing
+var useWorkers = true;
+if (!window.Worker) {
+  useWorkers = false;
+  warnAboutWorkers();
+}
+
+function warnAboutWorkers() {
+  document.getElementById("workers-warning").innerHTML = "<b><u>Workers do not function in your browser!</u></b><br/><br/>" +
+    "Very Plotter works much better with web workers and subworkers.<br/><br/>" +
+    "Subworkers currently do not function in Safari and some mobile browsers, for example.<br/><br/>" +
+    "The recommended browsers are desktop Firefox, Chrome, or Edge, or similar.";
+}
 
 const windowCalc = {
   "timeout": null,
@@ -101,6 +117,164 @@ const workersSelect = document.getElementById("workers-select");
 // this is checked each time a key is pressed, so keep it
 //   here so we don't have to do a DOM query every time
 const inputFields = document.getElementsByTagName("input");
+
+// -||- THIS BELOW SECTION can be removed once all common browsers -||-
+// -vv-   (including Safari) support web workers and subworkers    -vv-
+
+// call the plot's computeBoundPoints function in chunks, to better
+//   allow interuptions for long-running calculations
+function calculateWindowPassChunks() {
+  windowCalc.chunksComplete = 0;
+  const roundedParamLineWidth =  Math.round(historyParams.lineWidth);
+  const potentialTempLineWidth = Math.round(windowCalc.lineWidth / 2);
+  if (potentialTempLineWidth <= roundedParamLineWidth) {
+    windowCalc.lineWidth = roundedParamLineWidth;
+  } else {
+    windowCalc.lineWidth = potentialTempLineWidth;
+  }
+
+  // use lineWidth to determine how large to make the calculated/displayed
+  //   pixels, so round to integer
+  // use Math.round(), not Math.trunc(), because we want the minimum
+  //   lineWidth of 0.5 to result in a pixel size of 1
+  const pixelSize = Math.round(windowCalc.lineWidth);
+
+  const pixWidth = dContext.canvas.width;
+  // use way fewer chunks for larger pixels, which mostly fixes mouse-dragging issues
+  var numXChunks = 128;
+  if (pixelSize == 64) {
+    numXChunks = 1;
+  } else if (pixelSize == 32) {
+    numXChunks = 4;
+  } else if (pixelSize == 16) {
+    numXChunks = 32;
+  } else if (pixelSize == 8 || pixelSize == 4) {
+    numXChunks = 64;
+  }
+  var pixPerChunk = 1;
+  var realPixelsPerChunk = pixWidth/numXChunks;
+  pixPerChunk = Math.trunc(realPixelsPerChunk / pixelSize) + 1;
+
+  // split the x-axis, to break the computation down into interruptable chunks
+  var xChunkPix = 0;
+  var xChunk = [];
+  for (var x = 0; x < pixWidth; x+=pixelSize) {
+    xChunkPix++;
+    if (xChunkPix > pixPerChunk) {
+      windowCalc.xPixelChunks.push(xChunk);
+      xChunkPix = 1;
+      xChunk = [];
+    }
+    xChunk.push(x);
+  }
+  windowCalc.xPixelChunks.push(xChunk);
+  windowCalc.totalChunks = windowCalc.xPixelChunks.length;
+}
+
+function computeBoundPointsChunk(xChunk) {
+  var chunkStartMs = Date.now();
+  const plot = plotsByName[historyParams.plot];
+  const privContext = plot.privContext;
+  var resultPoints = [];
+
+  // use lineWidth to determine how large to make the calculated/displayed
+  //   pixels, so round to integer
+  // use Math.round(), not Math.trunc(), because we want the minimum
+  //   lineWidth of 0.5 to result in a pixel size of 1
+  const pixelSizeFloat = Math.round(windowCalc.lineWidth);
+  const pixelSize = createInfNum(pixelSizeFloat.toString());
+  //const params = historyParams;
+
+  // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
+  //const pixWidth = createInfNum(dContext.canvas.width.toString());
+  const pixHeight = createInfNum(dContext.canvas.height.toString());
+
+  let px = null;
+  let py = null;
+  let x = 0;
+  const yStep = infNumMul(windowCalc.eachPixUnits, pixelSize);
+  const yNorm = normInfNum(yStep, windowCalc.topEdge);
+  const yStepNorm = yNorm[0];
+  const topNorm = yNorm[1];
+  for (let i = 0; i < xChunk.length; i++) {
+    x = xChunk[i];
+    xInfNum = infNum(BigInt(xChunk[i]), 0n);
+
+    px = infNumAdd(infNumMul(windowCalc.eachPixUnits, xInfNum), windowCalc.leftEdge);
+    pxStr = infNumFastStr(px) + ",";
+    py = topNorm;
+    for (let y = 0; y < dCanvas.height; y += pixelSizeFloat) {
+      const pointPixel = pxStr + infNumFastStr(py);
+      if (pointPixel in windowCalc.pointsCache) {
+        windowCalc.cachedPoints++;
+        // update the pixel on the screen, in case we've panned since
+        //   the point was originally cached
+        windowCalc.pointsCache[pointPixel].px.x = x;
+        windowCalc.pointsCache[pointPixel].px.y = y;
+        resultPoints.push(windowCalc.pointsCache[pointPixel]);
+      } else {
+        const pointColor = plot.computeBoundPointColor(windowCalc.n, precision, mandelbrotFloat, px, py);
+
+        // x and y are integer (actual pixel) values, with no decimal component
+        const point = getColorPoint(x, y, pointColor);
+        // px -- the pixel "color point"
+        // pt -- the abstract coordinate on the plane
+        let wrappedPoint = {"px": point, "pt": {"x":copyInfNum(px), "y":copyInfNum(py)}};
+        windowCalc.pointsCache[pointPixel] = wrappedPoint;
+        resultPoints.push(wrappedPoint);
+      }
+      py = infNumSubNorm(py, yStepNorm);
+    }
+  }
+  windowCalc.passTimeMs += (Date.now() - chunkStartMs);
+  windowCalc.totalPoints += resultPoints.length;
+  windowCalc.chunksComplete++;
+  return {
+    "points": resultPoints,
+  };
+}
+
+function isPassComputationComplete() {
+  return windowCalc.xPixelChunks.length == 0;// && privContext.resultPoints.length > 0;
+}
+
+function drawCalculatingNoticeOld(ctx) {
+  const canvas = ctx.canvas;
+  ctx.fillStyle = "rgba(100,100,100,1.0)";
+  const noticeHeight = Math.max(24, canvas.height * 0.03);
+  const textHeight = Math.round(noticeHeight * 0.6);
+  const noticeWidth = Math.max(200, textHeight * 18);
+  ctx.fillRect(0,canvas.height-noticeHeight,noticeWidth, noticeHeight);
+  ctx.font = textHeight + "px system-ui";
+  ctx.fillStyle = "rgba(0,0,0,0.9)";
+  const percentComplete = Math.round(windowCalc.chunksComplete * 100.0 / windowCalc.totalChunks);
+  ctx.fillText("Calculating " + windowCalc.lineWidth + "-wide pixels (" + percentComplete + "%) ...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
+}
+
+function cleanUpWindowCache() {
+  // now that the image has been completed, delete any cached
+  //   points outside of the window
+  let cachedPointsKept = 0;
+  let cachedPointsToDelete = [];
+  for (let name in windowCalc.pointsCache) {
+    if (infNumLt(windowCalc.pointsCache[name].pt.x, windowCalc.leftEdge) ||
+        infNumGt(windowCalc.pointsCache[name].pt.x, windowCalc.rightEdge) ||
+        infNumLt(windowCalc.pointsCache[name].pt.y, windowCalc.bottomEdge) ||
+        infNumGt(windowCalc.pointsCache[name].pt.y, windowCalc.topEdge)) {
+      cachedPointsToDelete.push(name);
+    } else {
+      cachedPointsKept++;
+    }
+  }
+  for (let i = 0; i < cachedPointsToDelete.length; i++) {
+    delete windowCalc.pointsCache[name];
+  }
+  const deletedPct = Math.round(cachedPointsToDelete.length * 10000.0 / (cachedPointsToDelete.length + cachedPointsKept)) / 100.0;
+  console.log("deleted [" + cachedPointsToDelete.length + "] points from the cache (" + deletedPct + "%)");
+}
+
+// -^^- THIS ABOVE SECTION can be removed once all common browsers -^^-
+// -||-   (including Safari) support web workers and subworkers    -||-
 
 const presets = [{
   "plot": "Mandelbrot-set",
@@ -834,7 +1008,7 @@ function resetWindowCalcCache() {
   if (windowCalc.worker != null) {
     windowCalc.worker.postMessage({t:"wipe-cache",v:null});
   }
-
+  windowCalc.pointsCache = {};
 }
 
 function resetWindowCalcContext() {
@@ -1073,6 +1247,15 @@ btnNIterationsReset.addEventListener("click", resetNIterationsValue);
 // messages received from main worker:
 // chunk complete
 var calcWorkerOnmessage = function(e) {
+  if (!useWorkers) {
+    return;
+  }
+  if ("subworkerNoWorky" in e.data) {
+    useWorkers = false;
+    warnAboutWorkers();
+    redraw();
+    return;
+  }
   if (e.data.plotId !== windowCalc.plotId) {
     return;
   }
@@ -1230,13 +1413,25 @@ function calculateAndDrawWindow() {
   if (windowCalc.timeout != null) {
     window.clearTimeout(windowCalc.timeout);
   }
-  // after drawing the fist pass synchronously, we'll do all subsequent
-  //   passes via the worker and its subworkers
-  // BUT FIRST wait 1/4 second because the user might still be panning/zooming
-  windowCalc.timeout = window.setTimeout(kickoffWindowDrawLoop, 250);
+  if (useWorkers) {
+    // after drawing the fist pass synchronously, we'll do all subsequent
+    //   passes via the worker and its subworkers
+    // BUT FIRST wait 1/4 second because the user might still be panning/zooming
+    windowCalc.timeout = window.setTimeout(kickoffWindowWorker, 250);
+  } else {
+    windowCalc.timeout = window.setTimeout(kickoffWindowDrawLoop, 250);
+  }
 }
 
 function kickoffWindowDrawLoop() {
+  if (windowCalc.timeout != null) {
+    window.clearTimeout(windowCalc.timeout);
+  }
+  windowCalc.stage = windowCalcStages.calculateChunks;
+  windowCalc.timeout = window.setInterval(windowDrawLoop, 5);
+}
+
+function kickoffWindowWorker() {
   if (windowCalc.worker === null) {
     if (forceWorkerReload) {
       windowCalc.worker = new Worker("calcworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
@@ -1265,12 +1460,6 @@ function kickoffWindowDrawLoop() {
   workerCalc["plotId"] = windowCalc.plotId;
 
   windowCalc.worker.postMessage({"t": "worker-calc", "v": workerCalc});
-
-//  if (windowCalc.timeout != null) {
-//    window.clearTimeout(windowCalc.timeout);
-//  }
-//  windowCalc.stage = windowCalcStages.calculateChunks;
-//  windowCalc.timeout = window.setInterval(windowDrawLoop, 5);
 }
 
 var resetGradientInput = function() {
@@ -1288,7 +1477,8 @@ const windowCalcStages = {
   drawCalculatingNotice: "draw-calculating-notice",
   calculateChunks: "calculate-chunks",
   doNextChunk: "next-chunk",
-  cleanUpWindowCache: "clean-up-window-cache"
+  cleanUpWindowCache: "clean-up-window-cache",
+  stop: "stop"
 }
 
 // the main window plot drawing loop, called repeatedly by setInterval()
@@ -1353,7 +1543,7 @@ function windowDrawLoop() {
       window.clearTimeout(windowCalc.timeout);
     }
 
-  // if the stage is not set, stop
+  // if the stage is not set (or set to "stop"), stop
   } else {
     if (windowCalc.timeout != null) {
       window.clearTimeout(windowCalc.timeout);
@@ -1366,9 +1556,9 @@ function calculateAndDrawNextChunk() {
   const isPassFinished = isPassComputationComplete();
   
   if (nextXChunk) {
-      drawColorPoints(computeBoundPointsChunk(nextXChunk).points);
+      drawColorPoints(computeBoundPointsChunk(nextXChunk).points, Math.round(windowCalc.lineWidth));
     if (!isPassFinished) {
-      drawCalculatingNotice(dContext);
+      drawCalculatingNoticeOld(dContext);
     }
   }
   return isPassFinished;
@@ -1896,6 +2086,9 @@ window.addEventListener("keydown", function(e) {
     workersSelect.value = workersCount;
     changeWorkersCount();
   } else if (e.key == "." || e.keyCode == 190) {
+    if (!useWorkers) {
+      windowCalc.stage = windowCalcStages.stop;
+    }
     stopWorkers();
     repaintOnly();
   } else if (e.keyCode == 49 || e.keyCode == 97 || e.key == "1") {

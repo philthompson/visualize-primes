@@ -66,11 +66,16 @@ const windowCalc = {
   "avgRuntimeMs": -1,
   "worker": null,
   "workersCountRange": "-",
-  "plotId": 0
+  "plotId": 0,
+  "pixelsImage": null
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];
 var imageParametersCaption = false;
+
+var previewImage = null;
+var previewImageOffsetX = 0;
+var previewImageOffsetY = 0;
 
 const inputGotoTopLeftX = document.getElementById("go-to-tl-x");
 const inputGotoTopLeftY = document.getElementById("go-to-tl-y");
@@ -857,6 +862,11 @@ function resetWindowCalcContext() {
   historyParams.centerX = infNumTruncateToLen(historyParams.centerX, precision);
   historyParams.centerY = infNumTruncateToLen(historyParams.centerY, precision);
 
+  // save the image for previewing when panning
+  if (previewImage === null) {
+    previewImage = windowCalc.pixelsImage;
+  }
+
   // since line width is halved each time the draw occurs, use 128 to get
   //   the initial draw to use a 64-wide pixels
   windowCalc.lineWidth = 128;
@@ -1141,6 +1151,9 @@ function drawWorkerColorPoints(workerMessage) {
     }
   }
   drawColorPoints(results, pixelSize);
+  previewImage = windowCalc.pixelsImage;
+  previewImageOffsetX = 0;
+  previewImageOffsetY = 0;
 }
 
 // simple, synchronous/blocking function to calculate and draw
@@ -1180,6 +1193,11 @@ function calculateAndDrawWindow() {
     //   pass synchronously, so that as the user drags a mouse/finger, or
     //   zooms, the canvas is updated as rapidly as possible
     calculateAndDrawWindowSync(64);
+    previewImage = null;
+    previewImageOffsetX = 0;
+    previewImageOffsetY = 0;
+  } else {
+    drawPreviewImage();
   }
 
   if (windowCalc.timeout != null) {
@@ -1437,6 +1455,12 @@ function repaintOnly() {
   dContext.putImageData(windowCalc.pixelsImage, 0, 0);
 }
 
+function drawPreviewImage() {
+  if (previewImage !== null) {
+    dContext.putImageData(previewImage, previewImageOffsetX, previewImageOffsetY);
+  }
+}
+
 function drawCalculatingNotice(ctx, pixelSize, percentComplete, workersNow) {
   const canvas = ctx.canvas;
   ctx.fillStyle = "rgba(100,100,100,1.0)";
@@ -1534,8 +1558,10 @@ function panPercentOfPixels(isHorizontal, nPercent) {
   const unitsToPan = infNumMul(createInfNum(pixelsToPan.toString()), windowCalc.eachPixUnits);
   if (isHorizontal) {
     historyParams.centerX = infNumAdd(historyParams.centerX, unitsToPan);
+    previewImageOffsetX -= pixelsToPan;
   } else {
     historyParams.centerY = infNumAdd(historyParams.centerY, unitsToPan);
+    previewImageOffsetY += pixelsToPan;
   }
 }
 
@@ -1899,12 +1925,17 @@ var mouseMoveHandler = function(e) {
   const newY = e.pageY;
   // make sure we move in an exact multiple of the pixel size
   //   in order to re-use previously cached pixels after the move
-  const diffX = infNumMul(createInfNum((mouseDragX - newX).toString()), windowCalc.eachPixUnits);
-  const diffY = infNumMul(createInfNum((mouseDragY - newY).toString()), windowCalc.eachPixUnits);
+  const pixDiffX = mouseDragX - newX;
+  const pixDiffY = mouseDragY - newY;
+  const diffX = infNumMul(infNum(BigInt(pixDiffX), 0n), windowCalc.eachPixUnits);
+  const diffY = infNumMul(infNum(BigInt(pixDiffY), 0n), windowCalc.eachPixUnits);
   historyParams.centerX = infNumAdd(historyParams.centerX, diffX);
   historyParams.centerY = infNumSub(historyParams.centerY, diffY);
   mouseDragX = newX;
   mouseDragY = newY;
+
+  previewImageOffsetX -= pixDiffX;
+  previewImageOffsetY -= pixDiffY;
 
   // if 2 or more fingers are touching, perform zoom
   if ("touches" in e && "1" in e.touches) {

@@ -940,7 +940,7 @@ function resetGoToCenterValues() {
   }
   inputGotoCenterX.value = infNumToFloat(historyParams.centerX);
   inputGotoCenterY.value = infNumToFloat(historyParams.centerY) + (imaginaryCoordinates ? "i" : "");
-  inputGotoScale.value = infNumToFloat(historyParams.scale);
+  inputGotoScale.value = infNumExpString(historyParams.scale);
 }
 
 function applyGoToBoundsValues() {

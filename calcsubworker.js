@@ -34,51 +34,44 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
   // e.chunkPrecision - precision to use for arbitrary-precision numbers
   // e.results -  [int,int,...] - array of integer "interations" values, one per point in the chunk
   // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean}
-//  const zero = InfNum(0n, 0n);
-//  let posX = createInfNumFromExpStr(e.chunkPos.x);
-//  let posY = createInfNumFromExpStr(e.chunkPos.y);
-//  let incX = createInfNumFromExpStr(e.chunkInc.x);
-//  let incY = createInfNumFromExpStr(e.chunkInc.y);
   ////////////////////////////////
-
-  //console.log("computing chunk with float? [" + chunk.useFloat + "]");
-  //console.log(chunk);
 
   let px = chunk.chunkPos.x;
   let py = chunk.chunkPos.y;
-  let incX = chunk.chunkInc.x;
+//  let incX = chunk.chunkInc.x;
   let incY = chunk.chunkInc.y;
 
   const computeFn = plotsByName[chunk.plot].computeBoundPointColor;
 
   // assume exactly one of x or y increments is zero
-  let moveX = true;
-  if (infNumEq(infNum(0n, 0n), chunk.chunkInc.x)) {
-    moveX = false;
-  }
-  if (moveX) {
-    let norm = normInfNum(px, incX);
-    px = norm[0];
-    incX = norm[1];
-  } else {
+//  let moveX = true;
+//  if (infNumEq(infNum(0n, 0n), chunk.chunkInc.x)) {
+//    moveX = false;
+//  }
+//  if (moveX) {
+//    let norm = normInfNum(px, incX);
+//    px = norm[0];
+//    incX = norm[1];
+//  } else {
     let norm = normInfNum(py, incY);
     py = norm[0];
     incY = norm[1];
-  }
+//  }
 
   // pre-allocate array so we don't have to use array.push()
   const results = new Array(chunk.chunkLen);
+  // if entire chunk is cached, we don't have to do anything
   if (cachedIndices.length < chunk.chunkLen) {
-    if (moveX) {
-      for (let i = 0; i < chunk.chunkLen; i++) {
-        if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
-        }
-        // since we want to start at the given starting position, increment
-        //   the position AFTER computing each result
-        px = infNumAddNorm(px, incX);
-      }
-    } else {
+//    if (moveX) {
+//      for (let i = 0; i < chunk.chunkLen; i++) {
+//        if (!binarySearchIncludesNumber(cachedIndices, i)) {
+//          results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
+//        }
+//        // since we want to start at the given starting position, increment
+//        //   the position AFTER computing each result
+//        px = infNumAddNorm(px, incX);
+//      }
+//    } else {
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
           results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
@@ -87,7 +80,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
         //   the position AFTER computing each result
         py = infNumAddNorm(py, incY);
       }
-    }
+//    }
   }
   chunk["results"] = results;
   chunk["plotId"] = plotId;

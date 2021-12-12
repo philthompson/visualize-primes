@@ -218,6 +218,14 @@ function changeWorkersCount() {
   }
 }
 
+function stopWorkers() {
+  // prevent any more updates from being drawn
+  windowCalc.plotId++;
+  if (windowCalc.worker !== null) {
+    windowCalc.worker.postMessage({"t": "stop", "v": 0});
+  }
+}
+
 function changeDirectionDegrees(dir, degrees) {
   var newDir = dir + degrees;
   while (newDir < 0) {
@@ -393,6 +401,7 @@ function indicateActivePlot() {
 }
 
 function start() {
+  stopWorkers();
   if (windowCalc.timeout != null) {
     window.clearTimeout(windowCalc.timeout);
   }
@@ -1189,7 +1198,7 @@ function kickoffWindowDrawLoop() {
     }
     windowCalc.worker.onmessage = calcWorkerOnmessage;
   } else {
-    windowCalc.worker.postMessage({"t": "cancel-calc", "v": ""});
+    windowCalc.worker.postMessage({"t": "stop", "v": 0});
   }
   const workerCalc = {};
   workerCalc["plot"] = windowCalc.plotName;
@@ -1797,6 +1806,9 @@ window.addEventListener("keydown", function(e) {
     }
     workersSelect.value = workersCount;
     changeWorkersCount();
+  } else if (e.key == "." || e.keyCode == 190) {
+    stopWorkers();
+    repaintOnly();
   } else if (e.keyCode == 49 || e.keyCode == 97 || e.key == "1") {
     activatePreset(presets[0]);
   } else if (e.keyCode == 50 || e.keyCode == 98 || e.key == "2") {

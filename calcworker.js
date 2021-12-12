@@ -44,7 +44,8 @@ const windowCalc = {
   "workers": null,
   "minWorkersCount": null,
   "maxWorkersCount": null,
-  "plotId": null
+  "plotId": null,
+  "stopped": true
 };
 
 self.onmessage = function(e) {
@@ -53,13 +54,11 @@ self.onmessage = function(e) {
     runCalc(e.data.v);
   } else if (e.data.t == "workers-count") {
     updateWorkerCount(e.data.v);
-  } else if (e.data.t == "cancel-calc") {
-    for (let i = 0; i < windowCalc.workers.length; i++) {
-      windowCalc.workers[i].terminate();
-    }
-    windowCalc.workers = [];
   } else if (e.data.t == "wipe-cache") {
     windowCalc.pointsCache = new Map();
+  } else if (e.data.t == "stop") {
+    windowCalc.stopped = true;
+    stopAndRemoveAllWorkers();
   }
 };
 
@@ -68,6 +67,7 @@ self.onmessage = function(e) {
 function runCalc(msg) {
   windowCalc.plotId = msg.plotId;
   windowCalc.plot = msg.plot;
+  windowCalc.stopped = false;
   windowCalc.eachPixUnits = msg.eachPixUnits;
   windowCalc.leftEdge = msg.leftEdge;
   windowCalc.rightEdge = msg.rightEdge;
@@ -102,6 +102,16 @@ function runCalc(msg) {
   }
   calculatePass();
 };
+
+function stopAndRemoveAllWorkers() {
+  if (windowCalc.workers === null) {
+    return;
+  }
+  for (let i = 0; i < windowCalc.workers.length; i++) {
+    windowCalc.workers[i].terminate();
+  }
+  windowCalc.workers = null;
+}
 
 function updateWorkerCount(msg) {
   windowCalc.workersCount = msg;
@@ -143,6 +153,9 @@ function removeWorkerIfNecessary(worker) {
 }
 
 var calculatePass = function() {
+  if (windowCalc.stopped) {
+    return;
+  }
   calculateWindowPassChunks();
   for (const worker of windowCalc.workers) {
     assignChunkToWorker(worker);
@@ -158,7 +171,7 @@ function buildChunkId(chunkPos) {
 
 // give next chunk, if any, to the worker
 var assignChunkToWorker = function(worker) {
-  if (windowCalc.xPixelChunks === null || windowCalc.xPixelChunks.length === 0) {
+  if (windowCalc.stopped || windowCalc.xPixelChunks === null || windowCalc.xPixelChunks.length === 0) {
     return;
   }
 
@@ -280,6 +293,11 @@ var onSubWorkerMessage = function(msg) {
 
   // remove this worker if the number of workers has now been reduced
   const wasWorkerRemoved = removeWorkerIfNecessary(worker);
+
+  // after removing worker, stop if we've been asked to stop
+  if (windowCalc.stopped) {
+    return;
+  }
 
   // let the subworker start working on next chunk while we combine
   //   its results with the cached values

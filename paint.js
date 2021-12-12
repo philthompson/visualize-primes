@@ -55,37 +55,37 @@ function warnAboutWorkers() {
 }
 
 const windowCalc = {
-  "timeout": null,
-  "plotName": "",
-  "stage": "",
-  "lineWidth": 0,
-  "xPixelChunks": [],
-  "resultPoints": [],
-  "pointsBounds": "",
-  "pointsCache": {},
-  "passTimeMs": 0,
-  "totalTimeMs": 0,
-  "startTimeMs": 0,
-  "endTimeMs": 0,
-  "totalPoints": 0,
-  "cachedPoints": 0,
-  "chunksComplete": 0,
-  "totalChunks": 0,
-  "eachPixUnits": infNum(1n, 0n),
-  "leftEdge": infNum(0n, 0n),
-  "topEdge": infNum(0n, 0n),
-  "rightEdge": infNum(0n, 0n),
-  "bottomEdge": infNum(0n, 0n),
-  "leftEdgeFloat": 0.0,
-  "topEdgeFloat": 0.0,
-  "n": 1,
-  "scale": infNum(1n, 0n),
-  "runtimeMs": -1,
-  "avgRuntimeMs": -1,
-  "worker": null,
-  "workersCountRange": "-",
-  "plotId": 0,
-  "pixelsImage": null
+  timeout: null,
+  plotName: "",
+  stage: "",
+  lineWidth: 0,
+  xPixelChunks: [],
+  resultPoints: [],
+  pointsBounds: "",
+  pointsCache: {},
+  passTimeMs: 0,
+  totalTimeMs: 0,
+  startTimeMs: 0,
+  endTimeMs: 0,
+  totalPoints: 0,
+  cachedPoints: 0,
+  chunksComplete: 0,
+  totalChunks: 0,
+  eachPixUnits: infNum(1n, 0n),
+  leftEdge: infNum(0n, 0n),
+  topEdge: infNum(0n, 0n),
+  rightEdge: infNum(0n, 0n),
+  bottomEdge: infNum(0n, 0n),
+  leftEdgeFloat: 0.0,
+  topEdgeFloat: 0.0,
+  n: 1,
+  scale: infNum(1n, 0n),
+  runtimeMs: -1,
+  avgRuntimeMs: -1,
+  worker: null,
+  workersCountRange: "-",
+  plotId: 0,
+  pixelsImage: null
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];
@@ -174,7 +174,6 @@ function calculateWindowPassChunks() {
 function computeBoundPointsChunk(xChunk) {
   var chunkStartMs = Date.now();
   const plot = plotsByName[historyParams.plot];
-  const privContext = plot.privContext;
   var resultPoints = [];
 
   // use lineWidth to determine how large to make the calculated/displayed
@@ -680,7 +679,7 @@ function replaceHistoryWithParams(params) {
   var paramsCopy = Object.assign({}, params);
   if ("significantDigits" in paramsCopy) {
     precision = paramsCopy.significantDigits;
-    delete paramsCopy["significantDigits"];
+    delete paramsCopy.significantDigits;
   }
   paramsCopy.scale = infNumExpStringTruncToLen(params.scale, precision);
   paramsCopy.centerX = infNumExpStringTruncToLen(params.centerX, precision);
@@ -758,7 +757,7 @@ function buildGradient(gradientString) {
         value = Math.min(255, Math.max(0, value)); // restrict to 0-255
         customRgbValues.push(value);
       }
-      colorsByName[customColorName] = customRgbValues
+      colorsByName[customColorName] = customRgbValues;
     } else {
       for (let j = 0; j < argNames.length; j++) {
         const argName = argNames[j];
@@ -837,7 +836,7 @@ function buildGradient(gradientString) {
   // 255   0    0
   //  0   255   0
   //  0    0   255
-  grad["orderedStops"] = [];
+  grad.orderedStops = [];
   // apply width arg by scaling all stops
   const totalWidth = "width" in args ? Math.min(1.0, (args.width / 100.0)) : 1.0;
   let prevStopRgb = null;
@@ -851,42 +850,42 @@ function buildGradient(gradientString) {
 
     if (prevStopRgb === null) {
       prevStopRgb = colorRgb;
-      stop["lower"] = 0.0;
+      stop.lower = 0.0;
       // if this is the first and last stop, set the upper pct, lower color, and zero range
       if (colors.length == i + 1) {
-        stop["upper"] = totalWidth;
-        stop["rLower"] = prevStopRgb[0];
-        stop["gLower"] = prevStopRgb[1];
-        stop["bLower"] = prevStopRgb[2];
-        stop["rRange"] = 0.0;
-        stop["gRange"] = 0.0;
-        stop["bRange"] = 0.0;
+        stop.upper = totalWidth;
+        stop.rLower = prevStopRgb[0];
+        stop.gLower = prevStopRgb[1];
+        stop.bLower = prevStopRgb[2];
+        stop.rRange = 0.0;
+        stop.gRange = 0.0;
+        stop.bRange = 0.0;
       // if this is the first but not last stop, set upper to zero
       } else {
-        stop["upper"] = 0.0;
+        stop.upper = 0.0;
       }
       grad.orderedStops.push(stop);
       continue;
     // if this is not the first stop, the lower is the previous stop's upper
     } else {
-      stop["lower"] = grad.orderedStops[grad.orderedStops.length-1].upper;
+      stop.lower = grad.orderedStops[grad.orderedStops.length-1].upper;
     }
-    stop["rLower"] = prevStopRgb[0];
-    stop["gLower"] = prevStopRgb[1];
-    stop["bLower"] = prevStopRgb[2];
+    stop.rLower = prevStopRgb[0];
+    stop.gLower = prevStopRgb[1];
+    stop.bLower = prevStopRgb[2];
 
     if (colors.length == i + 1) {
       //stop["upper"] = totalWidth;
-      stop["upper"] = 1.0;
+      stop.upper = 1.0;
     } else {
       // we cannot divide by zero because if there's only one stop, we've
       //   already called break above
-      stop["upper"] = stop.lower + ((1.0 / (colors.length - 1)) * totalWidth);
+      stop.upper = stop.lower + ((1.0 / (colors.length - 1)) * totalWidth);
     }
 
-    stop["rRange"] = colorRgb[0] - stop["rLower"];
-    stop["gRange"] = colorRgb[1] - stop["gLower"];
-    stop["bRange"] = colorRgb[2] - stop["bLower"];
+    stop.rRange = colorRgb[0] - stop.rLower;
+    stop.gRange = colorRgb[1] - stop.gLower;
+    stop.bRange = colorRgb[2] - stop.bLower;
 
     prevStopRgb = colorRgb;
     grad.orderedStops.push(stop);
@@ -1446,21 +1445,21 @@ function kickoffWindowWorker() {
     windowCalc.worker.postMessage({"t": "stop", "v": 0});
   }
   const workerCalc = {};
-  workerCalc["plot"] = windowCalc.plotName;
-  workerCalc["eachPixUnits"] = windowCalc.eachPixUnits;
-  workerCalc["leftEdge"] = windowCalc.leftEdge;
-  workerCalc["rightEdge"] = windowCalc.rightEdge;
-  workerCalc["topEdge"] = windowCalc.topEdge;
-  workerCalc["bottomEdge"] = windowCalc.bottomEdge;
-  workerCalc["n"] = windowCalc.n;
-  workerCalc["precision"] = precision;
-  workerCalc["mandelbrotFloat"] = mandelbrotFloat;
-  workerCalc["startWidth"] = mandelbrotFloat ? 32 : 128;
-  workerCalc["finalWidth"] = Math.round(historyParams.lineWidth);
-  workerCalc["canvasWidth"] = dContext.canvas.width;
-  workerCalc["canvasHeight"] = dContext.canvas.height;
-  workerCalc["workers"] = workersCount;
-  workerCalc["plotId"] = windowCalc.plotId;
+  workerCalc.plot = windowCalc.plotName;
+  workerCalc.eachPixUnits = windowCalc.eachPixUnits;
+  workerCalc.leftEdge = windowCalc.leftEdge;
+  workerCalc.rightEdge = windowCalc.rightEdge;
+  workerCalc.topEdge = windowCalc.topEdge;
+  workerCalc.bottomEdge = windowCalc.bottomEdge;
+  workerCalc.n = windowCalc.n;
+  workerCalc.precision = precision;
+  workerCalc.mandelbrotFloat = mandelbrotFloat;
+  workerCalc.startWidth = mandelbrotFloat ? 32 : 128;
+  workerCalc.finalWidth = Math.round(historyParams.lineWidth);
+  workerCalc.canvasWidth = dContext.canvas.width;
+  workerCalc.canvasHeight = dContext.canvas.height;
+  workerCalc.workers = workersCount;
+  workerCalc.plotId = windowCalc.plotId;
 
   windowCalc.worker.postMessage({"t": "worker-calc", "v": workerCalc});
 }

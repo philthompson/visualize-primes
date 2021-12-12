@@ -11,6 +11,8 @@ var mouseDragY = 0;
 var pinch = false;
 var pinchStartDist = 0;
 var showMousePosition = false;
+var mouseNoticePosX = infNum(0n, 0n);
+var mouseNoticePosY = infNum(0n, 0n);
 var shiftPressed = false;
 var commandPressed = false;
 
@@ -1076,6 +1078,9 @@ var calcWorkerOnmessage = function(e) {
   }
   // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean, workersCount: string, workersNow: int}
   drawWorkerColorPoints(e);
+  if (showMousePosition) {
+    redrawMousePosNotice();
+  }
   windowCalc.workersCountRange = e.data.calcStatus.workersCount;
   const percentComplete = Math.round(e.data.calcStatus.chunksComplete * 100.0 / e.data.calcStatus.chunks);
   if (percentComplete < 100) {
@@ -1509,19 +1514,57 @@ function drawStartingPassNotice() {
   ctx.fillText("Starting next pass ...", Math.round(noticeHeight*0.2), dCanvas.height - Math.round(noticeHeight* 0.2));
 }
 
+function redrawMousePosNotice() {
+  drawMousePosNotice(mouseNoticePosX, mouseNoticePosY);
+}
+
 function drawMousePosNotice(x, y) {
+  mouseNoticePosX = x;
+  mouseNoticePosY = y;
   const canvas = dCanvas;
   const ctx = dContext;
-  ctx.fillStyle = "rgba(100,100,100,1.0)";
-  const noticeHeight = Math.max(24, canvas.height * 0.03);
+  const noticeHeight = Math.max(16, canvas.height * 0.03);
   const textHeight = Math.round(noticeHeight * 0.6);
   const noticeWidth = Math.max(200, textHeight * 18);
-  ctx.fillRect(0,canvas.height-noticeHeight-noticeHeight,noticeWidth, noticeHeight);
-  ctx.font = textHeight + "px system-ui";
-  ctx.fillStyle = "rgba(0,0,0,0.9)";
-  let xRound = Math.round(x * 100.0) / 100.0;
-  let yRound = Math.round(y * 100.0) / 100.0;
-  ctx.fillText("(" + xRound + ", " + yRound + ")", Math.round(noticeHeight*0.2), canvas.height - noticeHeight - Math.round(noticeHeight* 0.2));
+  const lines = [];
+  const lineValLengthLimit = 22;
+  let imaginaryCoordinates = false;
+  if ("usesImaginaryCoordinates" in plotsByName[historyParams.plot].privContext) {
+    imaginaryCoordinates = plotsByName[historyParams.plot].privContext.usesImaginaryCoordinates;
+  }
+  let usingFloat = true;
+  if (historyParams.plot.startsWith("Mandelbrot") && !mandelbrotFloat) {
+    usingFloat = false;
+  }
+  let xVal = null;
+  let yVal = null;
+  if (usingFloat) {
+    xVal = infNumToFloat(x).toString();
+    yVal = infNumToFloat(y).toString();
+  } else {
+    xVal = infNumToString(infNumTruncateToLen(x, precision));
+    yVal = infNumToString(infNumTruncateToLen(y, precision));
+  }
+  let entries = [
+    ["x", xVal],
+    ["y", yVal + (imaginaryCoordinates ? "i" : "")]
+  ];
+  for (let i = 0; i < entries.length; i++) {
+    const entryLabel = entries[i][0];
+    let entryValue = entries[i][1];
+    lines.push(entryLabel + ": " + entryValue.substring(0,lineValLengthLimit));
+    while (entryValue.length > lineValLengthLimit) {
+      entryValue = entryValue.substring(lineValLengthLimit);
+      lines.push("   " + entryValue.substring(0,lineValLengthLimit));
+    }
+  }
+  ctx.font = textHeight + "px monospace";
+  for (let i = lines.length - 1, j = 0; i >= 0; i--, j++) {
+    ctx.fillStyle = "rgba(100,100,100,1.0)";
+    ctx.fillRect(0, canvas.height - (noticeHeight * (j+2)), noticeWidth, noticeHeight);
+    ctx.fillStyle = "rgba(0,0,0,0.9)";
+    ctx.fillText(lines[i], Math.round(noticeHeight*0.2), canvas.height - (noticeHeight * (j+1)) - Math.round(noticeHeight* 0.2));
+  }
 }
 
 function drawImageParameters() {
@@ -1931,7 +1974,7 @@ var mouseMoveHandler = function(e) {
       // these do work, using pre-computed left/top edges
       let posX = infNumAdd(infNumDiv(pixX, historyParams.scale), windowCalc.leftEdge);
       let posY = infNumSub(windowCalc.topEdge, infNumDiv(pixY, historyParams.scale));
-      drawMousePosNotice(infNumToFloat(posX), infNumToFloat(posY));
+      drawMousePosNotice(posX, posY);
     }
     return;
   }

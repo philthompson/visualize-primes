@@ -1193,11 +1193,11 @@ function kickoffWindowDrawLoop() {
   }
   const workerCalc = {};
   workerCalc["plot"] = windowCalc.plotName;
-  workerCalc["eachPixUnits"] = infNumExpString(windowCalc.eachPixUnits);
-  workerCalc["leftEdge"] = infNumExpString(windowCalc.leftEdge);
-  workerCalc["rightEdge"] = infNumExpString(windowCalc.rightEdge);
-  workerCalc["topEdge"] = infNumExpString(windowCalc.topEdge);
-  workerCalc["bottomEdge"] = infNumExpString(windowCalc.bottomEdge);
+  workerCalc["eachPixUnits"] = windowCalc.eachPixUnits;
+  workerCalc["leftEdge"] = windowCalc.leftEdge;
+  workerCalc["rightEdge"] = windowCalc.rightEdge;
+  workerCalc["topEdge"] = windowCalc.topEdge;
+  workerCalc["bottomEdge"] = windowCalc.bottomEdge;
   workerCalc["n"] = windowCalc.n;
   workerCalc["precision"] = precision;
   workerCalc["mandelbrotFloat"] = mandelbrotFloat;

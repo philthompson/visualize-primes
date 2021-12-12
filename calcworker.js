@@ -68,11 +68,11 @@ self.onmessage = function(e) {
 function runCalc(msg) {
   windowCalc.plotId = msg.plotId;
   windowCalc.plot = msg.plot;
-  windowCalc.eachPixUnits = createInfNumFromExpStr(msg.eachPixUnits);
-  windowCalc.leftEdge = createInfNumFromExpStr(msg.leftEdge);
-  windowCalc.rightEdge = createInfNumFromExpStr(msg.rightEdge);
-  windowCalc.topEdge = createInfNumFromExpStr(msg.topEdge);
-  windowCalc.bottomEdge = createInfNumFromExpStr(msg.bottomEdge);
+  windowCalc.eachPixUnits = msg.eachPixUnits;
+  windowCalc.leftEdge = msg.leftEdge;
+  windowCalc.rightEdge = msg.rightEdge;
+  windowCalc.topEdge = msg.topEdge;
+  windowCalc.bottomEdge = msg.bottomEdge;
   windowCalc.n = msg.n;
   windowCalc.precision = msg.precision;
   windowCalc.mandelbrotFloat = msg.mandelbrotFloat;

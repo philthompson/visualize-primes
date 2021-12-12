@@ -79,7 +79,7 @@ function runCalc(msg) {
   // the main thread does its own 64-wide pixels synchronously,
   //   so the worker threads should start at 32-wide (set to 64
   //   here so that after dividing by two initially we are at 32)
-  windowCalc.lineWidth = 64;
+  windowCalc.lineWidth = msg.startWidth * 2;
   windowCalc.finalWidth = msg.finalWidth;
   windowCalc.chunksComplete = 0;
   windowCalc.canvasWidth = msg.canvasWidth;

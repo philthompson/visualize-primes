@@ -1175,10 +1175,12 @@ function calculateAndDrawWindowSync(pixelSize) {
 }
 
 function calculateAndDrawWindow() {
-  // since we are just starting a new image, calculate and draw the first
-  //   pass synchronously, so that as the user drags a mouse/finger, or
-  //   zooms, the canvas is updated as rapidly as possible
-  calculateAndDrawWindowSync(64);
+  if (mandelbrotFloat) {
+    // since we are just starting a new image, calculate and draw the first
+    //   pass synchronously, so that as the user drags a mouse/finger, or
+    //   zooms, the canvas is updated as rapidly as possible
+    calculateAndDrawWindowSync(64);
+  }
 
   if (windowCalc.timeout != null) {
     window.clearTimeout(windowCalc.timeout);
@@ -1210,6 +1212,7 @@ function kickoffWindowDrawLoop() {
   workerCalc["n"] = windowCalc.n;
   workerCalc["precision"] = precision;
   workerCalc["mandelbrotFloat"] = mandelbrotFloat;
+  workerCalc["startWidth"] = mandelbrotFloat ? 32 : 128;
   workerCalc["finalWidth"] = Math.round(historyParams.lineWidth);
   workerCalc["canvasWidth"] = dContext.canvas.width;
   workerCalc["canvasHeight"] = dContext.canvas.height;

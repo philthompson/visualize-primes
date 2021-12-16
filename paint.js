@@ -543,7 +543,6 @@ function parseUrlParams() {
     if (urlParams.has("gradient")) {
       params.gradient = urlParams.get("gradient");
     }
-    buildGradient(params.gradient);
     if (urlParams.has('bgColor')) {
       const color = urlParams.get('bgColor');
       if (color in bgColorSchemes) {
@@ -565,6 +564,7 @@ function parseUrlParams() {
       } catch (e) {}
     }
   }
+  buildGradient(params.gradient);
   console.log(params);
 
   historyParams = params;

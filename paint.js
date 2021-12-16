@@ -487,11 +487,11 @@ function parseUrlParams() {
     "plot": "Mandelbrot-set",
     "v": 4,
     "lineWidth": 1,
-    "n": 40,
+    "n": 60,
     "scale": infNum(400n, 0n),
     "centerX": createInfNum("-0.65"),
     "centerY": infNum(0n, 0n),
-    "gradient": "rbgyo",
+    "gradient": "Bbgoyw",
     "bgColor": "b"
   };
 

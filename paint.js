@@ -11,6 +11,7 @@ var mouseDragY = 0;
 var pinch = false;
 var pinchStartDist = 0;
 var showMousePosition = false;
+var annotateClickPosition = true;
 var mouseNoticePosX = infNum(0n, 0n);
 var mouseNoticePosY = infNum(0n, 0n);
 var shiftPressed = false;
@@ -421,23 +422,23 @@ function changeDirectionDegrees(dir, degrees) {
 }
 
 // 0 degrees is 3 o'clock
-function computeNextPointDegrees(dir, n, x, y) {
+function computeNextPointDegrees(dir, n, x, y, v = {none: ""}) {
   if (dir == 0) {
-    return getPoint(x + n, y);
+    return getPoint(x + n, y, v);
   } else if (dir == 45) {
-    return getPoint(x + n, y + n);
+    return getPoint(x + n, y + n, v);
   } else if (dir == 90) {
-    return getPoint(x, y + n);
+    return getPoint(x, y + n, v);
   } else if (dir == 135) {
-    return getPoint(x - n, y + n);
+    return getPoint(x - n, y + n, v);
   } else if (dir == 180) {
-    return getPoint(x - n, y);
+    return getPoint(x - n, y, v);
   } else if (dir == 225) {
-    return getPoint(x - n, y - n);
+    return getPoint(x - n, y - n, v);
   } else if (dir == 270) {
-    return getPoint(x, y - n);
+    return getPoint(x, y - n, v);
   }
-  return getPoint(x + n, y - n); // 315
+  return getPoint(x + n, y - n, v); // 315
 }
 
 // in my testing, just adding the sqrt as the iteration boundary
@@ -458,16 +459,16 @@ function isPrime(n) {
   return true;
 }
 
-function getPoint(x, y) {
-  return {"x": x, "y": y};
+function getPoint(x, y, v = {none: ""}) {
+  return {x: x, y: y, v: v};
 }
 
 function getColor(r, g, b) {
-  return {"r": r, "g": g, "b": b};
+  return {r: r, g: g, b: b};
 }
 
 function getColorPoint(x, y, color) {
-  return {"x": x, "y": y, "c": color};
+  return {x: x, y: y, c: color};
 }
 
 function parseUrlParams() {
@@ -1809,6 +1810,65 @@ function drawImageParameters() {
   }
 }
 
+function drawSequencePointsData(infoPoints, mouseX, mouseY) {
+  const canvas = dCanvas;
+  const ctx = dContext;
+  // for now, put this info toward the top left of screen
+  //   (will be centered on phone screens)
+  const noticeOffsetLeft = canvas.width * 0.25;
+  const noticeHeight = Math.max(16, canvas.height * 0.03);
+  const textHeight = Math.round(noticeHeight * 0.6);
+  const noticeWidth = Math.max(200, textHeight * 18);
+  const lines = [];
+  const lineValLengthLimit = 19;
+
+  let firstEntry = true;
+  let entries = [];
+  for (let i = 0; i < infoPoints.length; i++) {
+    if (firstEntry) {
+      let coords = "(" + infoPoints[i].x + "," + infoPoints[i].y + ")";
+      entries.push([coords, ""]);
+      firstEntry = false;
+    }
+    //let spaces = new Array(coords.length).fill(" ").join("");
+    //let firstKey = true;
+    for (let key in infoPoints[i].v) {
+      entries.push(["  " + key, infoPoints[i].v[key].toString()]);
+      //firstKey = false;
+    }
+  }
+  for (let i = 0; i < entries.length; i++) {
+    const entryLabel = entries[i][0];
+    const entryValLengthLimit = lineValLengthLimit - entryLabel.length;
+    let entryValue = entries[i][1];
+    lines.push(entryLabel + ": " + entryValue.substring(0,entryValLengthLimit));
+    while (entryValue.length > entryValLengthLimit) {
+      entryValue = entryValue.substring(entryValLengthLimit);
+      lines.push(new Array(entryLabel.length+2).fill(" ").join("") + entryValue.substring(0,entryValLengthLimit));
+    }
+  }
+  ctx.font = textHeight + "px monospace";
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillStyle = "rgba(100,100,100,1.0)";
+    ctx.fillRect(noticeOffsetLeft, (noticeHeight * (i)), noticeWidth, noticeHeight);
+    ctx.fillStyle = "rgba(0,0,0,0.9)";
+    ctx.fillText(lines[i], noticeOffsetLeft + Math.round(noticeHeight*0.2), (noticeHeight * (i+1)) - Math.round(noticeHeight* 0.2));
+  }
+  ctx.beginPath();
+  const scale = infNumToFloat(historyParams.scale);
+  const circleX = (infoPoints[0].x - windowCalc.leftEdgeFloat) * scale;
+  const circleY = (windowCalc.topEdgeFloat - infoPoints[0].y) * scale;
+  ctx.lineWidth = 4.0;
+  ctx.strokeStyle = "rgb(25,25,25)";
+  ctx.arc(circleX, circleY, 20, 0, 2 * Math.PI, false);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.lineWidth = 2.0;
+  ctx.strokeStyle = "rgb(230,230,230)";
+  ctx.arc(circleX, circleY, 20, 0, 2 * Math.PI, false);
+  ctx.stroke();
+}
+
 // take the visible number of pixels
 // pan the given percent of pixels
 function panPercentOfPixels(isHorizontal, nPercent) {
@@ -1865,6 +1925,88 @@ function sanityCheckLineWidth(w, circular, plot) {
     }
   }
   return w;
+}
+
+function convertPixelPosToPlanePos(x, y) {
+  let pixX = infNum(BigInt(x), 0n);
+  let pixY = infNum(BigInt(y), 0n);
+  // this all works, to re-compute left/top edges here
+  //const canvasWidth = createInfNum(dCanvas.width.toString());
+  //const canvasHeight = createInfNum(dCanvas.height.toString());
+  //const leftEdge = infNumSub(historyParams.centerX, infNumDiv(infNumDiv(canvasWidth, two), historyParams.scale));
+  //const topEdge = infNumSub(historyParams.centerY, infNumDiv(infNumDiv(canvasHeight, two), historyParams.scale));
+  //const posX = infNumAdd(infNumDiv(pixX, historyParams.scale), leftEdge);
+  //const posY = infNumAdd(infNumDiv(pixY, historyParams.scale), topEdge);
+  // these do work, using pre-computed left/top edges
+  let posX = infNumAdd(infNumDiv(pixX, historyParams.scale), windowCalc.leftEdge);
+  let posY = infNumSub(windowCalc.topEdge, infNumDiv(pixY, historyParams.scale));
+  return {x: posX, y:posY};
+}
+
+function findClosestSequencePoints(x, y) {
+  if (points === null || points.length === 0) {
+    return [];
+  }
+  let closestPoint = points[0];
+  let closestPoints = [closestPoint];
+  // if the first point's data "v"alue property has a "none" as a key, it
+  //   is explicitly non-selectable/annotatable so we'll skip it 
+  if (points.length > 1 && closestPoint.v.hasOwnProperty("none")) {
+    closestPoint = points[1];
+    closestPoints = [closestPoint];
+  }
+  // since we're comparing hypotenuses of right triangles, we don't actually
+  //   need to take the square roots (don't use Math.hypot())
+  let closestPointDist = Math.pow(closestPoint.x - x, 2) + Math.pow(closestPoint.y - y, 2);
+  let pointDist = null;
+  for (let i = 2; i < points.length; i++) {
+    // square the x distance (for most points, we can skip squaring the y entirely)
+    pointDist = Math.pow(points[i].x-x, 2);
+    // if the x distance squared is small, add the y distance squared
+    if (pointDist <= closestPointDist) {
+      pointDist += Math.pow(points[i].y - y, 2);
+      // if the point's data "v"alue property has a "none" as a key, it
+      //   is explicitly non-selectable/annotatable so we'll skip it 
+      if (points[i].v.hasOwnProperty("none")) {
+        continue;
+      }
+      if (pointDist < closestPointDist) {
+        closestPoint = points[i];
+        closestPoints = [closestPoint];
+        closestPointDist = pointDist;
+      } else if (pointDist === closestPointDist) {
+        closestPoints.push(points[i]);
+      }
+    }
+  }
+  // allow clicks relatively far away from all points to return none at all
+  if (closestPointDist > Math.pow((dCanvas.width / infNumToFloat(historyParams.scale)) * 0.07, 2)) {
+    closestPoints = [];
+  } else if (closestPoints[0].v.hasOwnProperty("none")) {
+    closestPoints.shift();
+  }
+  return closestPoints;
+}
+
+function drawAnnotationAtPixelPosition(x, y) {
+  if (plotsByName[historyParams.plot].calcFrom == "sequence") {
+    let pos = convertPixelPosToPlanePos(x, y);
+    // for non-window plots, we should always be able to use floating point math
+    const posXFloat = infNumToFloat(pos.x);
+    const posYFloat = infNumToFloat(pos.y);
+    const closestPoints = findClosestSequencePoints(posXFloat, posYFloat);
+    // since we know the plot is a sequence, we can force a re-draw
+    //   here without calling a full "redraw()"
+    // even if we have no closestPoints, we still want to re-draw
+    //   because we might be clearing away an old annotation
+    drawPoints(historyParams);
+    if (closestPoints.length === 0) {
+      return;
+    }
+    drawSequencePointsData(closestPoints, x, y);
+  } else {
+    // we may want to annotate each pixel in window plots as well
+  }
 }
 
 window.addEventListener("keyup", function(e) {
@@ -2160,20 +2302,8 @@ var mouseMoveHandler = function(e) {
   e.preventDefault();
   if (!mouseDrag) {
     if (showMousePosition) {
-      //const two = infNum(2n, 0n);
-      let pixX = createInfNum(e.pageX.toString());
-      let pixY = createInfNum(e.pageY.toString());
-      // this all works, to re-compute left/top edges here
-      //const canvasWidth = createInfNum(dCanvas.width.toString());
-      //const canvasHeight = createInfNum(dCanvas.height.toString());
-      //const leftEdge = infNumSub(historyParams.centerX, infNumDiv(infNumDiv(canvasWidth, two), historyParams.scale));
-      //const topEdge = infNumSub(historyParams.centerY, infNumDiv(infNumDiv(canvasHeight, two), historyParams.scale));
-      //const posX = infNumAdd(infNumDiv(pixX, historyParams.scale), leftEdge);
-      //const posY = infNumAdd(infNumDiv(pixY, historyParams.scale), topEdge);
-      // these do work, using pre-computed left/top edges
-      let posX = infNumAdd(infNumDiv(pixX, historyParams.scale), windowCalc.leftEdge);
-      let posY = infNumSub(windowCalc.topEdge, infNumDiv(pixY, historyParams.scale));
-      drawMousePosNotice(posX, posY);
+      let pos = convertPixelPosToPlanePos(e.pageX, e.pageY);
+      drawMousePosNotice(pos.x, pos.y);
     }
     return;
   }
@@ -2255,6 +2385,9 @@ var mouseUpHandler = function(e) {
   // apparently pinch zoom gestures don't really use touchend event, but it's
   //   a good time to end a pinch gesture
   pinch = false;
+  if (annotateClickPosition) {
+    drawAnnotationAtPixelPosition(e.pageX, e.pageY);
+  }
 };
 dCanvas.addEventListener("mouseup", mouseUpHandler);
 dCanvas.addEventListener("touchend", mouseUpHandler);

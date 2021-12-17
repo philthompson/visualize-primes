@@ -263,21 +263,26 @@ const plots = [{
     }
     const params = historyParams;
 
+    resultPoints.push(getPoint(0.0, 0.0));
     var nextPoint = getPoint(0.0, 0.0);
     privContext.direction = 0;
 
-    for (var i = 1.0; i < params.n; i+=1.0) {
+    for (var i = 1; i < params.n; i++) {
       if (isPrime(i)) {
         //console.log(i + " is prime");
         // only add points right before we change direction, and once at the end
+        nextPoint.v = {prime: i.toLocaleString()};
         resultPoints.push(nextPoint);
         privContext.direction = privContext.changeDirection(privContext.direction);
       }
       // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y, {last: (i+1).toLocaleString()});
       resultLength += 1;
     }
-    // add the last point
+    // add the last point (if the last point is a prime, rename it "prime")
+    if (isPrime(parseInt(nextPoint.v.last))) {
+      nextPoint.v = {prime: nextPoint.v.last};
+    }
     resultPoints.push(nextPoint);
     return {
       "points": resultPoints,
@@ -298,8 +303,8 @@ const plots = [{
     "changeDirection": function(dir) {
       return changeDirectionDegrees(dir, 90);
     },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, 1, x, y);
+    "computeNextPoint": function(dir, n, x, y, v) {
+      return computeNextPointDegrees(dir, 1, x, y, v);
     }
   }
 },{
@@ -319,21 +324,26 @@ const plots = [{
     }
     const params = historyParams;
 
+    resultPoints.push(getPoint(0.0, 0.0));
     var nextPoint = getPoint(0.0, 0.0);
     privContext.direction = 315;
 
-    for (var i = 1.0; i < params.n; i+=1.0) {
+    for (var i = 1; i < params.n; i++) {
       if (isPrime(i)) {
         //console.log(i + " is prime");
         // only add points right before we change direction, and once at the end
+        nextPoint.v = {prime: i.toLocaleString()};
         resultPoints.push(nextPoint);
         privContext.direction = privContext.changeDirection(privContext.direction);
       }
       // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y, {last: (i+1).toLocaleString()});
       resultLength += 1;
     }
-    // add the last point
+    // add the last point (if the last point is a prime, rename it "prime")
+    if (isPrime(parseInt(nextPoint.v.last))) {
+      nextPoint.v = {prime: nextPoint.v.last};
+    }
     resultPoints.push(nextPoint);
     return {
       "points": resultPoints,
@@ -354,8 +364,8 @@ const plots = [{
     "changeDirection": function(dir) {
       return changeDirectionDegrees(dir, 45);
     },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, 1, x, y);
+    "computeNextPoint": function(dir, n, x, y, v) {
+      return computeNextPointDegrees(dir, 1, x, y, v);
     }
   }
 },{
@@ -383,10 +393,13 @@ const plots = [{
         privContext.direction = privContext.changeDirection(privContext.direction);
       }
       // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y, {square: (i+1).toLocaleString()});
       resultLength += 1;
     }
-    // add the last point
+    // add the last point (if the last point is not a square, rename it "last")
+    if (!privContext.isSquare(parseInt(nextPoint.v.square))) {
+      nextPoint.v = {last: nextPoint.v.square};
+    }
     resultPoints.push(nextPoint);
     return {
       "points": resultPoints,
@@ -407,8 +420,8 @@ const plots = [{
     "changeDirection": function(dir) {
       return changeDirectionDegrees(dir, 90);
     },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, 1, x, y);
+    "computeNextPoint": function(dir, n, x, y, v) {
+      return computeNextPointDegrees(dir, 1, x, y, v);
     },
     "isSquare": function(n) {
       const sqrt = Math.sqrt(n);
@@ -443,10 +456,13 @@ const plots = [{
         privContext.direction = privContext.changeDirection(privContext.direction);
       }
       // find the next point according to direction and current location
-      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y);
+      nextPoint = privContext.computeNextPoint(privContext.direction, i, nextPoint.x, nextPoint.y, {square: (i+1).toLocaleString()});
       resultLength += privContext.direction % 90 == 0 ? 1 : diagHypot;
     }
-    // add the last point
+    // add the last point (if the last point is not a square, rename it "last")
+    if (!privContext.isSquare(parseInt(nextPoint.v.square))) {
+      nextPoint.v = {last: nextPoint.v.square};
+    }
     resultPoints.push(nextPoint);
     return {
       "points": resultPoints,
@@ -467,8 +483,8 @@ const plots = [{
     "changeDirection": function(dir) {
       return changeDirectionDegrees(dir, 45);
     },
-    "computeNextPoint": function(dir, n, x, y) {
-      return computeNextPointDegrees(dir, 1, x, y);
+    "computeNextPoint": function(dir, n, x, y, v) {
+      return computeNextPointDegrees(dir, 1, x, y, v);
     },
     "isSquare": function(n) {
       const sqrt = Math.sqrt(n);
@@ -531,7 +547,7 @@ const plots = [{
         } else if (digitsSumMod4 == 2) {
           thisY = thisY * -1;
         }
-        const nextPoint = getPoint(parseFloat(lastX), parseFloat(thisY));
+        const nextPoint = getPoint(parseFloat(lastX), parseFloat(thisY), {prime: i.toLocaleString()});
         resultLength += Math.hypot(nextPoint.x - lastPoint.x, nextPoint.y - lastPoint.y);
         resultPoints.push(nextPoint);
         //console.log("point [" + i + "]: (" + nextPoint.x + ", " + nextPoint.y + ")");

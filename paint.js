@@ -606,6 +606,8 @@ function start() {
 
   // run the selected plot
   const plot = plotsByName[params.plot];
+  document.title = "Very Plotter - " + plot.pageTitle;
+
   if (plot.calcFrom == "sequence") {
     // if viewing a sequence plot, ensure there's no window
     //   worker left running

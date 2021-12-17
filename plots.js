@@ -10,6 +10,7 @@ if (typeof importScripts === 'function') {
 //   it needs to compute points
 const plots = [{
   "name": "Mandelbrot-set",
+  "pageTitle": "Mandelbrot set",
   "calcFrom": "window",
   "desc": "The Mandelbrot set is the set of complex numbers, that when repeatedly plugged into the following " +
     "simple function, does <i>not</i> run away to infinity.  The function is z<sub>n+1</sub> = z<sub>n</sub><sup>2</sup> + c.<br/>" +
@@ -250,6 +251,7 @@ const plots = [{
   }
 },{
   "name": "Primes-1-Step-90-turn",
+  "pageTitle": "Primes",
   "calcFrom": "sequence",
   "desc": "Move 1 step forward per integer, but for primes, turn 90 degrees clockwise before moving.",
   "computePointsAndLength": function(privContext) {
@@ -309,6 +311,7 @@ const plots = [{
   }
 },{
   "name": "Primes-1-Step-45-turn",
+  "pageTitle": "Primes",
   "calcFrom": "sequence",
   "desc": "Move 1 step forward per integer, but for primes, turn 45 degrees clockwise before moving.  " +
           "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
@@ -370,6 +373,7 @@ const plots = [{
   }
 },{
   "name": "Squares-1-Step-90-turn",
+  "pageTitle": "Squares",
   "calcFrom": "sequence",
   "desc": "Move 1 step forward per integer, but for perfect squares, turn 90 degrees clockwise before moving.",
   "computePointsAndLength": function(privContext) {
@@ -430,6 +434,7 @@ const plots = [{
   }
 },{
   "name": "Squares-1-Step-45-turn",
+  "pageTitle": "Squares",
   "calcFrom": "sequence",
   "desc": "Move 1 step forward per integer, but for perfect squares, turn 45 degrees clockwise before moving.  " +
           "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
@@ -493,6 +498,7 @@ const plots = [{
   }
 },{
   "name": "Primes-X-Y-neg-mod-3",
+  "pageTitle": "Primes",
   "calcFrom": "sequence",
   "desc": "Where each plotted point <code>(x,y)</code> consists of the primes, in order.  " +
           "Those points are (2,3), (5,7), (11,13), and so on.<br/><br/>" +
@@ -571,6 +577,7 @@ const plots = [{
   }
 },{
   "name": "Trapped-Knight",
+  "pageTitle": "Trapped Knight",
   "calcFrom": "sequence",
   "desc": "On a chessboard, where the squares are numbered in a spiral, " +
           "find the squares a knight can jump to in sequence where the " +

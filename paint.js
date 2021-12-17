@@ -1904,17 +1904,18 @@ function sanityCheckLineWidth(w, circular, plot) {
   // window plots use lineWidth to determine how many pixels to
   //  display for each calculated pixel, so allow larger values
   //  for that
-  if (w < 0.5) {
-    return 0.5;
-  }
   if (plot.calcFrom == "window") {
-    if (w > 64.0) {
+    let newW = Math.round(w);
+    if (newW > 64) {
       if (circular) {
-        return 0.5;
+        return 1;
       } else {
-        return 64.0;
+        return 64;
       }
+    } else if (newW < 1) {
+      return 1;
     }
+    return newW;
   } else {
     if (w > 20.0) {
       if (circular) {
@@ -1922,9 +1923,11 @@ function sanityCheckLineWidth(w, circular, plot) {
       } else {
         return 20.0;
       }
+    } else if (w < 0.5) {
+      return 0.5;
     }
+    return w;
   }
-  return w;
 }
 
 function convertPixelPosToPlanePos(x, y) {
@@ -2174,18 +2177,12 @@ window.addEventListener("keydown", function(e) {
     parseUrlParams();
     start();
   } else if (e.keyCode == 90 || e.key == "z" || e.key == "Z") {
-    // use Math.round() instead of parseInt() because, for example:
-    //   parseInt(0.29 * 100.0)   --> 28
-    //   Math.round(0.29 * 100.0) --> 29
-    let valPct = Math.round(historyParams.lineWidth * 100.0);
-    valPct += 50;
-    historyParams.lineWidth = parseFloat(valPct / 100.0);
-
-    historyParams.lineWidth = sanityCheckLineWidth(historyParams.lineWidth, true, plotsByName[historyParams.plot]);
     if (plotsByName[historyParams.plot].calcFrom == "window") {
+      historyParams.lineWidth = sanityCheckLineWidth(historyParams.lineWidth + 1, true, plotsByName[historyParams.plot]);
       // changing the lineWidth for a window plot means we need to re-calculate
       start();
     } else {
+      historyParams.lineWidth = sanityCheckLineWidth(historyParams.lineWidth + 0.5, true, plotsByName[historyParams.plot]);
       redraw();
     }
   } else if (e.keyCode == 72 || e.key == "h" || e.key == "H") {

@@ -1445,6 +1445,12 @@ function kickoffWindowWorker() {
   } else {
     windowCalc.worker.postMessage({"t": "stop", "v": 0});
   }
+  // since the linewidth is divided by 2 on each pass, start with a multiple
+  //   of a power of 2.  this way, we end up at the desired pixel size ("line width")
+  let startLineWidth = mandelbrotFloat ? Math.round(historyParams.lineWidth) * 32 : Math.round(historyParams.lineWidth) * 128;
+  while (startLineWidth > 300) {
+    startLineWidth /= 2;
+  }
   const workerCalc = {};
   workerCalc.plot = windowCalc.plotName;
   workerCalc.eachPixUnits = windowCalc.eachPixUnits;
@@ -1455,7 +1461,7 @@ function kickoffWindowWorker() {
   workerCalc.n = windowCalc.n;
   workerCalc.precision = precision;
   workerCalc.mandelbrotFloat = mandelbrotFloat;
-  workerCalc.startWidth = mandelbrotFloat ? 32 : 128;
+  workerCalc.startWidth = startLineWidth;
   workerCalc.finalWidth = Math.round(historyParams.lineWidth);
   workerCalc.canvasWidth = dContext.canvas.width;
   workerCalc.canvasHeight = dContext.canvas.height;

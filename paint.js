@@ -706,7 +706,15 @@ var pushToHistory = function() {
   historyTimeout = null;
 };
 
-const lineColorSchemes = [
+const windowPlotGradients = [
+  "Bbgoyw",
+  "Bpow-repeat2",
+  "Bw-repeat3",
+  "GBPw-P~250.34.188-G~73.106.3-repeat2",
+  "TGw-G~250.210.22-T~0.255.195-repeat3"
+];
+
+const sequencePlotGradients = [
   "rby", // red -> blue -> yellow
   "rbgyo", // red -> blue -> green -> yellow -> orange
   "br", // blue -> red
@@ -2138,18 +2146,19 @@ window.addEventListener("keydown", function(e) {
       start();
     }
   } else if (e.keyCode == 86 || e.key == "v" || e.key == "V") {
+    const gradients = plotsByName[historyParams.plot].calcFrom == "sequence" ? sequencePlotGradients : windowPlotGradients;
     let schemeNum = -1;
-    for (let i = 0; i < lineColorSchemes.length; i++) {
-      if (lineColorSchemes[i] == historyParams.gradient) {
+    for (let i = 0; i < gradients.length; i++) {
+      if (gradients[i] == historyParams.gradient) {
         schemeNum = i;
         break;
       }
     }
     schemeNum += 1;
-    if (schemeNum >= lineColorSchemes.length) {
+    if (schemeNum >= gradients.length) {
       schemeNum = 0;
     }
-    historyParams.gradient = lineColorSchemes[schemeNum];
+    historyParams.gradient = gradients[schemeNum];
     buildGradient(historyParams.gradient);
     redraw();
   } else if (e.keyCode == 66 || e.key == "b" || e.key == "B") {

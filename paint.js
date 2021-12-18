@@ -114,6 +114,7 @@ const inputGradGrad = document.getElementById("grad-grad");
 const btnGradGo = document.getElementById("grad-go");
 const btnGradReset = document.getElementById("grad-reset");
 const gradCanvas = document.getElementById('gradient-canvas');
+const gradCanvasRow = document.getElementById("gradient-canvas-tr");
 const gradCtx = gradCanvas.getContext('2d');
 const workersSelect = document.getElementById("workers-select");
 const gradientSelect = document.getElementById("gradient-select");
@@ -1564,6 +1565,8 @@ inputGradGrad.addEventListener("paste", updateGradientPreview);
 
 function updateGradientPreview() {
   try {
+    const gradient = buildGradientObj(inputGradGrad.value);
+    hideGradientError();
     gradCanvas.width = gradCanvas.offsetWidth;
     gradCanvas.height = gradCanvas.offsetHeight;
     const w = gradCanvas.width;
@@ -1575,8 +1578,6 @@ function updateGradientPreview() {
     if (w === 0 || h === 0) {
       return;
     }
-    const gradient = buildGradientObj(inputGradGrad.value);
-    hideGradientError();
     for (let i = 0; i <= w; i++) {
       gradCtx.fillStyle = applyBuiltGradient(gradient, i/w);
       // for some reason, when starting with i of 0, we end up
@@ -1599,11 +1600,13 @@ gradControlsDetails.addEventListener("toggle", event => {
 function displayGradientError(e) {
   gradError.style.display = "";
   gradError.innerHTML = e.toString();
+  gradCanvasRow.style.display = "none";
 }
 
 function hideGradientError() {
   gradError.innerHTML = "";
   gradError.style.display = "none";
+  gradCanvasRow.style.display = "";
 }
 
 const windowCalcStages = {

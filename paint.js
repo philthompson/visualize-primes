@@ -850,24 +850,16 @@ function buildGradientObj(gradientString) {
     colors = colorsDefault;
   }
   // mirror is applied before repeat
-  // mirror: rgb -> rgbgr -> rgbgrgb -> rgbgrgbgr
+  // mirror: rgb -> rgbgr -> rgbgrgbgr
   if ("mirror" in args && colors.length > 1) {
-    const n = args.mirror;
-    let rev = [];
-    // skip last char when reversing
-    for (let i = colors.length - 2; i >= 0; i--) {
-      rev.push(colors.charAt(i));
-    }
-    rev = rev.join("");
-    let newColors = "";
-    for (let i = 0; i < args.mirror && i < 20; i++) {
-      if (i % 2 == 0) {
-        newColors += colors.substring(1);
-      } else {
-        newColors += rev; // don't need to skip first char here
+    for (let n = 0; n < args.mirror; n++) {
+      let newColors = colors.split("");
+      // skip last char when reversing
+      for (let i = newColors.length - 2; i >= 0 ; i--) {
+        newColors.push(newColors[i]);
       }
+      colors = newColors.join("");
     }
-    colors = newColors;
   }
   if ("repeat" in args) {
     colors = colors.repeat(args.repeat > 20 ? 20 : args.repeat);

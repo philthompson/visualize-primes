@@ -942,9 +942,11 @@ function buildGradientObj(gradientString) {
   // even if offset is zero, we still need to set each stop's range
   for (let i = 0; i < grad.orderedStops.length; i++) {
     // do not touch the lower bound of the first stop
-    if (i > 0) {
-      grad.orderedStops[i].lower += offset;
+    if (offset > 0 && i === 0) {
+      continue;
     }
+    grad.orderedStops[i].lower += offset;
+
     // do not touch the upper bound of the last stop
     if (i + 1 < grad.orderedStops.length) {
       grad.orderedStops[i].upper += offset;

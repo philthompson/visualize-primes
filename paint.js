@@ -761,19 +761,20 @@ const windowPlotGradients = [
 
 const sequencePlotGradients = [
   {gradient: "rby", name:"red-blue-yellow"},
-  {gradient: "rbgyo", name:"red-blue-green-yellow-orange"},
+  {gradient: "rbgyo", name:"reverse rainbow"},
+  {gradient: "roygbv", name:"rainbow"},
   {gradient: "br", name:"blue-red"},
   {gradient: "by", name:"blue-yellow"},
   {gradient: "op", name:"orange-purple"},
-  {gradient: "LD-L~200.200.200-D~50.50.50", name:"light gray - dark gray"},
-  {gradient: "LD-L~200.40.40-D~120.24.24", name:"red"},
-  {gradient: "LD-L~200.100.0-D~120.60.0", name:"orange"},
-  {gradient: "LD-L~200.200.0-D~120.120.0", name:"yellow"},
-  {gradient: "LD-L~20.200.20-D~12.120.12", name:"green"},
-  {gradient: "LD-L~20.20.200-D~12.12.120", name:"blue"},
-  {gradient: "LD-L~200.20.200-D~120.12.120", name:"purple"},
-  {gradient: "LD-L~60.60.60-D~30.30.30", name:"dark gray"},
-  {gradient: "LD-L~200.200.200-D~120.120.120", name:"light gray"},
+  {gradient: "LD-L~220.220.220-D~30.30.30", name:"light gray - dark gray"},
+  {gradient: "LD-L~240.20.20-D~100.0.0", name:"red"},
+  {gradient: "LD-L~250.100.0-D~120.60.0", name:"orange"},
+  {gradient: "LD-L~240.240.0-D~120.120.0", name:"yellow"},
+  {gradient: "LD-L~20.240.20-D~0.100.0", name:"green"},
+  {gradient: "LD-L~20.20.250-D~0.0.120", name:"blue"},
+  {gradient: "LD-L~220.0.220-D~120.0.120", name:"purple"},
+  {gradient: "LD-L~90.90.90-D~30.30.30", name:"dark gray"},
+  {gradient: "LD-L~220.220.220-D~100.100.100", name:"light gray"},
   {gradient: "roywB-B~80.80.255", name:"custom"}
 ];
 

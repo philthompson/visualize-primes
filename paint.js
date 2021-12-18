@@ -118,6 +118,7 @@ const gradCtx = gradCanvas.getContext('2d');
 const workersSelect = document.getElementById("workers-select");
 const gradientSelect = document.getElementById("gradient-select");
 const gradControlsDetails = document.getElementById("gradient-controls-details");
+const gradError = document.getElementById("gradient-error");
 
 // this is checked each time a key is pressed, so keep it
 //   here so we don't have to do a DOM query every time
@@ -569,7 +570,12 @@ function parseUrlParams() {
       } catch (e) {}
     }
   }
-  buildGradient(params.gradient);
+  try {
+    buildGradient(params.gradient);
+    hideGradientError();
+  } catch (e) {
+    displayGradientError(e);
+  }
   console.log(params);
 
   historyParams = params;
@@ -610,7 +616,12 @@ gradientSelect.addEventListener("change", function(e) {
     return;
   }
   historyParams.gradient = gradientSelect.value;
-  buildGradient(historyParams.gradient);
+  try {
+    buildGradient(historyParams.gradient);
+    hideGradientError();
+  } catch (e) {
+    displayGradientError(e);
+  }
   redraw();
 });
 
@@ -775,8 +786,9 @@ function buildGradient(gradientString) {
   try {
     const grad = buildGradientObj(gradientString);
     builtGradient = grad;
+    hideGradientError();
   } catch (e) {
-    throw e;
+    displayGradientError(e);
   }
 }
 
@@ -819,20 +831,23 @@ function buildGradientObj(gradientString) {
         if (splitArgs[i].startsWith(argName)) {
           args[argName] = splitArgs[i].substring(argName.length);
           try {
+            if (args[argName] == "") {
+              throw "integer expected as part of option";
+            }
             args[argName] = parseInt(args[argName]);
             if (["shift","saturation","brightness"].includes(argName)) {
               if (args[argName] < -99 || args[argName] > 99) {
-                throw "argument must be greater than -100 and less than 100";
+                throw "option must be greater than -100 and less than 100";
               }
             } else {
               if (args[argName] <= 0 || args[argName] > 100) {
-                throw "argument must be greater than 0 and less than 101";
+                throw "option must be greater than 0 and less than 101";
               }
             }
           } catch (e) {
-            alert("Invalid integer value for gradient argument [" + splitArgs[i] + "]");
-            delete args[argName];
-            continue;
+            throw "Invalid integer value for gradient option [" + splitArgs[i] + "]: " + e.toString();
+            //delete args[argName];
+            //continue;
           }
         }
       }
@@ -1528,11 +1543,12 @@ btnGradGo.addEventListener("click", function() {
   try {
     buildGradient(inputGradGrad.value);
     historyParams.gradient = inputGradGrad.value;
+    hideGradientError();
     const gradients = plotsByName[historyParams.plot].calcFrom == "sequence" ? sequencePlotGradients : windowPlotGradients;
     setupGradientSelectControl(gradients);
     redraw();
   } catch (e) {
-    alert(e);
+    displayGradientError(e);
   }
 });
 btnGradReset.addEventListener("click", resetGradientInput);
@@ -1556,6 +1572,7 @@ function updateGradientPreview() {
       return;
     }
     const gradient = buildGradientObj(inputGradGrad.value);
+    hideGradientError();
     for (let i = 0; i <= w; i++) {
       gradCtx.fillStyle = applyBuiltGradient(gradient, i/w);
       // for some reason, when starting with i of 0, we end up
@@ -1565,7 +1582,7 @@ function updateGradientPreview() {
       gradCtx.fillRect(i-1, 0, 1, h);
     }
   } catch (e) {
-    console.log(e);
+    displayGradientError(e);
   }
 }
 
@@ -1574,6 +1591,16 @@ gradControlsDetails.addEventListener("toggle", event => {
     updateGradientPreview();
   }
 });
+
+function displayGradientError(e) {
+  gradError.style.display = "";
+  gradError.innerHTML = e.toString();
+}
+
+function hideGradientError() {
+  gradError.innerHTML = "";
+  gradError.style.display = "none";
+}
 
 const windowCalcStages = {
   drawCalculatingNotice: "draw-calculating-notice",
@@ -2239,7 +2266,12 @@ window.addEventListener("keydown", function(e) {
     }
     historyParams.gradient = gradients[schemeNum].gradient;
     setupGradientSelectControl(gradients);
-    buildGradient(historyParams.gradient);
+    try {
+      buildGradient(historyParams.gradient);
+      hideGradientError();
+    } catch (e) {
+      displayGradientError(e);
+    }
     redraw();
   } else if (e.keyCode == 66 || e.key == "b" || e.key == "B") {
     let schemeNum = -1;

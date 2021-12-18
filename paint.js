@@ -756,7 +756,7 @@ const windowPlotGradients = [
   {gradient: "Bw-repeat3", name:"black & white"},
   {gradient: "GBPw-P~250.34.188-G~73.106.3-repeat2", name:"olive-pink"},
   {gradient: "TGw-G~250.210.22-T~0.255.195-repeat3", name:"teal-gold"},
-  {gradient: "", name:"custom"}
+  {gradient: "roywB-B~80.80.255", name:"custom"}
 ];
 
 const sequencePlotGradients = [
@@ -774,7 +774,7 @@ const sequencePlotGradients = [
   {gradient: "LD-L~200.20.200-D~120.12.120", name:"purple"},
   {gradient: "LD-L~60.60.60-D~30.30.30", name:"dark gray"},
   {gradient: "LD-L~200.200.200-D~120.120.120", name:"light gray"},
-  {gradient: "", name:"custom"}
+  {gradient: "roywB-B~80.80.255", name:"custom"}
 ];
 
 // match color declaration like "a~1.2.3" or "r~150.30.30"
@@ -1544,6 +1544,9 @@ btnGradGo.addEventListener("click", function() {
     buildGradient(inputGradGrad.value);
     historyParams.gradient = inputGradGrad.value;
     hideGradientError();
+    // save the user's last entered gradient into the "custom" gradient
+    sequencePlotGradients[sequencePlotGradients.length-1].gradient = historyParams.gradient;
+    windowPlotGradients[windowPlotGradients.length-1].gradient = historyParams.gradient;
     const gradients = plotsByName[historyParams.plot].calcFrom == "sequence" ? sequencePlotGradients : windowPlotGradients;
     setupGradientSelectControl(gradients);
     redraw();
@@ -2261,7 +2264,7 @@ window.addEventListener("keydown", function(e) {
       }
     }
     schemeNum += 1;
-    if (schemeNum >= gradients.length - 1) {
+    if (schemeNum >= gradients.length) {
       schemeNum = 0;
     }
     historyParams.gradient = gradients[schemeNum].gradient;

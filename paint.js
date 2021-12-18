@@ -1805,7 +1805,11 @@ function drawColorPoints(windowPoints, pixelSize) {
 }
 
 function repaintOnly() {
-  dContext.putImageData(windowCalc.pixelsImage, 0, 0);
+  if (plotsByName[historyParams.plot].calcFrom == "sequence") {
+    drawPoints(historyParams);
+  } else {
+    dContext.putImageData(windowCalc.pixelsImage, 0, 0);
+  }
 }
 
 function drawPreviewImage() {

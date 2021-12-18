@@ -113,8 +113,11 @@ const btnNIterationsReset = document.getElementById("n-iter-reset");
 const inputGradGrad = document.getElementById("grad-grad");
 const btnGradGo = document.getElementById("grad-go");
 const btnGradReset = document.getElementById("grad-reset");
+const gradCanvas = document.getElementById('gradient-canvas');
+const gradCtx = gradCanvas.getContext('2d');
 const workersSelect = document.getElementById("workers-select");
 const gradientSelect = document.getElementById("gradient-select");
+const gradControlsDetails = document.getElementById("gradient-controls-details");
 
 // this is checked each time a key is pressed, so keep it
 //   here so we don't have to do a DOM query every time
@@ -599,6 +602,7 @@ function setupGradientSelectControl(gradients) {
     htmlOptions.push("<option " + (selected ? "selected" : "") + " value=\"" + gradients[i].gradient + "\">" + gradients[i].name + "</option>");
   }
   gradientSelect.innerHTML = htmlOptions.join("");
+  updateGradientPreview();
 }
 
 gradientSelect.addEventListener("change", function(e) {
@@ -768,6 +772,15 @@ const customColorRegex = /^[a-zA-z]~[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
 // build global gradient stops from format:
 //   roygbvx-saturation60-brightness90-width80-offset30-repeat10-mirror2-shift3-x~30.30.30
 function buildGradient(gradientString) {
+  try {
+    const grad = buildGradientObj(gradientString);
+    builtGradient = grad;
+  } catch (e) {
+    throw e;
+  }
+}
+
+function buildGradientObj(gradientString) {
   if (gradientString.trim().length === 0) {
     throw "gradient must not be empty";
   }
@@ -946,7 +959,7 @@ function buildGradient(gradientString) {
     }
     grad.orderedStops[i].range = grad.orderedStops[i].upper - grad.orderedStops[i].lower;
   }
-  builtGradient = grad;
+  return grad;
 }
 
 function applyBuiltGradient(gradient, percentage) {
@@ -1514,6 +1527,7 @@ function kickoffWindowWorker() {
 
 var resetGradientInput = function() {
   inputGradGrad.value = historyParams.gradient;
+  updateGradientPreview();
 };
 
 btnGradGo.addEventListener("click", function() {
@@ -1528,6 +1542,44 @@ btnGradGo.addEventListener("click", function() {
   }
 });
 btnGradReset.addEventListener("click", resetGradientInput);
+
+inputGradGrad.addEventListener("change", updateGradientPreview);
+inputGradGrad.addEventListener("input", updateGradientPreview);
+inputGradGrad.addEventListener("propertychange", updateGradientPreview);
+inputGradGrad.addEventListener("paste", updateGradientPreview);
+
+function updateGradientPreview() {
+  try {
+    gradCanvas.width = gradCanvas.offsetWidth;
+    gradCanvas.height = gradCanvas.offsetHeight;
+    const w = gradCanvas.width;
+    const h = gradCanvas.height;
+    // before the gradient controls are actually opened by the user
+    //   for the first time, the canvas has zero width and height,
+    //   so for that situtation we don't need to build and draw
+    //   the gradient
+    if (w === 0 || h === 0) {
+      return;
+    }
+    const gradient = buildGradientObj(inputGradGrad.value);
+    for (let i = 0; i <= w; i++) {
+      gradCtx.fillStyle = applyBuiltGradient(gradient, i/w);
+      // for some reason, when starting with i of 0, we end up
+      //   with a blank (white) pixel on the far left of the
+      //   canvas.  this is fixed by drawing the first vertical
+      //   line at x=-1
+      gradCtx.fillRect(i-1, 0, 1, h);
+    }
+  } catch (e) {
+    console.log(e);
+  }
+}
+
+gradControlsDetails.addEventListener("toggle", event => {
+  if (gradControlsDetails.open) {
+    updateGradientPreview();
+  }
+});
 
 const windowCalcStages = {
   drawCalculatingNotice: "draw-calculating-notice",
@@ -2616,6 +2668,7 @@ function openControlsMenu() {
   controlsVisible = true;
   document.getElementById('controls-menu').style.display = 'block';
   document.getElementById('menu-open-wrap').style.display = 'none';
+  updateGradientPreview();
 }
 
 function showFooter() {

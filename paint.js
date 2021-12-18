@@ -114,6 +114,7 @@ const inputGradGrad = document.getElementById("grad-grad");
 const btnGradGo = document.getElementById("grad-go");
 const btnGradReset = document.getElementById("grad-reset");
 const workersSelect = document.getElementById("workers-select");
+const gradientSelect = document.getElementById("gradient-select");
 
 // this is checked each time a key is pressed, so keep it
 //   here so we don't have to do a DOM query every time
@@ -584,6 +585,31 @@ function indicateActivePlot() {
   }
 }
 
+function setupGradientSelectControl(gradients) {
+  const htmlOptions = [];
+  let foundSelected = false;
+  for (let i = 0; i < gradients.length; i++) {
+    let selected = false;
+    if (gradients[i].gradient == historyParams.gradient) {
+      selected = true;
+      foundSelected = true;
+    } else if (!foundSelected && i === gradients.length - 1) {
+      selected = true;
+    }
+    htmlOptions.push("<option " + (selected ? "selected" : "") + " value=\"" + gradients[i].gradient + "\">" + gradients[i].name + "</option>");
+  }
+  gradientSelect.innerHTML = htmlOptions.join("");
+}
+
+gradientSelect.addEventListener("change", function(e) {
+  if (gradientSelect.value == "") {
+    return;
+  }
+  historyParams.gradient = gradientSelect.value;
+  buildGradient(historyParams.gradient);
+  redraw();
+});
+
 function start() {
   stopWorkers();
   if (windowCalc.timeout != null) {
@@ -616,6 +642,8 @@ function start() {
       windowCalc.worker = null;
     }
 
+    setupGradientSelectControl(sequencePlotGradients);
+
     const out = plot.computePointsAndLength(plot.privContext);
 
     // copy the results
@@ -627,6 +655,7 @@ function start() {
     resetWindowCalcContext();
     drawPoints(params);
   } else if (plot.calcFrom == "window") {
+    setupGradientSelectControl(windowPlotGradients);
     resetWindowCalcCache();
     resetWindowCalcContext();
     calculateAndDrawWindow();
@@ -707,28 +736,30 @@ var pushToHistory = function() {
 };
 
 const windowPlotGradients = [
-  "Bbgoyw",
-  "Bpow-repeat2",
-  "Bw-repeat3",
-  "GBPw-P~250.34.188-G~73.106.3-repeat2",
-  "TGw-G~250.210.22-T~0.255.195-repeat3"
+  {gradient: "Bbgoyw", name:"dark blue-green"},
+  {gradient: "Bpow-repeat2", name:"purple-orange"},
+  {gradient: "Bw-repeat3", name:"black & white"},
+  {gradient: "GBPw-P~250.34.188-G~73.106.3-repeat2", name:"olive-pink"},
+  {gradient: "TGw-G~250.210.22-T~0.255.195-repeat3", name:"teal-gold"},
+  {gradient: "", name:"custom"}
 ];
 
 const sequencePlotGradients = [
-  "rby", // red -> blue -> yellow
-  "rbgyo", // red -> blue -> green -> yellow -> orange
-  "br", // blue -> red
-  "by", // blue -> yellow
-  "op", // orange -> purple
-  "LD-L~200.200.200-D~50.50.50", // light gray - dark gray
-  "LD-L~200.40.40-D~120.24.24", // red
-  "LD-L~200.100.0-D~120.60.0", // orange
-  "LD-L~200.200.0-D~120.120.0", // yellow
-  "LD-L~20.200.20-D~12.120.12", // green
-  "LD-L~20.20.200-D~12.12.120", // blue
-  "LD-L~200.20.200-D~120.12.120", // purple
-  "LD-L~60.60.60-D~30.30.30", // dark gray
-  "LD-L~200.200.200-D~120.120.120" // light gray
+  {gradient: "rby", name:"red-blue-yellow"},
+  {gradient: "rbgyo", name:"red-blue-green-yellow-orange"},
+  {gradient: "br", name:"blue-red"},
+  {gradient: "by", name:"blue-yellow"},
+  {gradient: "op", name:"orange-purple"},
+  {gradient: "LD-L~200.200.200-D~50.50.50", name:"light gray - dark gray"},
+  {gradient: "LD-L~200.40.40-D~120.24.24", name:"red"},
+  {gradient: "LD-L~200.100.0-D~120.60.0", name:"orange"},
+  {gradient: "LD-L~200.200.0-D~120.120.0", name:"yellow"},
+  {gradient: "LD-L~20.200.20-D~12.120.12", name:"green"},
+  {gradient: "LD-L~20.20.200-D~12.12.120", name:"blue"},
+  {gradient: "LD-L~200.20.200-D~120.12.120", name:"purple"},
+  {gradient: "LD-L~60.60.60-D~30.30.30", name:"dark gray"},
+  {gradient: "LD-L~200.200.200-D~120.120.120", name:"light gray"},
+  {gradient: "", name:"custom"}
 ];
 
 // match color declaration like "a~1.2.3" or "r~150.30.30"
@@ -1489,6 +1520,8 @@ btnGradGo.addEventListener("click", function() {
   try {
     buildGradient(inputGradGrad.value);
     historyParams.gradient = inputGradGrad.value;
+    const gradients = plotsByName[historyParams.plot].calcFrom == "sequence" ? sequencePlotGradients : windowPlotGradients;
+    setupGradientSelectControl(gradients);
     redraw();
   } catch (e) {
     alert(e);
@@ -2149,16 +2182,17 @@ window.addEventListener("keydown", function(e) {
     const gradients = plotsByName[historyParams.plot].calcFrom == "sequence" ? sequencePlotGradients : windowPlotGradients;
     let schemeNum = -1;
     for (let i = 0; i < gradients.length; i++) {
-      if (gradients[i] == historyParams.gradient) {
+      if (gradients[i].gradient == historyParams.gradient) {
         schemeNum = i;
         break;
       }
     }
     schemeNum += 1;
-    if (schemeNum >= gradients.length) {
+    if (schemeNum >= gradients.length - 1) {
       schemeNum = 0;
     }
-    historyParams.gradient = gradients[schemeNum];
+    historyParams.gradient = gradients[schemeNum].gradient;
+    setupGradientSelectControl(gradients);
     buildGradient(historyParams.gradient);
     redraw();
   } else if (e.keyCode == 66 || e.key == "b" || e.key == "B") {

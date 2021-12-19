@@ -121,6 +121,9 @@ const gradientSelect = document.getElementById("gradient-select");
 const gradControlsDetails = document.getElementById("gradient-controls-details");
 const gradError = document.getElementById("gradient-error");
 
+const blogLinkMain = document.getElementById("blog-link");
+const blogLinkMandel = document.getElementById("blog-link-mandel");
+
 // this is checked each time a key is pressed, so keep it
 //   here so we don't have to do a DOM query every time
 const inputFields = document.getElementsByTagName("input");
@@ -643,6 +646,14 @@ function start() {
   }
 
   indicateActivePlot();
+
+  if (params.plot.startsWith("Mandelbrot")) {
+    blogLinkMain.style.display = "none";
+    blogLinkMandel.style.display = "";
+  } else {
+    blogLinkMain.style.display = "";
+    blogLinkMandel.style.display = "none";
+  }
 
   setDScaleVars(dContext);
 

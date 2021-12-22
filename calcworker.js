@@ -53,7 +53,10 @@ const windowCalc = {
   "minWorkersCount": null,
   "maxWorkersCount": null,
   "plotId": null,
-  "stopped": true
+  "stopped": true,
+  "referencePx": null,
+  "referencePy": null,
+  "referenceOrbitFloats": null
 };
 
 self.onmessage = function(e) {
@@ -111,6 +114,19 @@ function runCalc(msg) {
       windowCalc.workers.push(new Worker("calcsubworker.js"));
     }
     windowCalc.workers[i].onmessage = onSubWorkerMessage;
+  }
+  if (windowCalc.mandelbrotFloat) {
+    windowCalc.referencePx = null;
+    windowCalc.referencePy = null;
+    windowCalc.referenceOrbitFloats = null;
+  // if we are not using floating point for the entire image, then
+  //   we will use perturbation theory, for which we'll now calculate
+  //   the reference point and its full orbit (which will be used
+  //   for all chunks in all passes)
+  } else {
+    windowCalc.referencePx = null;
+    windowCalc.referencePy = null;
+    windowCalc.referenceOrbitFloats = null;
   }
   calculatePass();
 };
@@ -268,6 +284,7 @@ function cacheComputedPointsInChunk(chunk) {
     windowCalc.pointsCache.set(pxStr, new Map());
     xCache = windowCalc.pointsCache.get(pxStr);
   }
+  return 0; // disable cache for now
 
   let py = chunk.chunkPos.y;
   let incY = chunk.chunkInc.y;

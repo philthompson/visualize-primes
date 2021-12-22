@@ -6,6 +6,22 @@ if (typeof importScripts === 'function') {
   importScripts("infnum.js");
 }
 
+function complexFloatMul(a, b) {
+  //return {x:a.x*b.x-a.y*b.y, y:a.x*b.y+a.y*b.x};
+  return {
+    x: (a.x*b.x) - (a.y*b.y),
+    y: (a.x*b.y) + (a.y*b.x) 
+  };
+}
+
+function complexFloatRealMul(a, real) {
+  return {x:a.x*real, y:a.y*real};
+}
+
+function complexFloatAdd(a, b) {
+  return {x:a.x+b.x, y:a.y+a.y};
+}
+
 // each "plot" has its own "privContext" that can contain whatever data/functions
 //   it needs to compute points
 const plots = [{
@@ -105,6 +121,164 @@ const plots = [{
       }
     } catch (e) {
       console.log("ERROR CAUGHT when processing point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
+      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+      return windowCalcIgnorePointColor; // special color value that will not be displayed
+    }
+  },
+  // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
+  "computeReferenceOrbitFloat": function(n, precis, x, y) {
+    let orbit = [];
+
+    const maxIter = n;
+    const two = infNum(2n, 0n);
+    const four = infNum(4n, 0n);
+
+    // the coords used for iteration
+    var ix = infNum(0n, 0n);
+    var iy = infNum(0n, 0n);
+    var ixSq = infNum(0n, 0n);
+    var iySq = infNum(0n, 0n);
+    var ixTemp = infNum(0n, 0n);
+    var iter = 0;
+    try {
+      while (iter < maxIter) {
+        ixSq = infNumMul(ix, ix);
+        iySq = infNumMul(iy, iy);
+        if (infNumGt(infNumAdd(ixSq, iySq), four)) {
+          break;
+        }
+        // floats can handle 16 significant digits?  if so, truncate
+        //   the exponential notation string to 15 decimal places
+        //   (plus the done digit before decimal point totals to
+        //   16 significant digits)
+        // (it's more efficient to just truncate using the
+        //   exponential notation function than to truncate then
+        //   convert to string)
+        orbit.push({
+          //x: parseFloat(infNumExpStringTruncToLen(ix, 15)),
+          //y: parseFloat(infNumExpStringTruncToLen(iy, 15))
+          x: parseFloat(infNumToString(ix)),
+          y: parseFloat(infNumToString(iy)),
+        });
+        ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
+        iy = infNumAdd(y, infNumMul(two, infNumMul(ix, iy)));
+        ix = ixTemp;
+        ix = infNumTruncateToLen(ix, precis);
+        iy = infNumTruncateToLen(iy, precis);
+        // floats can handle 16 significant digits?  if so, truncate
+        //   the exponential notation string to 15 decimal places
+        //   (plus the done digit before decimal point totals to
+        //   16 significant digits)
+        // (it's more efficient to just truncate using the
+        //   exponential notation function than to truncate then
+        //   convert to string)
+        //orbit.push({
+        //  x: parseFloat(infNumExpStringTruncToLen(ix, 15)),
+        //  y: parseFloat(infNumExpStringTruncToLen(iy, 15))
+        //});
+        iter++;
+      }
+
+      return orbit;
+    } catch (e) {
+      console.log("ERROR CAUGHT when computing reference orbit at point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
+      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+      return orbit; // special color value that will not be displayed
+    }
+  },
+  // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
+  "computeBoundPointColorPerturb": function(n, precis, x, y, referenceX, referenceY, referenceOrbit) {
+    const maxIter = n;
+    //  const four = infNum(4n, 0n);
+
+    //  from https://fractalwiki.org/wiki/Perturbation_theory
+    //
+    //  The escape time formula for the Mandelbrot set involves iterating 𝑧→𝑧2+𝑐 starting from 𝑧=0 with 𝑐 being the coordinates of the pixel. Perturbation works by replacing each variable with an unevaluated sum of a high precision reference (upper case) and a low precision delta (lower case). Thus:
+    //
+    //  𝑍+𝑧→(𝑍+𝑧)^2+(𝐶+𝑐)
+    //
+    //  which can be re-arranged (using 𝑍→𝑍2+𝐶) to give:
+    //
+    //  𝑧→2𝑍𝑧+𝑧^2+𝑐
+    //
+    //  in which most of the high precision 𝑍,𝐶 have cancelled out, and 𝑧 can be iterated with low precision numerics. 
+
+
+    //const deltaCx = infNumSub(referenceX, x);
+    //const deltaCy = infNumSub(referenceY, y);
+    const deltaCx = infNumSub(x, referenceX);
+    const deltaCy = infNumSub(y, referenceY);
+
+    //console.log("deltaCx: [" + infNumExpString(deltaCx) + "], deltaCy: [" + infNumExpString(deltaCy) + "]");
+
+    // if this point is the reference point, it doesn't need to be re-computed;
+    // since deltaCx is always zero, for now, check deltaCy first
+    if (infNumEq(deltaCy, infNum(0n, 0n)) && infNumEq(deltaCx, infNum(0n, 0n))) {
+      return referenceOrbit.length >= maxIter ? -1 : (referenceOrbit.length / maxIter);
+    }
+
+    // floats can handle 16 significant digits?  if so, truncate
+    //   the exponential notation string to 15 decimal places
+    //   (plus the done digit before decimal point totals to
+    //   16 significant digits)
+    // (it's more efficient to just truncate using the
+    //   exponential notation function than to truncate then
+    //   convert to string)
+    let deltaC = {
+      x: parseFloat(infNumExpStringTruncToLen(deltaCx, 15)),
+      y: parseFloat(infNumExpStringTruncToLen(deltaCy, 15)),
+    };
+
+    let iter = 0;
+
+    // since the last reference orbit may have escaped, use the one before
+    //   the last as the last?
+    const maxReferenceIter = referenceOrbit.length - 2;
+    let referenceIter = 0;
+
+    let deltaZ = {x: 0, y: 0};
+    let z = null;
+    let zAbs = null;
+    let deltaZAbs = null;
+
+    // referenceOrbit is array of pre-converted InfNum->float: [{x: ,y: },{x: , y: }]
+
+    try {
+      while (iter < maxIter) {
+        deltaZ = complexFloatAdd(
+          complexFloatAdd(
+            complexFloatMul(complexFloatRealMul(deltaZ, 2), referenceOrbit[referenceIter]),
+            complexFloatMul(deltaZ, deltaZ)
+          ),
+          deltaC);
+
+        referenceIter++;
+
+        z = complexFloatAdd(referenceOrbit[referenceIter], deltaZ);
+
+        zAbs = (z.x*z.x) + (z.y*z.y);
+        if (zAbs > 4) {
+          break;
+        }
+        deltaZAbs = (deltaZ.x*deltaZ.x) + (deltaZ.y*deltaZ.y);
+        if (zAbs < deltaZAbs || referenceIter == maxReferenceIter) {
+          deltaZ = z;
+          referenceIter = 0;
+        }
+
+        iter++;
+      }
+
+      if (iter == maxIter) {
+        return -1.0; // background color
+      } else {
+        //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
+        //return privContext.applyColorCurve(iter / maxIter);
+        return iter / maxIter;
+      }
+
+    } catch (e) {
+      console.log("ERROR CAUGHT when processing perturb point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
       console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
       return windowCalcIgnorePointColor; // special color value that will not be displayed
     }

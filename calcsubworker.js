@@ -62,6 +62,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
   const results = new Array(chunk.chunkLen);
   // if entire chunk is cached, we don't have to do anything
   if (cachedIndices.length < chunk.chunkLen) {
+    if (chunk.useFloat) {
 //    if (moveX) {
 //      for (let i = 0; i < chunk.chunkLen; i++) {
 //        if (!binarySearchIncludesNumber(cachedIndices, i)) {
@@ -80,6 +81,42 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
         //   the position AFTER computing each result
         py = infNumAddNorm(py, incY);
       }
+
+
+    // compute reference orbit, once per entire chunk (for now)
+    //   but only if float is not being used
+    } else {
+      const perturbFn = plotsByName[chunk.plot].computeBoundPointColorPerturb;
+
+
+      // for now, use middle point of chunk
+      let referenceChunkIndex = Math.floor(chunk.chunkLen / 2);
+      let referencePx = px;
+      //let referencePx = infNumAdd(px, infNumMul(incY, infNum(3n, 0n)));
+      let referencePy = infNumAdd(py, infNumMul(incY, infNum(BigInt(referenceChunkIndex), 0n)));
+      //let referencePx = infNum(0n, 0n);
+      //let referencePy = infNum(0n, 0n);
+      let referenceOrbit = plotsByName[chunk.plot].computeReferenceOrbitFloat(chunk.chunkN, chunk.chunkPrecision, referencePx, referencePy);
+
+      //console.log("computed referenceOrbit for chunk index [" + referenceChunkIndex + "] (out of " + chunk.chunkLen + " points), which is:", referenceOrbit);
+
+      // assuming chunks are all moving along the y axis, for single px
+      for (let i = 0; i < chunk.chunkLen; i++) {
+        if (!binarySearchIncludesNumber(cachedIndices, i)) {
+          // for now, the perturb function itself can detect when the
+          //   reference point itself is being re-computed
+          //if (i === referenceChunkIndex) {
+          //  results[i] = referenceOrbit.length >= chunk.chunkN ? -1 : (referenceOrbit.length / chunk.chunkN);
+          //} else {
+            results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, referencePx, referencePy, referenceOrbit);
+          //}
+        }
+        // since we want to start at the given starting position, increment
+        //   the position AFTER computing each result
+        py = infNumAddNorm(py, incY);
+      }
+    }
+
 //    }
   }
   chunk["results"] = results;

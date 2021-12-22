@@ -12,8 +12,15 @@ const forceWorkerReload = self.location.toString().includes(forceWorkerReloadUrl
 
 if (forceWorkerReload) {
   importScripts("infnum.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+  importScripts("plots.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
 } else {
   importScripts("infnum.js");
+  importScripts("plots.js");
+}
+
+const plotsByName = {};
+for (let i = 0; i < plots.length; i++) {
+  plotsByName[plots[i].name] = plots[i];
 }
 
 // create subworkers
@@ -124,10 +131,44 @@ function runCalc(msg) {
   //   the reference point and its full orbit (which will be used
   //   for all chunks in all passes)
   } else {
-    windowCalc.referencePx = null;
-    windowCalc.referencePy = null;
-    windowCalc.referenceOrbitFloats = null;
+
+    // start with middle of window for reference point (doesn't have to
+    //   exactly align with a pixel)
+    let referencePx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)), 0n)));
+    let referencePy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)), 0n)));
+    let referenceOrbit = plotsByName[windowCalc.plot].computeReferenceOrbitFloat(windowCalc.n, windowCalc.precision, referencePx, referencePy);
+
+    // move around a little to try other points that may orbit for longer
+    //   (this is slow and doesn't seem to be the actual problem, and is
+    //   probably not necessary at all)
+    // TODO: use percentage of window size to try points everywhere in
+    //         the window
+    console.log("calculated middle reference orbit, with [" + referenceOrbit.length + "] iterations, for point:");
+    console.log("referencePx: " + infNumToString(referencePx));
+    console.log("referencePy: " + infNumToString(referencePy));
+    /*
+    for (let xPixMove = -5; xPixMove < 6; xPixMove++) {
+      for (let yPixMove = -5; yPixMove < 6; yPixMove++) {
+        let testPx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)+(xPixMove*10)), 0n)));
+        let testPy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)+(yPixMove*10)), 0n)));
+        let testOrbit = plotsByName[windowCalc.plot].computeReferenceOrbitFloat(windowCalc.n, windowCalc.precision, testPx, testPy);
+        if (testOrbit.length > referenceOrbit.length) {
+          referencePx = testPx;
+          referencePy = testPy;
+          referenceOrbit =  testOrbit;
+          console.log("calculated better reference orbit, with [" + referenceOrbit.length + "] iterations, for point:");
+          console.log("referencePx: " + infNumToString(referencePx));
+          console.log("referencePy: " + infNumToString(referencePy));
+        }
+      }
+    }
+    */
+
+    windowCalc.referencePx = referencePx;
+    windowCalc.referencePy = referencePy;
+    windowCalc.referenceOrbitFloats = referenceOrbit;
   }
+
   calculatePass();
 };
 
@@ -217,7 +258,10 @@ var assignChunkToWorker = function(worker) {
   let subWorkerMsg = {
     "plotId": windowCalc.plotId,
     "chunk": nextChunk,
-    "cachedIndices": Array.from(cacheScan.keys()).sort((a, b) => a-b)
+    "cachedIndices": Array.from(cacheScan.keys()).sort((a, b) => a-b),
+    referencePx: windowCalc.referencePx,
+    referencePy: windowCalc.referencePy,
+    referenceOrbit: windowCalc.referenceOrbitFloats
   };
 
   worker.postMessage(subWorkerMsg);
@@ -454,24 +498,34 @@ var calculateWindowPassChunks = function() {
   var incX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
   var cursorX = infNumSub(windowCalc.leftEdge, incX);
   for (var x = 0; x < windowCalc.canvasWidth; x+=pixelSize) {
+  //let cursorY = copyInfNum(windowCalc.bottomEdge);
+  //for (let y = 0; y < yPointsPerChunk; y++) {
     cursorX = infNumAdd(cursorX, incX);
     let chunk = {
       "plot": windowCalc.plot,
+//      // temporarily using 1-pixel chunks
       "chunkPix": {"x": x, "y": windowCalc.canvasHeight},
+//      "chunkPix": {"x": x, "y": windowCalc.canvasHeight - (y*pixelSize)},
       // since we start at bottom edge, we increment pixels by subtracting Y value 
       //   (because javascript canvas Y coordinate is backwards)
       "chunkPixInc": {"x": 0, "y": -1 * pixelSize},
+//      // temporarily using 1-pixel chunks
       "chunkPos": {"x": copyInfNum(cursorX), "y": copyInfNum(windowCalc.bottomEdge)},
+//      "chunkPos": {"x": copyInfNum(cursorX), "y": copyInfNum(cursorY)},
       // within the chunk inself, each position along the chunk is incremented in the
       //   Y dimension, and since chunk pixels are square, the amount incremented in
       //   the Y dimension is the same as incX
       "chunkInc": {"x": infNum(0n, 0n), "y": copyInfNum(incX)},
+//      // temporarily using 1-pixel chunks
       "chunkLen": yPointsPerChunk,
+//      "chunkLen": 1,
       "chunkN": windowCalc.n,
       "chunkPrecision": windowCalc.precision,
       "useFloat": windowCalc.mandelbrotFloat
     };
     windowCalc.xPixelChunks.push(chunk);
+//    cursorY = infNumAdd(cursorY, incX);
+//  }
   }
 
   // it's a fun effect to see the image materialize in a random

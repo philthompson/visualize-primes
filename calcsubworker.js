@@ -16,10 +16,10 @@ for (let i = 0; i < plots.length; i++) {
 }
 
 self.onmessage = function(e) {
-  computeChunk(e.data.plotId, e.data.chunk, e.data.cachedIndices);
+  computeChunk(e.data.plotId, e.data.chunk, e.data.cachedIndices, e.data.referencePx, e.data.referencePy, e.data.referenceOrbit);
 };
 
-var computeChunk = function(plotId, chunk, cachedIndices) {
+var computeChunk = function(plotId, chunk, cachedIndices, referencePx, referencePy, referenceOrbit) {
   // TODO: just use overall time as measured in main thread, don't keep
   //         separate running times on a per-chunk or per-subworker basis
   //var chunkStartMs = Date.now();
@@ -88,7 +88,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
     } else {
       const perturbFn = plotsByName[chunk.plot].computeBoundPointColorPerturb;
 
-
+/*
       // for now, use middle point of chunk
       let referenceChunkIndex = Math.floor(chunk.chunkLen / 2);
       let referencePx = px;
@@ -97,7 +97,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       //let referencePx = infNum(0n, 0n);
       //let referencePy = infNum(0n, 0n);
       let referenceOrbit = plotsByName[chunk.plot].computeReferenceOrbitFloat(chunk.chunkN, chunk.chunkPrecision, referencePx, referencePy);
-
+*/
       //console.log("computed referenceOrbit for chunk index [" + referenceChunkIndex + "] (out of " + chunk.chunkLen + " points), which is:", referenceOrbit);
 
       // assuming chunks are all moving along the y axis, for single px
@@ -109,6 +109,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
           //  results[i] = referenceOrbit.length >= chunk.chunkN ? -1 : (referenceOrbit.length / chunk.chunkN);
           //} else {
             results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, referencePx, referencePy, referenceOrbit);
+            //console.log("chunk index", i, "gave us iter% of", results[i], "at py:", infNumExpString(py));
           //}
         }
         // since we want to start at the given starting position, increment

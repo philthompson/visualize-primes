@@ -11,7 +11,7 @@ var mouseDragY = 0;
 var pinch = false;
 var pinchStartDist = 0;
 var showMousePosition = false;
-var annotateClickPosition = true;
+var annotateClickPosition = false;
 var mouseNoticePosX = infNum(0n, 0n);
 var mouseNoticePosY = infNum(0n, 0n);
 var shiftPressed = false;
@@ -2551,7 +2551,8 @@ dCanvas.addEventListener("wheel", function(e) {
   }
   const newScale = infNumMul(historyParams.scale, newScaleFactor);
 
-  const maxSeqScale = createInfNum("500");
+  //const maxSeqScale = createInfNum("500");
+  const maxSeqScale = createInfNum("5000000000");
   const minSeqScale = createInfNum("0.00005");
   if (plotsByName[historyParams.plot].calcFrom == "sequence") {
     if (infNumLt(newScale, minSeqScale)) {

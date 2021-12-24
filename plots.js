@@ -22,29 +22,6 @@ function complexFloatAdd(a, b) {
   return {x:a.x+b.x, y:a.y+b.y};
 }
 
-function infNumComplexMul(a, b) {
-  return {
-    x: infNumSub(infNumMul(a.x, b.x), infNumMul(a.y, b.y)),
-    y: infNumAdd(infNumMul(a.x, b.y), infNumMul(a.y, b.x))
-  };
-}
-
-function complexFloatToInfNum(a) {
-  return {
-    x: createInfNum(a.x.toString()),
-    y: createInfNum(a.y.toString())
-  };
-}
-
-function complexInfNumToFloat(a) {
-  return {
-    x: parseFloat(infNumExpStringTruncToLen(a.x, 15)),
-    y: parseFloat(infNumExpStringTruncToLen(a.y, 15))
-    //x: parseFloat(infNumExpString(a.x)),
-    //y: parseFloat(infNumExpString(a.y))
-  };
-}
-
 // each "plot" has its own "privContext" that can contain whatever data/functions
 //   it needs to compute points
 const plots = [{
@@ -94,20 +71,7 @@ const plots = [{
         return -1.0; // background color
       } else {
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        //return privContext.applyColorCurve(iter / maxIter);
         return iter / maxIter;
-      }
-    }
-
-    // circle heuristics to speed up zoomed-out viewing
-    //if (mandelbrotCircleHeuristic) {
-    if (false) {
-      for (var i = 0; i < privContext.circles.length; i++) {
-        const xDist = infNumSub(x, privContext.circles[i].centerX);
-        const yDist = infNumSub(y, privContext.circles[i].centerY);
-        if (infNumLe(infNumAdd(infNumMul(xDist, xDist), infNumMul(yDist, yDist)), privContext.circles[i].radSq)) {
-          return -1.0; // background color
-        }
       }
     }
 
@@ -139,7 +103,6 @@ const plots = [{
         return -1.0; // background color
       } else {
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        //return privContext.applyColorCurve(iter / maxIter);
         return iter / maxIter;
       }
     } catch (e) {
@@ -190,7 +153,7 @@ const plots = [{
     } catch (e) {
       console.log("ERROR CAUGHT when computing reference orbit at point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
       console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
-      return orbit; // special color value that will not be displayed
+      return orbit;
     }
   },
   // x, y, referenceX, and referenceY must be infNum objects of a coordinate in the abstract plane being computed upon
@@ -270,72 +233,12 @@ const plots = [{
         return -1.0; // background color
       } else {
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        //return privContext.applyColorCurve(iter / maxIter);
         return iter / maxIter;
       }
 
     } catch (e) {
       console.log("ERROR CAUGHT when processing perturb point",
         {x:infNumToString(x), y:infNumToString(y), iter:iter, maxIter:maxIter, refIter:referenceIter, maxRefIter:maxReferenceIter});
-      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
-      return windowCalcIgnorePointColor; // special color value that will not be displayed
-    }
-  },
-  // version using normInPlaceInfNum
-  // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeBoundPointColorNew": function(privContext, x, y) {
-    const maxIter = historyParams.n;
-
-    // circle heuristics to speed up zoomed-out viewing
-    //if (mandelbrotCircleHeuristic) {
-    //  for (var i = 0; i < privContext.circles.length; i++) {
-    //    const xDist = infNumSub(x, privContext.circles[i].centerX);
-    //    const yDist = infNumSub(y, privContext.circles[i].centerY);
-    //    if (infNumLe(infNumAdd(infNumMul(xDist, xDist), infNumMul(yDist, yDist)), privContext.circles[i].radSq)) {
-    //      return -1.0; // background color
-    //    }
-    //  }
-    //}
-
-    // the coords used for iteration
-    var ix = infNum(0n, 0n);
-    var iy = infNum(0n, 0n);
-    // temporary things needed multiple times per iteration
-    var ixSq = null;//infNum(0n, 0n);
-    var iySq = null;//infNum(0n, 0n);
-    var ixiy = null;
-    var boundsRadiusSquaredNorm = null;
-    var ixTemp = null;//infNum(0n, 0n);
-    var xNorm = null;
-    var yNorm = null;
-    var iter = 0;
-    try {
-      while (iter < maxIter) {
-        ixSq = infNumMul(ix, ix);
-        iySq = infNumMul(iy, iy);
-        ixiy = infNumMul(ix, iy);
-        xNorm = copyInfNum(x);
-        yNorm = copyInfNum(y);
-        boundsRadiusSquaredNorm = normInPlaceInfNum(privContext.boundsRadiusSquared, ixSq, iySq, xNorm, yNorm, ixiy);
-        if (infNumGtNorm(infNumAddNorm(ixSq, iySq), boundsRadiusSquaredNorm)) {
-          break;
-        }
-        ixTemp = infNumAddNorm(xNorm, infNumSubNorm(ixSq, iySq));
-        // multiplying by 2 (v=2n, e=0n) does not affect the exponent, so no need to normalize afterwards
-        iy = infNumAddNorm(yNorm, infNumMul(privContext.two, ixiy));
-        ix = infNumTruncate(ixTemp);
-        iy = infNumTruncate(iy);
-        iter++;
-      }
-
-      if (iter == maxIter) {
-        return -1.0; // background color
-      } else {
-        //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        return privContext.applyColorCurve(iter / maxIter);
-      }
-    } catch (e) {
-      console.log("ERROR CAUGHT when processing point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
       console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
       return windowCalcIgnorePointColor; // special color value that will not be displayed
     }
@@ -349,57 +252,6 @@ const plots = [{
   },
   "privContext": {
     "usesImaginaryCoordinates": true,
-    "two": infNum(2n, 0n),
-    //"black": getColor(0, 0, 0),
-    "boundsRadiusSquared": infNum(4n, 0n),
-    "colors": {},
-    "applyColorCurve": function(pct) {
-      const result = pct;
-      ////////////////////////////////////////////////////////
-      // curve 1
-      // computed using wolfram alpha:
-      // quadratic fit {0.0,0.0},{0.1,0.2},{0.5, 0.7},{0.7,0.9},{1.0,1.0}
-      // -0.851578x^2 + 1.84602x + 0.00888177
-      //const result = (-0.851578*pct*pct) + (1.84602*pct) + 0.00888177;
-      ////////////////////////////////////////////////////////
-      // curve 2
-      // quadratic fit {0.0,0.0},{0.1,0.3},{0.5, 0.75},{0.75,0.92},{1.0,1.0}
-      // -0.970592x^2 + 1.90818x + 0.0509381
-      //const result = (-0.970592*pct*pct) + (1.90818*pct) + 0.0509381;
-      ////////////////////////////////////////////////////////
-      // curve 3
-      // quadratic fit {0.01,0.01},{0.2,0.4},{0.6, 0.75},{1.0,1.0}
-      // -0.76991x^2 + 1.73351x + 0.0250757
-      //const result = (-0.76991*pct*pct) + (1.73351*pct) + 0.0250757;
-      ////////////////////////////////////////////////////////
-      // curve 4
-      // log fit {0.01,0.01},{0.1,0.4},{0.4, 0.75},{0.75,0.92},{1.0,1.0}
-      // 0.21566log(88.12x)
-      if (result < 0.0) {
-        return 0.0;
-      }
-      if (result > 1.0) {
-        return 1.0;
-      }
-      return result;
-    },
-    "circles": [{
-      "centerX": createInfNum("-0.29"),
-      "centerY": infNum(0n, 0n),
-      "radSq": createInfNum("0.18")
-    },{
-      "centerX": createInfNum("-0.06"),
-      "centerY": createInfNum("0.22"),
-      "radSq": createInfNum("0.13")
-    },{
-      "centerX": createInfNum("-0.06"),
-      "centerY": createInfNum("-0.22"),
-      "radSq": createInfNum("0.13")
-    },{
-      "centerX": createInfNum("-1.0"),
-      "centerY": createInfNum("0.0"),
-      "radSq": createInfNum("0.04")
-    }],
     "adjustPrecision": function(scale) {
       const precisScale = infNumTruncateToLen(scale, 8); // we probably only need 1 or 2 significant digits for this...
       // these values need more testing to ensure they create pixel-identical images

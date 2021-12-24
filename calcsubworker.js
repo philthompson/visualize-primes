@@ -15,8 +15,36 @@ for (let i = 0; i < plots.length; i++) {
   plotsByName[plots[i].name] = plots[i];
 }
 
+var lastComputeChunkMsg = null;
+var referencePx = null;
+var referencePy = null;
+var referenceOrbit = null;
+var referencePlotId = null;
+
 self.onmessage = function(e) {
-  computeChunk(e.data.plotId, e.data.chunk, e.data.cachedIndices, e.data.referencePx, e.data.referencePy, e.data.referenceOrbit);
+  if (e.data.t == "compute-chunk") {
+    if (referencePlotId !== null && e.data.v.chunk.plotId !== referencePlotId) {
+      referenceOrbit = null;
+    }
+    if (!e.data.v.chunk.useFloat && referenceOrbit === null) {
+      lastComputeChunkMsg = e.data.v;
+      postMessage({t: "send-reference-orbit", v:0});
+    } else {
+      computeChunk(e.data.v.plotId, e.data.v.chunk, e.data.v.cachedIndices, referencePx, referencePy, referenceOrbit);
+    }
+  } else if (e.data.t == "reference-orbit") {
+    referencePx = e.data.v.referencePx;
+    referencePy = e.data.v.referencePy;
+    referenceOrbit = e.data.v.referenceOrbit;
+    referencePlotId = e.data.v.referencePlotId;
+    if (lastComputeChunkMsg !== null) {
+      let chunk = lastComputeChunkMsg;
+      lastComputeChunkMsg = null;
+      computeChunk(chunk.plotId, chunk.chunk, chunk.cachedIndices, referencePx, referencePy, referenceOrbit);
+    }
+  } else {
+    console.log("subworker received unknown message:", e);
+  }
 };
 
 var computeChunk = function(plotId, chunk, cachedIndices, referencePx, referencePy, referenceOrbit) {
@@ -101,7 +129,7 @@ var computeChunk = function(plotId, chunk, cachedIndices, referencePx, reference
   }
   chunk["results"] = results;
   chunk["plotId"] = plotId;
-  postMessage(chunk);
+  postMessage({t: "completed-chunk", v:chunk});
 };
 
 // based on the function at https://stackoverflow.com/a/29018745/259456

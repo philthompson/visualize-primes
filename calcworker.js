@@ -260,13 +260,13 @@ var assignChunkToWorker = function(worker) {
   let subWorkerMsg = {
     "plotId": windowCalc.plotId,
     "chunk": nextChunk,
-    "cachedIndices": Array.from(cacheScan.keys()).sort((a, b) => a-b),
-    referencePx: windowCalc.referencePx,
-    referencePy: windowCalc.referencePy,
-    referenceOrbit: windowCalc.referenceOrbit
+    "cachedIndices": Array.from(cacheScan.keys()).sort((a, b) => a-b)
   };
 
-  worker.postMessage(subWorkerMsg);
+  worker.postMessage({
+    t: "compute-chunk",
+    v: subWorkerMsg
+  });
 
   scanCacheForChunkBeyondCursor();
   scanCacheForChunkBeyondCursor();
@@ -354,8 +354,31 @@ function cacheComputedPointsInChunk(chunk) {
 }
 
 var onSubWorkerMessage = function(msg) {
+  if (msg.data.t == "completed-chunk") {
+    handleSubworkerCompletedChunk(msg);
+  } else if (msg.data.t == "send-reference-orbit") {
+    handleReferenceOrbitRequest(msg);
+  } else {
+    console.log("worker received unknown message from subworker:", e);
+  }
+}
+
+function handleReferenceOrbitRequest(msg) {
+  const worker = msg.target;
+  worker.postMessage({
+    t: "reference-orbit",
+    v: {
+      referencePx: windowCalc.referencePx,
+      referencePy: windowCalc.referencePy,
+      referenceOrbit: windowCalc.referenceOrbit,
+      referencePlotId: windowCalc.plotId
+    }
+  });
+}
+
+function handleSubworkerCompletedChunk(msg) {
   // if the worker was working on an old plot, note this...
-  const isOutdatedWorker = msg.data.plotId !== windowCalc.plotId;
+  const isOutdatedWorker = msg.data.v.plotId !== windowCalc.plotId;
 
   //console.log("subworker called back to worker with msg:");
   //console.log(msg);
@@ -382,7 +405,7 @@ var onSubWorkerMessage = function(msg) {
   // for an outdated worker, just throw away its data and don't
   //   do anything with the cache for it
   if (!isOutdatedWorker) {
-    settleChunkWithCacheAndPublish(msg);
+    settleChunkWithCacheAndPublish({data: msg.data.v});
   }
 
   // start next pass, if there is a next one

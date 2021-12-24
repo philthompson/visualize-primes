@@ -244,6 +244,9 @@ const plots = [{
   },
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColorPerturb": function(n, precis, x, y, referenceX, referenceY, referenceOrbit) {
+    //if (infNumToString(x) == "-0.05125" && infNumToString(y) == "1.0875") {
+    //  let schmoop = "boop";
+    //}
     const maxIter = n;
     //  const four = infNum(4n, 0n);
 
@@ -307,6 +310,9 @@ const plots = [{
     // since the last reference orbit may have escaped, use the one before
     //   the last as the last? (i don't think it really matters)
     const maxReferenceIter = referenceOrbit.length - 2;
+    //if (referenceOrbit.length < 2) {
+    //  let hello = "world";
+    //}
     let referenceIter = 0;
 
     let deltaZ = {x: 0.0, y: 0.0};
@@ -318,23 +324,23 @@ const plots = [{
 
     // tmp, for debugging
     //let deltaOrbit = [];
-    let rebaseIters = {};
+    //let rebaseIters = {};
 
     try {
       while (iter < maxIter) {
         // this is the fully floating point calc
-        let twiceRefZ = complexFloatRealMul(referenceOrbit[referenceIter], 2);
-        let firstAddTerm = complexFloatMul(twiceRefZ, deltaZ);
-        let secondAddTerm = complexFloatMul(deltaZ, deltaZ);
-        let firstTwoAddTerms = complexFloatAdd(firstAddTerm, secondAddTerm);
-        let finalSum = complexFloatAdd(firstTwoAddTerms, deltaC);
-        deltaZ = structuredClone(finalSum);
-        //deltaZ = complexFloatAdd(
-        //  complexFloatAdd(
-        //    complexFloatMul(complexFloatRealMul(referenceOrbit[referenceIter], 2), deltaZ),
-        //    complexFloatMul(deltaZ, deltaZ)
-        //  ),
-        //  deltaC);
+        //let twiceRefZ = complexFloatRealMul(referenceOrbit[referenceIter], 2);
+        //let firstAddTerm = complexFloatMul(twiceRefZ, deltaZ);
+        //let secondAddTerm = complexFloatMul(deltaZ, deltaZ);
+        //let firstTwoAddTerms = complexFloatAdd(firstAddTerm, secondAddTerm);
+        //let finalSum = complexFloatAdd(firstTwoAddTerms, deltaC);
+        //deltaZ = structuredClone(finalSum);
+        deltaZ = complexFloatAdd(
+          complexFloatAdd(
+            complexFloatMul(complexFloatRealMul(referenceOrbit[referenceIter], 2), deltaZ),
+            complexFloatMul(deltaZ, deltaZ)
+          ),
+          deltaC);
         // this is the calc with arb-prec ref orbit
         //deltaZ = complexFloatAdd(
         //  complexFloatAdd(
@@ -360,11 +366,11 @@ const plots = [{
         }
         deltaZAbs = (deltaZ.x*deltaZ.x) + (deltaZ.y*deltaZ.y);
         if (zAbs < deltaZAbs || referenceIter == maxReferenceIter) {
-          const refIterName = "refIter: " + referenceIter;
-          if (!rebaseIters.hasOwnProperty(refIterName)) {
-            rebaseIters[refIterName] = 0;
-          }
-          rebaseIters[refIterName] += 1;
+          //const refIterName = "refIter: " + referenceIter;
+          //if (!rebaseIters.hasOwnProperty(refIterName)) {
+          //  rebaseIters[refIterName] = 0;
+          //}
+          //rebaseIters[refIterName] += 1;
           deltaZ = z;
           referenceIter = 0;
         }

@@ -41,6 +41,10 @@ var computeChunk = function(plotId, chunk, cachedIndices, referencePx, reference
 //  let incX = chunk.chunkInc.x;
   let incY = chunk.chunkInc.y;
 
+  if (infNumEq(chunk.chunkPos.x, referencePx) && infNumEq(chunk.chunkPos.y, referencePy)) {
+    console.log("chunk position and reference point are the same!!?!?");
+  }
+
   const computeFn = plotsByName[chunk.plot].computeBoundPointColor;
 
   // assume exactly one of x or y increments is zero
@@ -86,6 +90,9 @@ var computeChunk = function(plotId, chunk, cachedIndices, referencePx, reference
     // compute reference orbit, once per entire chunk (for now)
     //   but only if float is not being used
     } else {
+      // using upper 5% of 32-bit unsigned integer range should
+      //   effectively represent 5% of all possible integers
+      const lowerBoundHashVal = (Math.pow(2, 32) - 1) * 1.0;
       const perturbFn = plotsByName[chunk.plot].computeBoundPointColorPerturb;
 
 /*

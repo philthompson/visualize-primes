@@ -1150,13 +1150,6 @@ function resetWindowCalcContext() {
   const canvasHeight = createInfNum(dContext.canvas.offsetHeight.toString());
 
   // rather than calculate this for each chunk, compute it once here
-  // might have to compute this differently, using multiplication
-  //   mainly (since division is a lossy operation with BigInt)
-  const canvasWidthInfNum = infNum(BigInt(dContext.canvas.width), 0n);
-  let nonTruncated = infNumDiv(infNum(1n, 0n), params.scale, precision);
-  let unitsWide = infNumDiv(canvasWidthInfNum, params.scale, precision);
-  console.log("units per pixel = " + infNumToString(unitsWide) + "/" + infNumToString(canvasWidthInfNum));
-  let unitsPerPixel = infNumDiv(unitsWide, canvasWidthInfNum, precision);
   windowCalc.eachPixUnits = infNumDiv(infNum(1n, 0n), params.scale, precision);
 
   // find the visible abstract points using offset and scale

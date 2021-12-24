@@ -41,10 +41,6 @@ var computeChunk = function(plotId, chunk, cachedIndices, referencePx, reference
 //  let incX = chunk.chunkInc.x;
   let incY = chunk.chunkInc.y;
 
-  if (infNumEq(chunk.chunkPos.x, referencePx) && infNumEq(chunk.chunkPos.y, referencePy)) {
-    console.log("chunk position and reference point are the same!!?!?");
-  }
-
   const computeFn = plotsByName[chunk.plot].computeBoundPointColor;
 
   // assume exactly one of x or y increments is zero
@@ -86,91 +82,22 @@ var computeChunk = function(plotId, chunk, cachedIndices, referencePx, reference
         py = infNumAddNorm(py, incY);
       }
 
-
-    // compute reference orbit, once per entire chunk (for now)
-    //   but only if float is not being used
     } else {
-      // using upper 5% of 32-bit unsigned integer range should
-      //   effectively represent 5% of all possible integers
-      const lowerBoundHashVal = (Math.pow(2, 32) - 1) * 1.0;
+      //if (infNumEq(chunk.chunkPos.x, referencePx) && infNumEq(chunk.chunkPos.y, referencePy)) {
+      //  console.log("chunk position and reference point are the same!!?!?");
+      //}
       const perturbFn = plotsByName[chunk.plot].computeBoundPointColorPerturb;
-
-/*
-      // for now, use middle point of chunk
-      let referenceChunkIndex = Math.floor(chunk.chunkLen / 2);
-      let referencePx = px;
-      //let referencePx = infNumAdd(px, infNumMul(incY, infNum(3n, 0n)));
-      let referencePy = infNumAdd(py, infNumMul(incY, infNum(BigInt(referenceChunkIndex), 0n)));
-      //let referencePx = infNum(0n, 0n);
-      //let referencePy = infNum(0n, 0n);
-      let referenceOrbit = plotsByName[chunk.plot].computeReferenceOrbitFloat(chunk.chunkN, chunk.chunkPrecision, referencePx, referencePy);
-*/
-      //console.log("computed referenceOrbit for chunk index [" + referenceChunkIndex + "] (out of " + chunk.chunkLen + " points), which is:", referenceOrbit);
 
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          let refPx = copyInfNum(referencePx);
-          let refPy = copyInfNum(referencePy);
-          let refOrbit = referenceOrbit;
-
-          // hash this chunk to give us deterministic 5% chance of having
-          //   to compute both the full-precision orbit and the perturbation
-          //   theory lower-precision orbit, so we can compare the two
-          let fullPrecisionResult = null;
-          let chunkIndexId = infNumFastStr(chunk.chunkPos.x) + "," + infNumFastStr(chunk.chunkPos.y) + "," + i;
-          //console.log({fnv32a: fnv32a(chunkIndexId)});
-          if (fnv32a(chunkIndexId) > lowerBoundHashVal) {
-            // full precision result is apparently QUITE different from the
-            //   perturbation theory result... which means something is broken
-            fullPrecisionResult = computeFn(chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
-            
-            // instead of computing the full-precision orbit for 5% of points, instead, compute
-            //   a new reference orbit
-            //refPx = infNumAdd(chunk.chunkPos.x, infNumMul(incY, infNum(5n, 0n)));
-            //refPy = infNumAdd(chunk.chunkPos.y, infNumMul(incY, infNum(5n, 0n)));
-            refPx = infNumAdd(px, infNumMul(incY, infNum(BigInt((i % 4)+2), 0n)));
-            refPy = infNumAdd(py, infNumMul(incY, infNum(3n, 0n)));
-            refOrbit = plotsByName[chunk.plot].computeReferenceOrbitFloat(chunk.chunkN, chunk.chunkPrecision, refPx, refPy);
-            //refOrbit = plotsByName[chunk.plot].computeReferenceOrbit(chunk.chunkN, chunk.chunkPrecision, refPx, refPy);
-            //console.log("computed new one-off reference orbit (it has " + refOrbit.length + " points)");
-          }
-
-          // for now, the perturb function itself can detect when the
-          //   reference point itself is being re-computed
-          //if (i === referenceChunkIndex) {
-          //  results[i] = referenceOrbit.length >= chunk.chunkN ? -1 : (referenceOrbit.length / chunk.chunkN);
-          //} else {
-            results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, refPx, refPy, refOrbit);
-            //console.log("chunk index", i, "gave us iter% of", results[i], "at py:", infNumExpString(py));
-          //}
-
-          if (fullPrecisionResult !== null) {
-            let mainRefResult = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, referencePx, referencePy, referenceOrbit);
-            //console.log(chunkIndexId + ": \n" +
-            //  "             full: [" + fullPrecisionResult + "], \n" +
-            //  "          perturb: [" + mainRefResult + "], \n" +
-            //  "  perturb-one-off: [" + results[i] + "]\n" +
-            //  "     main ref: " + infNumExpString(referencePx) + "," + infNumExpString(referencePy) + "\n" +
-            //  "  one-off ref: " + infNumExpString(refPx) + "," + infNumExpString(refPy) + "\n" +
-            //  "  incY: " + infNumToString(incY));
-            //results[i] = fullPrecisionResult;
-            if (infNumEq(px, refPx) && infNumEq(py, refPy)) {
-              console.log("chunk index position and reference point (refPx/Py) are the same!!?!?");
-            }
-            if (infNumEq(referencePx, refPx) && infNumEq(referencePy, refPy)) {
-              console.log("a new reference position was used, but it's the same!!?!?");
-            }
-          }
-
+          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, referencePx, referencePy, referenceOrbit);
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result
         py = infNumAddNorm(py, incY);
       }
     }
-
-//    }
   }
   chunk["results"] = results;
   chunk["plotId"] = plotId;

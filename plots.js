@@ -170,18 +170,11 @@ const plots = [{
         if (infNumGt(infNumAdd(ixSq, iySq), four)) {
           break;
         }
-        // floats can handle 16 significant digits?  if so, truncate
-        //   the exponential notation string to 15 decimal places
-        //   (plus the done digit before decimal point totals to
-        //   16 significant digits)
-        // (it's more efficient to just truncate using the
-        //   exponential notation function than to truncate then
-        //   convert to string)
+        // (it seems more efficient to let JavaScript truncate by using
+        //   the full exponential notation with parseFloat(), but maybe
+        //   some precision is lost and it would be better to truncate
+        //   first, then call parseFloat()?
         orbit.push({
-          //x: parseFloat(infNumExpStringTruncToLen(ix, 15)),
-          //y: parseFloat(infNumExpStringTruncToLen(iy, 15))
-          //x: parseFloat(infNumToString(ix)),
-          //y: parseFloat(infNumToString(iy))
           x: parseFloat(infNumExpString(ix)),
           y: parseFloat(infNumExpString(iy))
         });
@@ -200,55 +193,11 @@ const plots = [{
       return orbit; // special color value that will not be displayed
     }
   },
-  // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeReferenceOrbit": function(n, precis, x, y) {
-    let orbit = [];
-
-    const maxIter = n;
-    const two = infNum(2n, 0n);
-    const four = infNum(4n, 0n);
-
-    // the coords used for iteration
-    var ix = infNum(0n, 0n);
-    var iy = infNum(0n, 0n);
-    var ixSq = infNum(0n, 0n);
-    var iySq = infNum(0n, 0n);
-    var ixTemp = infNum(0n, 0n);
-    var iter = 0;
-    try {
-      while (iter < maxIter) {
-        ixSq = infNumMul(ix, ix);
-        iySq = infNumMul(iy, iy);
-        if (infNumGt(infNumAdd(ixSq, iySq), four)) {
-          break;
-        }
-        // store full (at specified precision) reference orbit points
-        orbit.push({
-          x: copyInfNum(ix),
-          y: copyInfNum(iy)
-        });
-        ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
-        iy = infNumAdd(y, infNumMul(two, infNumMul(ix, iy)));
-        ix = ixTemp;
-        ix = infNumTruncateToLen(ix, precis);
-        iy = infNumTruncateToLen(iy, precis);
-        iter++;
-      }
-
-      return orbit;
-    } catch (e) {
-      console.log("ERROR CAUGHT when computing reference orbit at point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
-      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
-      return orbit; // special color value that will not be displayed
-    }
-  },
-  // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
+  // x, y, referenceX, and referenceY must be infNum objects of a coordinate in the abstract plane being computed upon
+  // referenceOrbit is array of pre-converted InfNum->float: [{x: ,y: },{x: , y: }]
   "computeBoundPointColorPerturb": function(n, precis, x, y, referenceX, referenceY, referenceOrbit) {
-    //if (infNumToString(x) == "-0.05125" && infNumToString(y) == "1.0875") {
-    //  let schmoop = "boop";
-    //}
+
     const maxIter = n;
-    //  const four = infNum(4n, 0n);
 
     //  from https://fractalwiki.org/wiki/Perturbation_theory
     //
@@ -262,57 +211,29 @@ const plots = [{
     //
     //  in which most of the high precision 𝑍,𝐶 have cancelled out, and 𝑧 can be iterated with low precision numerics. 
 
+    // the below algorithm for perturbation glitch avoidance (re-basing the
+    //   delta orbit back to the same reference orbit when the absolute
+    //   value of the delta exceeds the reference, or when the reference
+    //   orbit has been followed to the end) is from Zhuoran's post here:
+    // https://fractalforums.org/fractal-mathematics-and-new-theories/28/another-solution-to-perturbation-glitches/4360
 
-    //const deltaCx = infNumSub(referenceX, x);
-    //const deltaCy = infNumSub(referenceY, y);
     const deltaCx = infNumSub(x, referenceX);
     const deltaCy = infNumSub(y, referenceY);
 
-    //console.log("deltaCx: [" + infNumExpString(deltaCx) + "], deltaCy: [" + infNumExpString(deltaCy) + "]");
-
-    // if this point is the reference point, it doesn't need to be re-computed;
-    // since deltaCx is always zero, for now, check deltaCy first
-//    if (infNumEq(deltaCy, infNum(0n, 0n)) && infNumEq(deltaCx, infNum(0n, 0n))) {
-//      return referenceOrbit.length >= maxIter ? -1 : (referenceOrbit.length / maxIter);
-//    }
-
-    // floats can handle 16 significant digits?  if so, truncate
-    //   the exponential notation string to 15 decimal places
-    //   (plus the done digit before decimal point totals to
-    //   16 significant digits)
-    // (it's more efficient to just truncate using the
-    //   exponential notation function than to truncate then
-    //   convert to string)
+    // (it seems more efficient to let JavaScript truncate by using
+    //   the full exponential notation with parseFloat(), but maybe
+    //   some precision is lost and it would be better to truncate
+    //   first, then call parseFloat()?
     let deltaC = {
-      //x: parseFloat(infNumExpStringTruncToLen(deltaCx, 15)),
-      //y: parseFloat(infNumExpStringTruncToLen(deltaCy, 15))
-      //x: parseFloat(infNumToString(deltaCx)),
-      //y: parseFloat(infNumToString(deltaCy))
       x: parseFloat(infNumExpString(deltaCx)),
       y: parseFloat(infNumExpString(deltaCy))
     };
-    //if (parseFloat(infNumToString(deltaCx)) !== parseFloat(infNumExpString(deltaCx))) {
-    //  console.log("different toString() implementations result in different floats:\n" +
-    //    " infNumToString: " + parseFloat(infNumToString(deltaCx)) + "\n" +
-    //    "infNumExpString: " + parseFloat(infNumExpString(deltaCx)));
-    //}
-    //if (parseFloat(infNumToString(deltaCx)) !== parseFloat(infNumExpStringTruncToLen(deltaCx, 15))) {
-    //  console.log("different toString() implementations result in different floats:\n" +
-    //    "                  infNumToString: " + parseFloat(infNumToString(deltaCx)) + "\n" +
-    //    "infNumExpStringTruncToLen(n ,15): " + parseFloat(infNumExpStringTruncToLen(deltaCx, 15)));
-    //}
-    // logged these, and as expected, the dx is always the same (in a
-    //   chunk) and dy moves a little bit
-    //console.log("deltaC = {x:" + deltaC.x + ", y:" +  deltaC.y + "}");
 
     let iter = 0;
 
     // since the last reference orbit may have escaped, use the one before
     //   the last as the last? (i don't think it really matters)
     const maxReferenceIter = referenceOrbit.length - 2;
-    //if (referenceOrbit.length < 2) {
-    //  let hello = "world";
-    //}
     let referenceIter = 0;
 
     let deltaZ = {x: 0.0, y: 0.0};
@@ -320,86 +241,29 @@ const plots = [{
     let zAbs = null;
     let deltaZAbs = null;
 
-    // referenceOrbit is array of pre-converted InfNum->float: [{x: ,y: },{x: , y: }]
-
-    // tmp, for debugging
-    //let deltaOrbit = [];
-    //let rebaseIters = {};
-
     try {
       while (iter < maxIter) {
-        // this is the fully floating point calc
-        //let twiceRefZ = complexFloatRealMul(referenceOrbit[referenceIter], 2);
-        //let firstAddTerm = complexFloatMul(twiceRefZ, deltaZ);
-        //let secondAddTerm = complexFloatMul(deltaZ, deltaZ);
-        //let firstTwoAddTerms = complexFloatAdd(firstAddTerm, secondAddTerm);
-        //let finalSum = complexFloatAdd(firstTwoAddTerms, deltaC);
-        //deltaZ = structuredClone(finalSum);
         deltaZ = complexFloatAdd(
           complexFloatAdd(
             complexFloatMul(complexFloatRealMul(referenceOrbit[referenceIter], 2), deltaZ),
             complexFloatMul(deltaZ, deltaZ)
           ),
           deltaC);
-        // this is the calc with arb-prec ref orbit
-        //deltaZ = complexFloatAdd(
-        //  complexFloatAdd(
-        //    complexInfNumToFloat(
-        //      infNumComplexMul(
-        //        complexFloatToInfNum(complexFloatRealMul(deltaZ, 2)),
-        //        referenceOrbit[referenceIter]),
-        //    ),
-        //    complexFloatMul(deltaZ, deltaZ)
-        //  ),
-        //  deltaC);
 
         referenceIter++;
 
-        // for calc with arb-prec ref orbit
-        //z = complexFloatAdd(complexInfNumToFloat(referenceOrbit[referenceIter]), deltaZ);
         z = complexFloatAdd(referenceOrbit[referenceIter], deltaZ);
-        //deltaOrbit.push(z);
-
         zAbs = (z.x*z.x) + (z.y*z.y);
         if (zAbs > 4) {
           break;
         }
         deltaZAbs = (deltaZ.x*deltaZ.x) + (deltaZ.y*deltaZ.y);
         if (zAbs < deltaZAbs || referenceIter == maxReferenceIter) {
-          //const refIterName = "refIter: " + referenceIter;
-          //if (!rebaseIters.hasOwnProperty(refIterName)) {
-          //  rebaseIters[refIterName] = 0;
-          //}
-          //rebaseIters[refIterName] += 1;
           deltaZ = z;
           referenceIter = 0;
         }
 
         iter++;
-      }
-
-      //console.log("point (" + infNumExpString(x) + ", " + infNumExpString(y) + ") " +
-      //  "exploded on the [" + iter + "]th/[" + maxIter + "] iteration,\n" +
-      //  "rebase counts: ", rebaseIters);
-
-
-      // temporary: log the actual orbits of the reference point and this inferred delta orbit
-      //console.log({reflen: referenceOrbit.length, iter: iter, x:infNumToString(x), y:infNumToString(y)});
-      if (false && infNumToString(x) == "-0.05125" && infNumToString(y) == "1.0875") {
-        console.log("// reference orbit:");
-        const tmpStr = [];
-        for (let i = 0; i < 100 && i < referenceOrbit.length; i++) {
-          tmpStr.push("{x:\"" + referenceOrbit[i].x + "\",y:\"" + referenceOrbit[i].y + "\"}");
-        }
-        //console.log(referenceOrbit.slice(0, 100));
-        console.log("const refOrbit = [" + tmpStr.join(",\n") + "];");
-        console.log("// delta orbit:");
-        tmpStr.length = 0;
-        for (let i = 0; i < 100 && i < deltaOrbit.length; i++) {
-          tmpStr.push("{x:\"" + deltaOrbit[i].x + "\",y:\"" + deltaOrbit[i].y + "\"}");
-        }
-        //console.log(deltaOrbit.slice(0, 100));
-        console.log("const deltaOrbit = [" + tmpStr.join(",\n") + "];");
       }
 
       if (iter == maxIter) {

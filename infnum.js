@@ -656,7 +656,15 @@ if (doUnitTests) {
 //  return infNumTruncateToLen(n, infNumPrecision);
 //}
 
+// TODO! unit test this with very small values
+//   (like 5e-50, with say 5 significant digits, which should work)
+
 function infNumTruncateToLen(n, len) {
+  var truncatedExpString = infNumExpStringTruncToLen(n, len-1);
+  return createInfNum(truncatedExpString);
+}
+
+function infNumTruncateToLenOldMaybeBad(n, len) {
   var a = copyInfNum(n);
   const orig = a.v.toString();
   if (orig.length <= len) {

@@ -63,7 +63,7 @@ const windowCalc = {
   "stopped": true,
   "referencePx": null,
   "referencePy": null,
-  "referenceOrbitFloats": null
+  "referenceOrbit": null
 };
 
 self.onmessage = function(e) {
@@ -125,7 +125,7 @@ function runCalc(msg) {
   if (windowCalc.mandelbrotFloat) {
     windowCalc.referencePx = null;
     windowCalc.referencePy = null;
-    windowCalc.referenceOrbitFloats = null;
+    windowCalc.referenceOrbit = null;
   // if we are not using floating point for the entire image, then
   //   we will use perturbation theory, for which we'll now calculate
   //   the reference point and its full orbit (which will be used
@@ -137,6 +137,7 @@ function runCalc(msg) {
     let referencePx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)), 0n)));
     let referencePy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)), 0n)));
     let referenceOrbit = plotsByName[windowCalc.plot].computeReferenceOrbitFloat(windowCalc.n, windowCalc.precision, referencePx, referencePy);
+    //let referenceOrbit = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, referencePx, referencePy);
 
     // move around a little to try other points that may orbit for longer
     //   (this is slow and doesn't seem to be the actual problem, and is
@@ -146,27 +147,31 @@ function runCalc(msg) {
     console.log("calculated middle reference orbit, with [" + referenceOrbit.length + "] iterations, for point:");
     console.log("referencePx: " + infNumToString(referencePx));
     console.log("referencePy: " + infNumToString(referencePy));
-    /*
-    for (let xPixMove = -5; xPixMove < 6; xPixMove++) {
-      for (let yPixMove = -5; yPixMove < 6; yPixMove++) {
-        let testPx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)+(xPixMove*10)), 0n)));
-        let testPy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)+(yPixMove*10)), 0n)));
-        let testOrbit = plotsByName[windowCalc.plot].computeReferenceOrbitFloat(windowCalc.n, windowCalc.precision, testPx, testPy);
-        if (testOrbit.length > referenceOrbit.length) {
-          referencePx = testPx;
-          referencePy = testPy;
-          referenceOrbit =  testOrbit;
-          console.log("calculated better reference orbit, with [" + referenceOrbit.length + "] iterations, for point:");
-          console.log("referencePx: " + infNumToString(referencePx));
-          console.log("referencePy: " + infNumToString(referencePy));
+    
+    const findLongerReferenceOrbit = false;
+    if (findLongerReferenceOrbit) {
+      for (let xPixMove = -5; xPixMove < 6; xPixMove++) {
+        for (let yPixMove = -5; yPixMove < 6; yPixMove++) {
+          let testPx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)+(xPixMove*10)), 0n)));
+          let testPy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)+(yPixMove*10)), 0n)));
+          let testOrbit = plotsByName[windowCalc.plot].computeReferenceOrbitFloat(windowCalc.n, windowCalc.precision, testPx, testPy);
+          //let testOrbit = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, testPx, testPy);
+          if (testOrbit.length > referenceOrbit.length) {
+            referencePx = testPx;
+            referencePy = testPy;
+            referenceOrbit =  testOrbit;
+            console.log("calculated better reference orbit, with [" + referenceOrbit.length + "] iterations, for point:");
+            console.log("referencePx: " + infNumToString(referencePx));
+            console.log("referencePy: " + infNumToString(referencePy));
+          }
         }
       }
     }
-    */
+    
 
     windowCalc.referencePx = referencePx;
     windowCalc.referencePy = referencePy;
-    windowCalc.referenceOrbitFloats = referenceOrbit;
+    windowCalc.referenceOrbit = referenceOrbit;
   }
 
   calculatePass();
@@ -261,7 +266,7 @@ var assignChunkToWorker = function(worker) {
     "cachedIndices": Array.from(cacheScan.keys()).sort((a, b) => a-b),
     referencePx: windowCalc.referencePx,
     referencePy: windowCalc.referencePy,
-    referenceOrbit: windowCalc.referenceOrbitFloats
+    referenceOrbit: windowCalc.referenceOrbit
   };
 
   worker.postMessage(subWorkerMsg);
@@ -328,7 +333,7 @@ function cacheComputedPointsInChunk(chunk) {
     windowCalc.pointsCache.set(pxStr, new Map());
     xCache = windowCalc.pointsCache.get(pxStr);
   }
-  return 0; // disable cache for now
+  //return 0; // disable cache for now
 
   let py = chunk.chunkPos.y;
   let incY = chunk.chunkInc.y;

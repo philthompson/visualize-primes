@@ -103,14 +103,59 @@ var computeChunk = function(plotId, chunk, cachedIndices, referencePx, reference
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
+          let refPx = copyInfNum(referencePx);
+          let refPy = copyInfNum(referencePy);
+          let refOrbit = referenceOrbit;
+
+          // hash this chunk to give us deterministic 5% chance of having
+          //   to compute both the full-precision orbit and the perturbation
+          //   theory lower-precision orbit, so we can compare the two
+          let fullPrecisionResult = null;
+          let chunkIndexId = infNumFastStr(chunk.chunkPos.x) + "," + infNumFastStr(chunk.chunkPos.y) + "," + i;
+          //console.log({fnv32a: fnv32a(chunkIndexId)});
+          if (fnv32a(chunkIndexId) > lowerBoundHashVal) {
+            // full precision result is apparently QUITE different from the
+            //   perturbation theory result... which means something is broken
+            fullPrecisionResult = computeFn(chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
+            
+            // instead of computing the full-precision orbit for 5% of points, instead, compute
+            //   a new reference orbit
+            //refPx = infNumAdd(chunk.chunkPos.x, infNumMul(incY, infNum(5n, 0n)));
+            //refPy = infNumAdd(chunk.chunkPos.y, infNumMul(incY, infNum(5n, 0n)));
+            refPx = infNumAdd(px, infNumMul(incY, infNum(BigInt((i % 4)+2), 0n)));
+            refPy = infNumAdd(py, infNumMul(incY, infNum(3n, 0n)));
+            refOrbit = plotsByName[chunk.plot].computeReferenceOrbitFloat(chunk.chunkN, chunk.chunkPrecision, refPx, refPy);
+            //refOrbit = plotsByName[chunk.plot].computeReferenceOrbit(chunk.chunkN, chunk.chunkPrecision, refPx, refPy);
+            //console.log("computed new one-off reference orbit (it has " + refOrbit.length + " points)");
+          }
+
           // for now, the perturb function itself can detect when the
           //   reference point itself is being re-computed
           //if (i === referenceChunkIndex) {
           //  results[i] = referenceOrbit.length >= chunk.chunkN ? -1 : (referenceOrbit.length / chunk.chunkN);
           //} else {
-            results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, referencePx, referencePy, referenceOrbit);
+            results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, refPx, refPy, refOrbit);
             //console.log("chunk index", i, "gave us iter% of", results[i], "at py:", infNumExpString(py));
           //}
+
+          if (fullPrecisionResult !== null) {
+            let mainRefResult = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, referencePx, referencePy, referenceOrbit);
+            //console.log(chunkIndexId + ": \n" +
+            //  "             full: [" + fullPrecisionResult + "], \n" +
+            //  "          perturb: [" + mainRefResult + "], \n" +
+            //  "  perturb-one-off: [" + results[i] + "]\n" +
+            //  "     main ref: " + infNumExpString(referencePx) + "," + infNumExpString(referencePy) + "\n" +
+            //  "  one-off ref: " + infNumExpString(refPx) + "," + infNumExpString(refPy) + "\n" +
+            //  "  incY: " + infNumToString(incY));
+            //results[i] = fullPrecisionResult;
+            if (infNumEq(px, refPx) && infNumEq(py, refPy)) {
+              console.log("chunk index position and reference point (refPx/Py) are the same!!?!?");
+            }
+            if (infNumEq(referencePx, refPx) && infNumEq(referencePy, refPy)) {
+              console.log("a new reference position was used, but it's the same!!?!?");
+            }
+          }
+
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result
@@ -144,4 +189,23 @@ function binarySearchIncludesNumber(sortedArray, target) {
     }
   }
   return false;
+}
+
+// a version of the FNV-1a hash that accepts all possible unicode/char values
+//   (and 64, 128, 256, 512, or 1024 bits of output, not just 32) is available here:
+// FNV-1a hash from https://github.com/sindresorhus/fnv1a/blob/main/index.js (MIT license)
+
+// thanks to https://gist.github.com/vaiorabbit/5657561
+// 32 bit FNV-1a hash
+// Ref.: http://isthe.com/chongo/tech/comp/fnv/
+function fnv32a( str )
+{
+  var FNV1_32A_INIT = 0x811c9dc5;
+  var hval = FNV1_32A_INIT;
+  for ( var i = 0; i < str.length; ++i )
+  {
+    hval ^= str.charCodeAt(i);
+    hval += (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
+  }
+  return hval >>> 0;
 }

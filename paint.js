@@ -1197,8 +1197,8 @@ function resetGoToCenterValues() {
   if ("usesImaginaryCoordinates" in plotsByName[historyParams.plot].privContext) {
     imaginaryCoordinates = plotsByName[historyParams.plot].privContext.usesImaginaryCoordinates;
   }
-  inputGotoCenterX.value = infNumToFloat(historyParams.centerX);
-  inputGotoCenterY.value = infNumToFloat(historyParams.centerY) + (imaginaryCoordinates ? "i" : "");
+  inputGotoCenterX.value = infNumExpString(historyParams.centerX);
+  inputGotoCenterY.value = infNumExpString(historyParams.centerY) + (imaginaryCoordinates ? "i" : "");
   inputGotoScale.value = infNumExpString(historyParams.scale);
 }
 

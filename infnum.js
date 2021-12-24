@@ -564,7 +564,7 @@ function infNumExpStringTruncToLen(n, truncDecimals) {
   }
   let bd = value.length;
   let ad = value.length - 1;
-  let finalExponent = n.e + BigInt(ad.toString());
+  let finalExponent = n.e + BigInt(ad);
   let decimal = trimZeroes(value.substring(0, 1) + "." + value.substring(1));
   if (!decimal.includes(".")) {
     decimal = decimal + ".0";

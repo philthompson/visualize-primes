@@ -15,11 +15,39 @@ for (let i = 0; i < plots.length; i++) {
   plotsByName[plots[i].name] = plots[i];
 }
 
+var lastComputeChunkMsg = null;
+var referencePx = null;
+var referencePy = null;
+var referenceOrbit = null;
+var referencePlotId = null;
+
 self.onmessage = function(e) {
-  computeChunk(e.data.plotId, e.data.chunk, e.data.cachedIndices);
+  if (e.data.t == "compute-chunk") {
+    if (referencePlotId !== null && e.data.v.chunk.plotId !== referencePlotId) {
+      referenceOrbit = null;
+    }
+    if (!e.data.v.chunk.useFloat && referenceOrbit === null) {
+      lastComputeChunkMsg = e.data.v;
+      postMessage({t: "send-reference-orbit", v:0});
+    } else {
+      computeChunk(e.data.v.plotId, e.data.v.chunk, e.data.v.cachedIndices, referencePx, referencePy, referenceOrbit);
+    }
+  } else if (e.data.t == "reference-orbit") {
+    referencePx = e.data.v.referencePx;
+    referencePy = e.data.v.referencePy;
+    referenceOrbit = e.data.v.referenceOrbit;
+    referencePlotId = e.data.v.referencePlotId;
+    if (lastComputeChunkMsg !== null) {
+      let chunk = lastComputeChunkMsg;
+      lastComputeChunkMsg = null;
+      computeChunk(chunk.plotId, chunk.chunk, chunk.cachedIndices, referencePx, referencePy, referenceOrbit);
+    }
+  } else {
+    console.log("subworker received unknown message:", e);
+  }
 };
 
-var computeChunk = function(plotId, chunk, cachedIndices) {
+var computeChunk = function(plotId, chunk, cachedIndices, referencePx, referencePy, referenceOrbit) {
   // TODO: just use overall time as measured in main thread, don't keep
   //         separate running times on a per-chunk or per-subworker basis
   //var chunkStartMs = Date.now();
@@ -62,6 +90,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
   const results = new Array(chunk.chunkLen);
   // if entire chunk is cached, we don't have to do anything
   if (cachedIndices.length < chunk.chunkLen) {
+    if (chunk.useFloat) {
 //    if (moveX) {
 //      for (let i = 0; i < chunk.chunkLen; i++) {
 //        if (!binarySearchIncludesNumber(cachedIndices, i)) {
@@ -80,11 +109,27 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
         //   the position AFTER computing each result
         py = infNumAddNorm(py, incY);
       }
-//    }
+
+    } else {
+      //if (infNumEq(chunk.chunkPos.x, referencePx) && infNumEq(chunk.chunkPos.y, referencePy)) {
+      //  console.log("chunk position and reference point are the same!!?!?");
+      //}
+      const perturbFn = plotsByName[chunk.plot].computeBoundPointColorPerturb;
+
+      // assuming chunks are all moving along the y axis, for single px
+      for (let i = 0; i < chunk.chunkLen; i++) {
+        if (!binarySearchIncludesNumber(cachedIndices, i)) {
+          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, referencePx, referencePy, referenceOrbit);
+        }
+        // since we want to start at the given starting position, increment
+        //   the position AFTER computing each result
+        py = infNumAddNorm(py, incY);
+      }
+    }
   }
   chunk["results"] = results;
   chunk["plotId"] = plotId;
-  postMessage(chunk);
+  postMessage({t: "completed-chunk", v:chunk});
 };
 
 // based on the function at https://stackoverflow.com/a/29018745/259456
@@ -106,4 +151,23 @@ function binarySearchIncludesNumber(sortedArray, target) {
     }
   }
   return false;
+}
+
+// a version of the FNV-1a hash that accepts all possible unicode/char values
+//   (and 64, 128, 256, 512, or 1024 bits of output, not just 32) is available here:
+// FNV-1a hash from https://github.com/sindresorhus/fnv1a/blob/main/index.js (MIT license)
+
+// thanks to https://gist.github.com/vaiorabbit/5657561
+// 32 bit FNV-1a hash
+// Ref.: http://isthe.com/chongo/tech/comp/fnv/
+function fnv32a( str )
+{
+  var FNV1_32A_INIT = 0x811c9dc5;
+  var hval = FNV1_32A_INIT;
+  for ( var i = 0; i < str.length; ++i )
+  {
+    hval ^= str.charCodeAt(i);
+    hval += (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
+  }
+  return hval >>> 0;
 }

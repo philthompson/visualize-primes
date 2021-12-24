@@ -366,43 +366,72 @@ function infNumSubNorm(a, b) {
   return infNum(a.v - b.v, a.e);
 }
 
-function infNumDiv(argA, argB) {
-  const norm = normInfNum(argA, argB);
-  var a = norm[0];
-  var b = norm[1];
+function infNumDiv(argA, argB, precis) {
+  // - multiply “top” value by 10^precision
+  //   - divide (throw away remainder), then
+  //   - subtract precision from exponent
 
+  const p = BigInt(precis);
+
+  // multiply “top” value by 10^precision
+  let a = infNumMul(argA, infNum(10n ** p, 0n));
+
+  const norm = normInfNum(a, argB);
+
+  a = norm[0];
+  let b = norm[1];
+
+  // divide (throws away remainder)
   var truncated = infNum(a.v / b.v, a.e - b.e);
 
-  var remainder = infNum(a.v % b.v, a.e - b.e);
+  // subtract precision from exponent
+  truncated.e -= p;
 
-  if (remainder.v === 0n) {
+  // divide then multiply the value portion by 10^(power-precis)
+  // (power is n.v.toString().length)
+  // i assume there's no better way to get log10(truncated.v)?
+  const power = truncated.v.toString().length;
+
+  if (power <= precis) {
     return truncated;
   }
 
-  // this may give 16 digits of precision?
-  // seems easy enough to go to 32 or 64....
-  var remInf = infNumMul(remainder, infNum(10000000000000000n, 0n));
-  var remTrunc = infNum(remInf.v / b.v, -16n);
+  let truncPower = 10n ** BigInt(power-precis);
 
-  return infNumAdd(truncated, remTrunc);
+  truncated.v /= truncPower;
+  truncated.v *= truncPower;
+
+  return truncated;
 }
 
 if (doUnitTests) {
-  let unitTest = infNumDiv(createInfNum("50000"), createInfNum("20"));
-  console.log("50000 / 20 = [" + infNumToString(unitTest) + "] // 2500 (25, 2)");
+  let unitTest = infNumDiv(createInfNum("50000"), createInfNum("20"), 8);
+  console.log("50000 / 20 (8 sig.dig.) = [" + infNumToString(unitTest) + "] // 2500");
   console.log(unitTest);
 
-  unitTest = infNumDiv(createInfNum("100"), createInfNum("7"));
-  console.log("100 / 7 = [" + infNumToString(unitTest) + "] // 14.28571428571428...");
+  unitTest = infNumDiv(createInfNum("100"), createInfNum("7"), 8);
+  console.log("100 / 7 (8 sig.dig.) = [" + infNumToString(unitTest) + "] // 14.285714");
   console.log(unitTest);
 
-  unitTest = infNumDiv(createInfNum("100"), createInfNum("64"));
-  console.log("100 / 64 = [" + infNumToString(unitTest) + "] // 1.5625 (15625, -4)");
+  unitTest = infNumDiv(createInfNum("100"), createInfNum("64"), 8);
+  console.log("100 / 64 (8 sig.dig.) = [" + infNumToString(unitTest) + "] // 1.5625");
   console.log(unitTest);
 
-  unitTest = infNumDiv(createInfNum("1302"), createInfNum("10.5"));
-  console.log("1302 / 10.5 = [" + infNumToString(unitTest) + "] // 124");
+  unitTest = infNumDiv(createInfNum("1302"), createInfNum("10.5"), 8);
+  console.log("1302 / 10.5 (8 sig.dig.) = [" + infNumToString(unitTest) + "] // 124");
   console.log(unitTest);
+
+  unitTest = infNumToString(infNumDiv(createInfNum("1"), createInfNum("7"), 12));
+  console.log("1 / 7 (12 sig.dig.) = [" + unitTest + "] // 0.142857142857");
+
+  unitTest = infNumToString(infNumDiv(createInfNum("1000000"), createInfNum("7"), 12));
+  console.log("1000000 / 7 (12 sig.dig.) = [" + unitTest + "] // 142857.142857");
+
+  unitTest = infNumToString(infNumDiv(createInfNum("10"), createInfNum("3"), 5));
+  console.log("10 / 3 (5 sig.dig.) = [" + unitTest + "] // 3.3333");
+
+  unitTest = infNumToString(infNumDiv(createInfNum("100000"), createInfNum("3"), 3));
+  console.log("100000 / 3 (3 sig.dig.) = [" + unitTest + "] // 33300");
 }
 
 function infNumEq(a, b) {
@@ -627,7 +656,15 @@ if (doUnitTests) {
 //  return infNumTruncateToLen(n, infNumPrecision);
 //}
 
+// TODO! unit test this with very small values
+//   (like 5e-50, with say 5 significant digits, which should work)
+
 function infNumTruncateToLen(n, len) {
+  var truncatedExpString = infNumExpStringTruncToLen(n, len-1);
+  return createInfNum(truncatedExpString);
+}
+
+function infNumTruncateToLenOldMaybeBad(n, len) {
   var a = copyInfNum(n);
   const orig = a.v.toString();
   if (orig.length <= len) {

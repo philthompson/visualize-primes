@@ -11,7 +11,7 @@ var mouseDragY = 0;
 var pinch = false;
 var pinchStartDist = 0;
 var showMousePosition = false;
-var annotateClickPosition = true;
+var annotateClickPosition = false;
 var mouseNoticePosX = infNum(0n, 0n);
 var mouseNoticePosY = infNum(0n, 0n);
 var shiftPressed = false;
@@ -1150,15 +1150,15 @@ function resetWindowCalcContext() {
   const canvasHeight = createInfNum(dContext.canvas.offsetHeight.toString());
 
   // rather than calculate this for each chunk, compute it once here
-  windowCalc.eachPixUnits = infNumTruncateToLen(infNumDiv(infNum(1n, 0n), params.scale), precision);
+  windowCalc.eachPixUnits = infNumDiv(infNum(1n, 0n), params.scale, precision);
 
   // find the visible abstract points using offset and scale
-  const scaledWidth = infNumDiv(canvasWidth, params.scale);
-  const leftEdge = infNumSub(params.centerX, infNumDiv(infNumDiv(canvasWidth, two), params.scale));
+  const scaledWidth = infNumDiv(canvasWidth, params.scale, precision);
+  const leftEdge = infNumSub(params.centerX, infNumDiv(infNumDiv(canvasWidth, two, precision), params.scale, precision));
   const rightEdge = infNumAdd(leftEdge, scaledWidth);
 
-  const scaledHeight = infNumDiv(canvasHeight, params.scale);
-  const topEdge = infNumAdd(params.centerY, infNumDiv(infNumDiv(canvasHeight, two), params.scale));
+  const scaledHeight = infNumDiv(canvasHeight, params.scale, precision);
+  const topEdge = infNumAdd(params.centerY, infNumDiv(infNumDiv(canvasHeight, two, precision), params.scale, precision));
   const bottomEdge = infNumSub(topEdge, scaledHeight);
 
   // only clear cache if iterations have changed or if zoom has changed
@@ -1250,11 +1250,11 @@ function applyGoToBoundsValues() {
   }
   const diffX = infNumSub(rightX,   leftX);
   const diffY = infNumSub(  topY, bottomY);
-  const newCenterX = infNumAdd(  leftX, infNumDiv(diffX, infNum(2n, 0n)));
-  const newCenterY = infNumAdd(bottomY, infNumDiv(diffY, infNum(2n, 0n)));
+  const newCenterX = infNumAdd(  leftX, infNumDiv(diffX, infNum(2n, 0n), precision));
+  const newCenterY = infNumAdd(bottomY, infNumDiv(diffY, infNum(2n, 0n), precision));
 
-  const scaleX = infNumDiv(createInfNum(dCanvas.width.toString()), diffX);
-  const scaleY = infNumDiv(createInfNum(dCanvas.height.toString()), diffY);
+  const scaleX = infNumDiv(createInfNum(dCanvas.width.toString()), diffX, precision);
+  const scaleY = infNumDiv(createInfNum(dCanvas.height.toString()), diffY, precision);
 
   console.log("X spans [" + infNumToString(diffX) + "] units, thus [" + infNumToString(scaleX) + "] pixels/unit");
   console.log("Y spans [" + infNumToString(diffY) + "] units, thus [" + infNumToString(scaleY) + "] pixels/unit");
@@ -2085,8 +2085,8 @@ function convertPixelPosToPlanePos(x, y) {
   //const posX = infNumAdd(infNumDiv(pixX, historyParams.scale), leftEdge);
   //const posY = infNumAdd(infNumDiv(pixY, historyParams.scale), topEdge);
   // these do work, using pre-computed left/top edges
-  let posX = infNumAdd(infNumDiv(pixX, historyParams.scale), windowCalc.leftEdge);
-  let posY = infNumSub(windowCalc.topEdge, infNumDiv(pixY, historyParams.scale));
+  let posX = infNumAdd(infNumDiv(pixX, historyParams.scale, precision), windowCalc.leftEdge);
+  let posY = infNumSub(windowCalc.topEdge, infNumDiv(pixY, historyParams.scale, precision));
   return {x: posX, y:posY};
 }
 
@@ -2551,7 +2551,8 @@ dCanvas.addEventListener("wheel", function(e) {
   }
   const newScale = infNumMul(historyParams.scale, newScaleFactor);
 
-  const maxSeqScale = createInfNum("500");
+  //const maxSeqScale = createInfNum("500");
+  const maxSeqScale = createInfNum("5000000000");
   const minSeqScale = createInfNum("0.00005");
   if (plotsByName[historyParams.plot].calcFrom == "sequence") {
     if (infNumLt(newScale, minSeqScale)) {
@@ -2604,12 +2605,12 @@ function calculateNewZoomCenterX(pixelPosition, canvasSize, oldCenter, oldScale,
   // (newCenterX * newScale) = (xPos * newScale) - (xPos * oldScale) + (oldCenterX * oldScale)
   // newCenterX = xPos - (xPos * oldScale / newScale) + (oldCenterX * oldScale / newScale)
 
-  const edge = infNumSub(oldCenter, infNumDiv(infNumDiv(canvasSize, infNum(2n, 0n)), oldScale));
+  const edge = infNumSub(oldCenter, infNumDiv(infNumDiv(canvasSize, infNum(2n, 0n), precision), oldScale, precision));
   // calculate the X position using the given pixelPosition
   // pixelX = (xPos - leftEdge) * oldScale
   // xPos = (pixelX / oldScale) + leftEdge
-  const pos = infNumAdd(infNumDiv(pixelPosition, oldScale), edge);
-  const scaleRatio = infNumDiv(oldScale, newScale);
+  const pos = infNumAdd(infNumDiv(pixelPosition, oldScale, precision), edge);
+  const scaleRatio = infNumDiv(oldScale, newScale, precision);
   return infNumAdd(infNumSub(pos, infNumMul(pos, scaleRatio)), infNumMul(oldCenter, scaleRatio));
 }
 
@@ -2634,13 +2635,13 @@ function calculateNewZoomCenterY(pixelPosition, canvasSize, oldCenter, oldScale,
   // (newCenterY * newScale) = (oldCenterY * oldScale) - (yPos * oldScale) + (yPos * newScale)
   // newCenterY = (oldCenterY * oldScale / newScale) - (yPos * oldScale / newScale) + yPos
 
-  const edge = infNumAdd(oldCenter, infNumDiv(infNumDiv(canvasSize, infNum(2n, 0n)), oldScale));
+  const edge = infNumAdd(oldCenter, infNumDiv(infNumDiv(canvasSize, infNum(2n, 0n), precision), oldScale, precision));
   // calculate the Y position using the given pixelPosition
   // pixelY = (topEdge - yPos) * oldScale
   // pixelY / oldScale = topEdge - yPos
   // yPos = topEdge - (pixelY / oldScale)
-  const pos = infNumSub(edge, infNumDiv(pixelPosition, oldScale));
-  const scaleRatio = infNumDiv(oldScale, newScale);
+  const pos = infNumSub(edge, infNumDiv(pixelPosition, oldScale, precision));
+  const scaleRatio = infNumDiv(oldScale, newScale, precision);
 
   return infNumAdd(infNumSub(infNumMul(oldCenter, scaleRatio), infNumMul(pos, scaleRatio)), pos);
 }

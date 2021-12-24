@@ -96,7 +96,7 @@
        *   for large screens, only get up to 32 chars wide
            (thanks to https://stackoverflow.com/a/30515342/259456) */
       max-width: 32.0rem;
-      width: 97%;
+      width: 92%;
       left: 0px;
       top: 0px;
       height: 100%;
@@ -109,17 +109,22 @@
       padding-bottom: 0.8rem;
     }
     #controls-menu details>div {
-      padding: 0.5rem 0 1.5rem 1.5rem;
+      padding: 0.5rem 0 1.5rem 0;
     }
     #controls-menu input {
       text-align:  right;
       font-size: 1.2rem;
     }
+    #controls-menu textarea {
+      width: 100%;
+    }
     #controls-menu table {
       padding-bottom: 0.5rem;
+      width: 100%;
     }
     #controls-menu td:nth-child(1) {
       text-align: right;
+      width: 5.0rem;
     }
     #menu-contents {
     }
@@ -265,16 +270,16 @@
           <summary>go to location by center and scale</summary>
           <details class="help-text">
           <summary>?</summary>
-            At very large scales (above 3.0e13) arbitrary precision math must be used, which is much
+            At scales above 3.0e13, perturbation theory math must be used, which is
             slower than the floating point math that can be used at smaller scales.
           </details>
           <div>
             <table>
-              <tr><td>center x:</td><td><input size="22" id="go-to-c-x"/></td></tr>
-              <tr><td>center y:</td><td><input size="22" id="go-to-c-y"/></td></tr>
+              <tr><td>center x:</td><td><textarea rows="4" size="22" id="go-to-c-x"></textarea></td></tr>
+              <tr><td>center y:</td><td><textarea rows="4" size="22" id="go-to-c-y"></textarea></td></tr>
               <tr><td>&nbsp;</td></tr>
-              <tr><td>scale:</td><td><input size="22" id="go-to-scale"/></td></tr>
-              <tr><td colspan="2">scale is (pixels/unit)</td></tr>
+              <tr><td>scale:</td><td><textarea rows="4" size="22" id="go-to-scale"></textarea></td></tr>
+              <tr><td colspan="2" style="font-size:0.9rem">scale is (pixels/unit) so bigger = more zoom</td></tr>
             </table>
             <button id="go-to-c-go">Go</button>
             <button id="go-to-c-reset">Reset to Current Window</button>
@@ -289,11 +294,11 @@
           </details>
           <div>
             <table>
-              <tr><td>top left x:</td><td><input size="22" id="go-to-tl-x"/></td></tr>
-              <tr><td>top left y:</td><td><input size="22" id="go-to-tl-y"/></td></tr>
+              <tr><td>top left x:</td><td><textarea rows="4" id="go-to-tl-x"></textarea></td></tr>
+              <tr><td>top left y:</td><td><textarea rows="4" id="go-to-tl-y"></textarea></td></tr>
               <tr><td>&nbsp;</td></tr>
-              <tr><td>bottom right x:</td><td><input size="22" id="go-to-br-x"/></td></tr>
-              <tr><td>bottom right y:</td><td><input size="22" id="go-to-br-y"/></td></tr>
+              <tr><td>bottom right x:</td><td><textarea rows="4" id="go-to-br-x"></textarea></td></tr>
+              <tr><td>bottom right y:</td><td><textarea rows="4" id="go-to-br-y"></textarea></td></tr>
             </table>
             <button id="go-to-b-go">Go</button>
             <button id="go-to-b-reset">Reset to Current Window</button>
@@ -351,7 +356,7 @@
             <table>
               <tr><td colspan="2" id="gradient-canvas-tr"><canvas id="gradient-canvas"></canvas></td></tr>
               <tr><td colspan="2" id="gradient-error"></td></tr>
-              <tr><td>gradient:</td><td><input size="26" id="grad-grad"/></td></tr>
+              <tr><td>gradient:</td><td><textarea rows="4" id="grad-grad"></textarea></td></tr>
               <tr><td>preset:</td><td><select style="font-size:1.2rem;" id="gradient-select"></select></td></tr>
             </table>
             <button id="grad-go">Go</button>

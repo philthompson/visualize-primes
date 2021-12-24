@@ -126,7 +126,9 @@ const blogLinkMandel = document.getElementById("blog-link-mandel");
 
 // this is checked each time a key is pressed, so keep it
 //   here so we don't have to do a DOM query every time
-const inputFields = document.getElementsByTagName("input");
+const inputFields =
+  Array.from(document.getElementsByTagName("input")).concat(
+  Array.from(document.getElementsByTagName("textarea")));
 
 // -||- THIS BELOW SECTION can be removed once all common browsers -||-
 // -vv-   (including Safari) support web workers and subworkers    -vv-

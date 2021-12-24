@@ -540,18 +540,31 @@ const plots = [{
       const precisScale = infNumTruncateToLen(scale, 8); // we probably only need 1 or 2 significant digits for this...
       // these values need more testing to ensure they create pixel-identical images
       //   to higher-precision images
-      if (infNumLt(precisScale, createInfNum("1000"))) {
+      if (infNumLt(precisScale, createInfNum("3e13"))) {
         mandelbrotFloat = true;
-        precision = 12;
-      } else if (infNumLt(precisScale, createInfNum("2,000,000".replaceAll(",", "")))) {
-        mandelbrotFloat = true;
-        precision = 12;
-      } else if (infNumLt(precisScale, createInfNum("30,000,000,000,000".replaceAll(",", "")))) {
-        mandelbrotFloat = true;
-        precision = 20;
       } else {
         mandelbrotFloat = false;
-        precision = 32;
+      }
+      if (infNumLt(precisScale, createInfNum("1e3"))) {
+        precision = 12;
+      } else if (infNumLt(precisScale, createInfNum("2e6"))) {
+        precision = 12;
+      } else if (infNumLt(precisScale, createInfNum("3e13"))) {
+        precision = 20;
+      } else {
+        // if the scale is <1e32, set precision to 32
+        // if the scale is <1e48, set precision to 48
+        // ...
+        precision = -1;
+        for (let i = 32; i < 300; i+=16) {
+          if (infNumLt(precisScale, createInfNum("1e" + i))) {
+            precision = i;
+            break;
+          }
+        }
+        if (precision < 0) {
+          precision = 300;
+        }
       }
       //console.log("set precision to [" + precision + "], using floats for mandelbrot [" + mandelbrotFloat + "]");
     },

@@ -277,7 +277,13 @@ function drawCalculatingNoticeOld(ctx) {
   ctx.font = textHeight + "px system-ui";
   ctx.fillStyle = "rgba(0,0,0,0.9)";
   const percentComplete = Math.round(windowCalc.chunksComplete * 100.0 / windowCalc.totalChunks);
-  ctx.fillText("Calculating " + windowCalc.lineWidth + "-wide pixels (" + percentComplete + "%) ...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
+  let noticeText = "";
+  if (windowCalc.stage === windowCalcStages.drawCalculatingNotice && !mandelbrotFloat) {
+    noticeText = "Calculating reference orbit ...";
+  } else {
+    noticeText = "Calculating " + windowCalc.lineWidth + "-wide pixels (" + percentComplete + "%) ...";
+  }
+  ctx.fillText(noticeText, Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
 }
 
 function cleanUpWindowCache() {
@@ -1526,7 +1532,7 @@ function kickoffWindowDrawLoop() {
   if (windowCalc.timeout != null) {
     window.clearTimeout(windowCalc.timeout);
   }
-  windowCalc.stage = windowCalcStages.calculateChunks;
+  windowCalc.stage = windowCalcStages.drawCalculatingNotice;
   windowCalc.timeout = window.setInterval(windowDrawLoop, 5);
 }
 
@@ -1642,6 +1648,7 @@ function hideGradientError() {
 
 const windowCalcStages = {
   drawCalculatingNotice: "draw-calculating-notice",
+  calculateReferenceOrbit: "calculate-reference-orbit",
   calculateChunks: "calculate-chunks",
   doNextChunk: "next-chunk",
   cleanUpWindowCache: "clean-up-window-cache",
@@ -1654,13 +1661,13 @@ function windowDrawLoop() {
   //console.log("windowDrawLoop() at " + new Error().stack.split('\n')[1]);
 
   if (windowCalc.stage === windowCalcStages.drawCalculatingNotice) {
-    drawCalculatingNotice(dContext);
+    drawCalculatingNoticeOld(dContext);
     // if line width just finished is greater than the param lineWidth,
     //   we have to do it again
     // otherwise, we are done so do cleanup/end-of-image stuff
-    windowCalc.stage = windowCalcStages.calculateChunks;
+    windowCalc.stage = windowCalcStages.calculateReferenceOrbit;
 
-  } else if (windowCalc.stage === windowCalcStages.calculateChunks) {
+  } else if (windowCalc.stage === windowCalcStages.calculateReferenceOrbit) {
     if (mandelbrotFloat) {
       windowCalc.referencePx = null;
       windowCalc.referencePy = null;
@@ -1668,6 +1675,9 @@ function windowDrawLoop() {
     } else {
       calculateReferenceOrbit();
     }
+    windowCalc.stage = windowCalcStages.calculateChunks;
+
+  } else if (windowCalc.stage === windowCalcStages.calculateChunks) {
     calculateWindowPassChunks();
     windowCalc.stage = windowCalcStages.doNextChunk;
 

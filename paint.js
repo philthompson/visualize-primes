@@ -1740,7 +1740,10 @@ function calculateAndDrawNextChunk() {
   const isPassFinished = isPassComputationComplete();
   
   if (nextXChunk) {
-      drawColorPoints(computeBoundPointsChunk(nextXChunk).points, Math.round(windowCalc.lineWidth));
+    drawColorPoints(computeBoundPointsChunk(nextXChunk).points, Math.round(windowCalc.lineWidth));
+    previewImage = windowCalc.pixelsImage;
+    previewImageOffsetX = 0;
+    previewImageOffsetY = 0;
     if (!isPassFinished) {
       drawCalculatingNoticeOld(dContext);
     }

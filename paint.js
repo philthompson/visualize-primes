@@ -645,14 +645,8 @@ gradientSelect.addEventListener("change", function(e) {
   if (gradientSelect.value == "") {
     return;
   }
-  historyParams.gradient = gradientSelect.value;
-  try {
-    buildGradient(historyParams.gradient);
-    hideGradientError();
-  } catch (e) {
-    displayGradientError(e);
-  }
-  redraw();
+  inputGradGrad.value = gradientSelect.value;
+  updateGradientPreview();
 });
 
 function start() {

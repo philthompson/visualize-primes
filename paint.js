@@ -86,7 +86,10 @@ const windowCalc = {
   worker: null,
   workersCountRange: "-",
   plotId: 0,
-  pixelsImage: null
+  pixelsImage: null,
+  referencePx: null,
+  referencePy: null,
+  referenceOrbit: null
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];
@@ -183,6 +186,18 @@ function calculateWindowPassChunks() {
   windowCalc.totalChunks = windowCalc.xPixelChunks.length;
 }
 
+function calculateReferenceOrbit() {
+  // start with middle of window for reference point (doesn't have to
+  //   exactly align with a pixel)
+  windowCalc.referencePx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(dCanvas.width/2)), 0n)));
+  windowCalc.referencePy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(dCanvas.height/2)), 0n)));
+  windowCalc.referenceOrbit = plotsByName[historyParams.plot].computeReferenceOrbitFloat(windowCalc.n, precision, windowCalc.referencePx, windowCalc.referencePy);
+
+  console.log("calculated middle reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
+  console.log("referencePx: " + infNumToString(windowCalc.referencePx));
+  console.log("referencePy: " + infNumToString(windowCalc.referencePy));
+}
+
 function computeBoundPointsChunk(xChunk) {
   var chunkStartMs = Date.now();
   const plot = plotsByName[historyParams.plot];
@@ -224,7 +239,10 @@ function computeBoundPointsChunk(xChunk) {
         windowCalc.pointsCache[pointPixel].px.y = y;
         resultPoints.push(windowCalc.pointsCache[pointPixel]);
       } else {
-        const pointColor = plot.computeBoundPointColor(windowCalc.n, precision, mandelbrotFloat, px, py);
+        const pointColor = mandelbrotFloat ?
+          plot.computeBoundPointColor(windowCalc.n, precision, mandelbrotFloat, px, py)
+          :
+          plot.computeBoundPointColorPerturb(windowCalc.n, precision, px, py, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit);
 
         // x and y are integer (actual pixel) values, with no decimal component
         const point = getColorPoint(x, y, pointColor);
@@ -1643,6 +1661,13 @@ function windowDrawLoop() {
     windowCalc.stage = windowCalcStages.calculateChunks;
 
   } else if (windowCalc.stage === windowCalcStages.calculateChunks) {
+    if (mandelbrotFloat) {
+      windowCalc.referencePx = null;
+      windowCalc.referencePy = null;
+      windowCalc.referenceOrbit = null;
+    } else {
+      calculateReferenceOrbit();
+    }
     calculateWindowPassChunks();
     windowCalc.stage = windowCalcStages.doNextChunk;
 

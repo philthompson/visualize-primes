@@ -42,7 +42,7 @@ const windowCalc = {
   "bottomEdge": null,
   "n": null,
   "precision": null,
-  "mandelbrotFloat": null,
+  "algorithm": null,
   "lineWidth": null,
   "finalWidth": null,
   "chunksComplete": null,
@@ -97,7 +97,7 @@ function runCalc(msg) {
   windowCalc.bottomEdge = msg.bottomEdge;
   windowCalc.n = msg.n;
   windowCalc.precision = msg.precision;
-  windowCalc.mandelbrotFloat = msg.mandelbrotFloat;
+  windowCalc.algorithm = msg.algorithm;
   // the main thread does its own 64-wide pixels synchronously,
   //   so the worker threads should start at 32-wide (set to 64
   //   here so that after dividing by two initially we are at 32)
@@ -122,14 +122,15 @@ function runCalc(msg) {
     }
     windowCalc.workers[i].onmessage = onSubWorkerMessage;
   }
-  if (windowCalc.mandelbrotFloat) {
+
+  if (!windowCalc.algorithm.startsWith("perturb-")) {
     windowCalc.referencePx = null;
     windowCalc.referencePy = null;
     windowCalc.referenceOrbit = null;
-  // if we are not using floating point for the entire image, then
-  //   we will use perturbation theory, for which we'll now calculate
-  //   the reference point and its full orbit (which will be used
-  //   for all chunks in all passes)
+
+  // if we are using perturbation theory, we'll now calculate the
+  //   reference point and its full orbit (which will be used for
+  //   all chunks in all passes)
   } else {
 
     // start with middle of window for reference point (doesn't have to
@@ -537,7 +538,7 @@ var calculateWindowPassChunks = function() {
       "chunkLen": yPointsPerChunk,
       "chunkN": windowCalc.n,
       "chunkPrecision": windowCalc.precision,
-      "useFloat": windowCalc.mandelbrotFloat
+      "algorithm": windowCalc.algorithm
     };
     windowCalc.xPixelChunks.push(chunk);
   }

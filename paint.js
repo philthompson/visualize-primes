@@ -28,10 +28,7 @@ var menuVisible = false;
 const windowLogTiming = true;
 const forceWorkerReloadUrlParam = "force-worker-reload=true";
 const forceWorkerReload = window.location.toString().includes(forceWorkerReloadUrlParam);
-const mandelbrotCircleHeuristic = false;
 var precision = 24;
-var mandelbrotFloat = false;
-const windowCalcIgnorePointColor = -2;
 var builtGradient = null;
 
 // since user machines and user needs are different, the number of
@@ -89,7 +86,8 @@ const windowCalc = {
   pixelsImage: null,
   referencePx: null,
   referencePy: null,
-  referenceOrbit: null
+  referenceOrbit: null,
+  algorithm: null
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];
@@ -239,10 +237,12 @@ function computeBoundPointsChunk(xChunk) {
         windowCalc.pointsCache[pointPixel].px.y = y;
         resultPoints.push(windowCalc.pointsCache[pointPixel]);
       } else {
-        const pointColor = mandelbrotFloat ?
-          plot.computeBoundPointColor(windowCalc.n, precision, mandelbrotFloat, px, py)
+        // if not calculating with straightforward algorithm, we will use
+        //   the perturbation theory algorithm
+        const pointColor = windowCalc.algorithm == "perturb-float" ?
+          plot.computeBoundPointColorPerturb(windowCalc.n, precision, px, py, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit)
           :
-          plot.computeBoundPointColorPerturb(windowCalc.n, precision, px, py, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit);
+          plot.computeBoundPointColor(windowCalc.n, precision, windowCalc.algorithm, px, py);
 
         // x and y are integer (actual pixel) values, with no decimal component
         const point = getColorPoint(x, y, pointColor);
@@ -278,7 +278,7 @@ function drawCalculatingNoticeOld(ctx) {
   ctx.fillStyle = "rgba(0,0,0,0.9)";
   const percentComplete = Math.round(windowCalc.chunksComplete * 100.0 / windowCalc.totalChunks);
   let noticeText = "";
-  if (windowCalc.stage === windowCalcStages.drawCalculatingNotice && !mandelbrotFloat) {
+  if (windowCalc.stage === windowCalcStages.drawCalculatingNotice && windowCalc.algorithm.startsWith("perturb-")) {
     noticeText = "Calculating reference orbit ...";
   } else {
     noticeText = "Calculating " + windowCalc.lineWidth + "-wide pixels (" + percentComplete + "%) ...";
@@ -1131,7 +1131,11 @@ function resetWindowCalcContext() {
 
   // set the plot-specific global precision to use first
   if ("adjustPrecision" in plotsByName[params.plot].privContext) {
-    plotsByName[params.plot].privContext.adjustPrecision(historyParams.scale);
+    let settings = plotsByName[params.plot].privContext.adjustPrecision(historyParams.scale);
+    precision = settings.precision;
+    windowCalc.algorithm = settings.algorithm;
+  } else {
+    windowCalc.algorithm = "basic-float";
   }
 
   // attempt to resolve slowdown experienced when repeatedly panning/zooming,
@@ -1485,7 +1489,7 @@ function calculateAndDrawWindowSync(pixelSize) {
       // px -- the pixel "color point"
       // pt -- the abstract coordinate on the plane
       results[resultCounter] = {
-        "px": getColorPoint(x, y, compute(windowCalc.n, precision, mandelbrotFloat, px, py)),
+        "px": getColorPoint(x, y, compute(windowCalc.n, precision, windowCalc.algorithm, px, py)),
         "pt": {"x":copyInfNum(px), "y":copyInfNum(py)}
       };
       resultCounter++;
@@ -1497,7 +1501,7 @@ function calculateAndDrawWindowSync(pixelSize) {
 }
 
 function calculateAndDrawWindow() {
-  if (mandelbrotFloat) {
+  if (windowCalc.algorithm == "basic-float") {
     // since we are just starting a new image, calculate and draw the first
     //   pass synchronously, so that as the user drags a mouse/finger, or
     //   zooms, the canvas is updated as rapidly as possible
@@ -1543,7 +1547,10 @@ function kickoffWindowWorker() {
   }
   // since the linewidth is divided by 2 on each pass, start with a multiple
   //   of a power of 2.  this way, we end up at the desired pixel size ("line width")
-  let startLineWidth = mandelbrotFloat ? Math.round(historyParams.lineWidth) * 32 : Math.round(historyParams.lineWidth) * 128;
+  let startLineWidth = windowCalc.algorithm == "basic-float" ?
+    Math.round(historyParams.lineWidth) * 32
+    :
+    Math.round(historyParams.lineWidth) * 128;
   while (startLineWidth > 300) {
     startLineWidth /= 2;
   }
@@ -1556,7 +1563,7 @@ function kickoffWindowWorker() {
   workerCalc.bottomEdge = windowCalc.bottomEdge;
   workerCalc.n = windowCalc.n;
   workerCalc.precision = precision;
-  workerCalc.mandelbrotFloat = mandelbrotFloat;
+  workerCalc.algorithm = windowCalc.algorithm;
   workerCalc.startWidth = startLineWidth;
   workerCalc.finalWidth = Math.round(historyParams.lineWidth);
   workerCalc.canvasWidth = dContext.canvas.width;
@@ -1662,12 +1669,12 @@ function windowDrawLoop() {
     windowCalc.stage = windowCalcStages.calculateReferenceOrbit;
 
   } else if (windowCalc.stage === windowCalcStages.calculateReferenceOrbit) {
-    if (mandelbrotFloat) {
+    if (windowCalc.algorithm.startsWith("perturb-")) {
+      calculateReferenceOrbit();
+    } else {
       windowCalc.referencePx = null;
       windowCalc.referencePy = null;
       windowCalc.referenceOrbit = null;
-    } else {
-      calculateReferenceOrbit();
     }
     windowCalc.stage = windowCalcStages.calculateChunks;
 
@@ -1908,7 +1915,7 @@ function drawMousePosNotice(x, y) {
     imaginaryCoordinates = plotsByName[historyParams.plot].privContext.usesImaginaryCoordinates;
   }
   let usingFloat = true;
-  if (historyParams.plot.startsWith("Mandelbrot") && !mandelbrotFloat) {
+  if (historyParams.plot.startsWith("Mandelbrot") && windowCalc.algorithm != "basic-float") {
     usingFloat = false;
   }
   let xVal = null;
@@ -1959,7 +1966,7 @@ function drawImageParameters() {
     ["  bgclr", historyParams.bgColor],
     ["workers", windowCalc.workersCountRange]
   ];
-  if (historyParams.plot.startsWith("Mandelbrot") && mandelbrotFloat) {
+  if (historyParams.plot.startsWith("Mandelbrot") && windowCalc.algorithm == "basic-float") {
     entries.push([" precis", "floating pt"]);
   } else {
     entries.push([" precis", precision.toString()]);
@@ -2279,10 +2286,18 @@ window.addEventListener("keydown", function(e) {
       redraw();
     }
   } else if (e.keyCode == 69 || e.key == "e" || e.key == "E") {
-    applyParamPercent("scale", "1.05");
+    if (plotsByName[historyParams.plot].calcFrom == "sequence") {
+      applyParamPercent("scale", "1.05");
+    } else {
+      applyParamPercent("scale", "10");
+    }
     redraw();
   } else if (e.keyCode == 81 || e.key == "q" || e.key == "Q") {
-    applyParamPercent("scale", "0.95");
+    if (plotsByName[historyParams.plot].calcFrom == "sequence") {
+      applyParamPercent("scale", "0.95");
+    } else {
+      applyParamPercent("scale", "0.1");
+    }
     if ("minScale" in plotsByName[historyParams.plot].privContext &&
         infNumLt(historyParams.scale, plotsByName[historyParams.plot].privContext.minScale)) {
       historyParams.scale = plotsByName[historyParams.plot].privContext.minScale;

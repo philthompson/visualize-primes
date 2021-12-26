@@ -26,7 +26,7 @@ self.onmessage = function(e) {
     if (referencePlotId !== null && e.data.v.chunk.plotId !== referencePlotId) {
       referenceOrbit = null;
     }
-    if (!e.data.v.chunk.useFloat && referenceOrbit === null) {
+    if (referenceOrbit === null && e.data.v.chunk.algorithm.startsWith("perturb-")) {
       lastComputeChunkMsg = e.data.v;
       postMessage({t: "send-reference-orbit", v:0});
     } else {
@@ -90,7 +90,7 @@ var computeChunk = function(plotId, chunk, cachedIndices, referencePx, reference
   const results = new Array(chunk.chunkLen);
   // if entire chunk is cached, we don't have to do anything
   if (cachedIndices.length < chunk.chunkLen) {
-    if (chunk.useFloat) {
+    if (!chunk.algorithm.startsWith("perturb-")) {
 //    if (moveX) {
 //      for (let i = 0; i < chunk.chunkLen; i++) {
 //        if (!binarySearchIncludesNumber(cachedIndices, i)) {
@@ -103,13 +103,15 @@ var computeChunk = function(plotId, chunk, cachedIndices, referencePx, reference
 //    } else {
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
+          results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, chunk.algorithm, px, py);
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result
         py = infNumAddNorm(py, incY);
       }
 
+    // if not calculating with straightforward algorithm, we will use
+    //   the perturbation theory algorithm
     } else {
       //if (infNumEq(chunk.chunkPos.x, referencePx) && infNumEq(chunk.chunkPos.y, referencePy)) {
       //  console.log("chunk position and reference point are the same!!?!?");

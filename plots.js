@@ -22,6 +22,8 @@ function complexFloatAdd(a, b) {
   return {x:a.x+b.x, y:a.y+b.y};
 }
 
+const windowCalcIgnorePointColor = -2;
+
 // each "plot" has its own "privContext" that can contain whatever data/functions
 //   it needs to compute points
 const plots = [{
@@ -40,11 +42,11 @@ const plots = [{
     "<br/>- When not zoomed in very far, keep the <code>n</code> (iterations) parameter low for faster calculation (use N and M keys to decrease/increase the <code>n</code> value)." +
     "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower.",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeBoundPointColor": function(n, precis, useFloat, x, y) {
+  "computeBoundPointColor": function(n, precis, algorithm, x, y) {
     const maxIter = n;
     const four = infNum(4n, 0n);
 
-    if (useFloat) {
+    if (algorithm == "basic-float") {
       // truncating to 15 decimal digits here is equivalent to truncating
       //   to 16 significant digits, but it's more efficient to do both at once
       let xFloat = parseFloat(infNumExpStringTruncToLen(x, 15));
@@ -73,6 +75,11 @@ const plots = [{
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
         return iter / maxIter;
       }
+    }
+
+    if (algorithm != "basic-arbprecis") {
+      console.log("unexpected/unknown algorithm [" + algorithm + "]");
+      return windowCalcIgnorePointColor;
     }
 
     const two = infNum(2n, 0n);
@@ -254,35 +261,55 @@ const plots = [{
     "usesImaginaryCoordinates": true,
     "adjustPrecision": function(scale) {
       const precisScale = infNumTruncateToLen(scale, 8); // we probably only need 1 or 2 significant digits for this...
+      // this window plot can define its own "algorithm", which it can use
+      //   later, when the pixels are being calculated?
+      // "basic-float" (basic escape time algorithm with regular JavaScript numbers (64-bit floats))
+      // "perturb-float" (perturbation theory with arbitrary precision reference orbit and float delta orbit)
+      // "basic-arbprecis" (super-slow basic escape time algorithm with arbitrary precision)
+      //
+      // future methods that may be implemented:
+      // "perturb-double" (with something like double.js)
+      // "perturb-floatexp" (with port of floatexp)
+      // "sa-float" (series approximation)
+      // "sa-double"
+      // "sa-floatexp"
+      const ret = {
+        roughScale: infNumExpString(precisScale),
+        precision: 12,
+        algorithm: "basic-float"
+      };
+      if (infNumGe(precisScale, createInfNum("1e304"))) {
+        ret.algorithm = "basic-arbprecis";
+      } else if (infNumGe(precisScale, createInfNum("3e13"))) {
+        ret.algorithm = "perturb-float";
+      }
       // these values need more testing to ensure they create pixel-identical images
       //   to higher-precision images
-      if (infNumLt(precisScale, createInfNum("3e13"))) {
-        mandelbrotFloat = true;
-      } else {
-        mandelbrotFloat = false;
-      }
       if (infNumLt(precisScale, createInfNum("1e3"))) {
-        precision = 12;
+        ret.precision = 12;
       } else if (infNumLt(precisScale, createInfNum("2e6"))) {
-        precision = 12;
+        ret.precision = 12;
       } else if (infNumLt(precisScale, createInfNum("3e13"))) {
-        precision = 20;
+        ret.precision = 20;
       } else {
         // if the scale is <1e32, set precision to 32
         // if the scale is <1e48, set precision to 48
         // ...
-        precision = -1;
-        for (let i = 32; i < 300; i+=16) {
+        ret.precision = -1;
+        for (let i = 32; i <= 304; i+=16) {
           if (infNumLt(precisScale, createInfNum("1e" + i))) {
-            precision = i;
+            ret.precision = i;
             break;
           }
         }
-        if (precision < 0) {
-          precision = 300;
+        // for scales at/larger than 1e304, use the magnitude as
+        //   the precision -- more research is needed on this
+        if (ret.precision < 0) {
+          ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.01);
         }
       }
-      //console.log("set precision to [" + precision + "], using floats for mandelbrot [" + mandelbrotFloat + "]");
+      console.log("mandelbrot settings for scale:", ret);
+      return ret;
     },
     "minScale": createInfNum("20")
   }

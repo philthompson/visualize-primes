@@ -674,3 +674,12 @@ function infNumTruncateToLenOldMaybeBad(n, len) {
   a.e = a.e + BigInt(orig.length - len);
   return a;
 }
+
+// shortened version of infNumExpStringTruncToLen()
+function infNumMagnitude(n) {
+  var value = n.v.toString();
+  // anything after 1st digit is "after decimal"
+  let afterDecimal = n.v < 0 ? value.length - 2 : value.length - 1;
+  let finalExponent = parseInt(n.e) + afterDecimal;
+  return finalExponent;
+}

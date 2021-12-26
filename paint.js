@@ -155,14 +155,16 @@ function calculateWindowPassChunks() {
   const pixWidth = dContext.canvas.width;
   // use way fewer chunks for larger pixels, which mostly fixes mouse-dragging issues
   var numXChunks = 128;
-  if (pixelSize == 64) {
-    numXChunks = 1;
-  } else if (pixelSize == 32) {
-    numXChunks = 4;
-  } else if (pixelSize == 16) {
-    numXChunks = 32;
-  } else if (pixelSize == 8 || pixelSize == 4) {
-    numXChunks = 64;
+  if (infNumLt(historyParams.scale, createInfNum("1e304"))) {
+    if (pixelSize == 64) {
+      numXChunks = 1;
+    } else if (pixelSize == 32) {
+      numXChunks = 4;
+    } else if (pixelSize == 16) {
+      numXChunks = 32;
+    } else if (pixelSize == 8 || pixelSize == 4) {
+      numXChunks = 64;
+    }
   }
   var pixPerChunk = 1;
   var realPixelsPerChunk = pixWidth/numXChunks;
@@ -1149,9 +1151,7 @@ function resetWindowCalcContext() {
     previewImage = windowCalc.pixelsImage;
   }
 
-  // since line width is halved each time the draw occurs, use 128 to get
-  //   the initial draw to use a 64-wide pixels
-  windowCalc.lineWidth = 128;
+  windowCalc.lineWidth = 128; // placeholder value
   windowCalc.pixelsImage = dContext.createImageData(dContext.canvas.width, dContext.canvas.height);
   windowCalc.xPixelChunks = [];
   windowCalc.resultPoints = [];
@@ -1526,10 +1526,23 @@ function calculateAndDrawWindow() {
   }
 }
 
+// start the non-worker calculate/draw loop
 function kickoffWindowDrawLoop() {
   if (windowCalc.timeout != null) {
     window.clearTimeout(windowCalc.timeout);
   }
+  // since the linewidth is divided by 2 on each pass, start with a multiple
+  //   of a power of 2.  this way, we end up at the desired pixel size ("line width")
+  // since this is the slower non-worker way to draw the image, we'll start
+  //   with pixels that are twice as wide as the worker pixels
+  let startLineWidth = windowCalc.algorithm == "basic-float" ?
+    Math.round(historyParams.lineWidth) * 64
+    :
+    Math.round(historyParams.lineWidth) * 256;
+  while (startLineWidth > 300) {
+    startLineWidth /= 2;
+  }
+  windowCalc.lineWidth = startLineWidth;
   windowCalc.stage = windowCalcStages.drawCalculatingNotice;
   windowCalc.timeout = window.setInterval(windowDrawLoop, 5);
 }

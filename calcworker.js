@@ -10,12 +10,15 @@ if (!self.Worker) {
 const forceWorkerReloadUrlParam = "force-worker-reload=true";
 const forceWorkerReload = self.location.toString().includes(forceWorkerReloadUrlParam);
 
+const urlParams = new URLSearchParams(self.location.search);
+const appVersion = urlParams.has("v") ? urlParams.get('v') : "unk";
+
 if (forceWorkerReload) {
-  importScripts("infnum.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
-  importScripts("plots.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+  importScripts("infnum.js?v=" + appVersion + "&" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+  importScripts("plots.js?v=" + appVersion + "&" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
 } else {
-  importScripts("infnum.js");
-  importScripts("plots.js");
+  importScripts("infnum.js?v=" + appVersion);
+  importScripts("plots.js?v=" + appVersion);
 }
 
 const plotsByName = {};
@@ -116,9 +119,9 @@ function runCalc(msg) {
   windowCalc.maxWorkersCount = windowCalc.workersCount;
   for (let i = 0; i < windowCalc.workersCount; i++) {
     if (forceWorkerReload) {
-      windowCalc.workers.push(new Worker("calcsubworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now())));
+      windowCalc.workers.push(new Worker("calcsubworker.js?v=" + appVersion + "&" + forceWorkerReloadUrlParam + "&t=" + (Date.now())));
     } else {
-      windowCalc.workers.push(new Worker("calcsubworker.js"));
+      windowCalc.workers.push(new Worker("calcsubworker.js?v=" + appVersion));
     }
     windowCalc.workers[i].onmessage = onSubWorkerMessage;
   }
@@ -202,9 +205,9 @@ function updateWorkerCount(msg) {
   for (let i = windowCalc.workers.length + 1; i <= windowCalc.workersCount; i++) {
     let newWorker = null;
     if (forceWorkerReload) {
-      newWorker = new Worker("calcsubworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+      newWorker = new Worker("calcsubworker.js?v=" + appVersion + "&" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
     } else {
-      newWorker = new Worker("calcsubworker.js");
+      newWorker = new Worker("calcsubworker.js?v=" + appVersion);
     }
     windowCalc.workers.push(newWorker);
     newWorker.onmessage = onSubWorkerMessage;

@@ -45,6 +45,13 @@ if (!window.Worker) {
   warnAboutWorkers();
 }
 
+const appVersion = (function(scriptElement) {
+  let src = scriptElement.getAttribute("src");
+  // use everything after, and including, the first "?"
+  let urlParams = new URLSearchParams(src.substring(src.indexOf("?")));
+  return urlParams.has("v") ? urlParams.get('v') : "unk";
+})(document.currentScript);
+
 function warnAboutWorkers() {
   document.getElementById("workers-warning").innerHTML = "<b><u>Workers do not function in your browser!</u></b><br/><br/>" +
     "Very Plotter works much better with web workers and subworkers.<br/><br/>" +
@@ -1550,9 +1557,9 @@ function kickoffWindowDrawLoop() {
 function kickoffWindowWorker() {
   if (windowCalc.worker === null) {
     if (forceWorkerReload) {
-      windowCalc.worker = new Worker("calcworker.js?" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+      windowCalc.worker = new Worker("calcworker.js?v=" + appVersion + "&" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
     } else {
-      windowCalc.worker = new Worker("calcworker.js");
+      windowCalc.worker = new Worker("calcworker.js?v=" + appVersion);
     }
     windowCalc.worker.onmessage = calcWorkerOnmessage;
   } else {
@@ -1667,7 +1674,7 @@ const windowCalcStages = {
   doNextChunk: "next-chunk",
   cleanUpWindowCache: "clean-up-window-cache",
   stop: "stop"
-}
+};
 
 // the main window plot drawing loop, called repeatedly by setInterval()
 //function waitAndDrawWindow() {
@@ -1979,16 +1986,13 @@ function drawImageParameters() {
     ["  bgclr", historyParams.bgColor],
     ["workers", windowCalc.workersCountRange]
   ];
-  if (historyParams.plot.startsWith("Mandelbrot") && windowCalc.algorithm == "basic-float") {
-    entries.push([" precis", "floating pt"]);
-  } else {
-    entries.push([" precis", precision.toString()]);
-  }
+  entries.push(["   algo", windowCalc.algorithm]);
+  entries.push([" precis", precision.toString()]);
   if (windowCalc.runtimeMs > 0) {
-    entries.push([" run ms", windowCalc.runtimeMs.toString()])
+    entries.push([" run ms", windowCalc.runtimeMs.toString()]);
   }
   if (windowCalc.avgRuntimeMs > 0) {
-    entries.push([" avg ms", windowCalc.avgRuntimeMs.toString()])
+    entries.push([" avg ms", windowCalc.avgRuntimeMs.toString()]);
   }
   for (let i = 0; i < entries.length; i++) {
     const entryLabel = entries[i][0];

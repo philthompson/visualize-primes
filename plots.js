@@ -3,11 +3,17 @@
 //   by subworkers.  for subworkers, infnum.js needs to be
 //   loaded explicitly here
 if (typeof importScripts === 'function') {
-  importScripts("infnum.js");
+  let scriptAppVersion = null;
+  if (!appVersion) {
+    scriptAppVersion = (function() {
+      let urlParams = new URLSearchParams(self.location.search);
+      return urlParams.has("v") ? urlParams.get('v') : "unk";
+    })();
+  }
+  importScripts("infnum.js?v=" + (appVersion || scriptAppVersion));
 }
 
 function complexFloatMul(a, b) {
-  //return {x:a.x*b.x-a.y*b.y, y:a.x*b.y+a.y*b.x};
   return {
     x: (a.x*b.x) - (a.y*b.y),
     y: (a.x*b.y) + (a.y*b.x) 

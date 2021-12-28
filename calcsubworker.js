@@ -7,9 +7,11 @@ const appVersion = urlParams.has("v") ? urlParams.get('v') : "unk";
 
 if (forceWorkerReload) {
   importScripts("infnum.js?v=" + appVersion + "&" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+  importScripts("floatexp.js?v=" + appVersion + "&" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
   importScripts("plots.js?v=" + appVersion + "&" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
 } else {
   importScripts("infnum.js?v=" + appVersion);
+  importScripts("floatexp.js?v=" + appVersion);
   importScripts("plots.js?v=" + appVersion);
 }
 
@@ -119,7 +121,10 @@ var computeChunk = function(plotId, chunk, cachedIndices, referencePx, reference
       //if (infNumEq(chunk.chunkPos.x, referencePx) && infNumEq(chunk.chunkPos.y, referencePy)) {
       //  console.log("chunk position and reference point are the same!!?!?");
       //}
-      const perturbFn = plotsByName[chunk.plot].computeBoundPointColorPerturb;
+      const perturbFn = chunk.algorithm.includes("floatexp") ?
+        plotsByName[chunk.plot].computeBoundPointColorPerturbFloatExp
+        :
+        plotsByName[chunk.plot].computeBoundPointColorPerturbFloat;
 
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {

@@ -140,7 +140,7 @@ function runCalc(msg) {
     //   exactly align with a pixel)
     let referencePx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)), 0n)));
     let referencePy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)), 0n)));
-    let referenceOrbit = plotsByName[windowCalc.plot].computeReferenceOrbitFloat(windowCalc.n, windowCalc.precision, referencePx, referencePy);
+    let referenceOrbit = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, referencePx, referencePy);
 
     // move around a little to try other points that may orbit for longer
     //   (this is slow and doesn't seem to be the actual problem, and is
@@ -157,7 +157,7 @@ function runCalc(msg) {
         for (let yPixMove = -5; yPixMove < 6; yPixMove++) {
           let testPx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)+(xPixMove*10)), 0n)));
           let testPy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)+(yPixMove*10)), 0n)));
-          let testOrbit = plotsByName[windowCalc.plot].computeReferenceOrbitFloat(windowCalc.n, windowCalc.precision, testPx, testPy);
+          let testOrbit = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, testPx, testPy);
           if (testOrbit.length > referenceOrbit.length) {
             referencePx = testPx;
             referencePy = testPy;

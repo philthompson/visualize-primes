@@ -11,6 +11,7 @@ if (typeof importScripts === 'function') {
     })();
   }
   importScripts("infnum.js?v=" + (appVersion || scriptAppVersion));
+  importScripts("floatexp.js?v=" + (appVersion || scriptAppVersion));
 }
 
 function complexFloatMul(a, b) {
@@ -26,6 +27,31 @@ function complexFloatRealMul(a, real) {
 
 function complexFloatAdd(a, b) {
   return {x:a.x+b.x, y:a.y+b.y};
+}
+
+function complexFloatExpMul(a, b) {
+  return {
+    x: floatExpSub(floatExpMul(a.x, b.x), floatExpMul(a.y, b.y)),
+    y: floatExpAdd(floatExpMul(a.x, b.y), floatExpMul(a.y, b.x))
+  };
+}
+
+function complexFloatExpRealMul(a, realFloatExp) {
+  return {
+    x: floatExpMul(a.x, realFloatExp),
+    y: floatExpMul(a.y, realFloatExp)
+  };
+}
+
+function complexFloatExpAdd(a, b) {
+  return {
+    x: floatExpAdd(a.x, b.x),
+    y: floatExpAdd(a.y, b.y)
+  };
+}
+
+function complexFloatExpAbs(a) {
+  return floatExpAdd(floatExpMul(a.x, a.x), floatExpMul(a.y, a.y));
 }
 
 const windowCalcIgnorePointColor = -2;
@@ -125,7 +151,16 @@ const plots = [{
     }
   },
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeReferenceOrbitFloat": function(n, precis, x, y) {
+  "computeReferenceOrbit": function(n, precis, algorithm, x, y) {
+    // rather than re-write the loop below (once for float, once
+    //   for floatexp), or string checking the algorithm name inside
+    //   the loop, use a boolean check inside the loop
+    let useFloatExp = false;
+    if (algorithm.includes("floatexp")) {
+      useFloatExp = true;
+    } else if (!algorithm.includes("float")) {
+      console.log("unexpected/unknown reference orbit algorithm [" + algorithm + "], falling back to float");
+    }
     let orbit = [];
 
     const maxIter = n;
@@ -146,14 +181,21 @@ const plots = [{
         if (infNumGt(infNumAdd(ixSq, iySq), four)) {
           break;
         }
-        // (it seems more efficient to let JavaScript truncate by using
-        //   the full exponential notation with parseFloat(), but maybe
-        //   some precision is lost and it would be better to truncate
-        //   first, then call parseFloat()?
-        orbit.push({
-          x: parseFloat(infNumExpString(ix)),
-          y: parseFloat(infNumExpString(iy))
-        });
+        if (useFloatExp) {
+          // (it seems more efficient to let JavaScript truncate by using
+          //   the full exponential notation with parseFloat(), but maybe
+          //   some precision is lost and it would be better to truncate
+          //   first, then call parseFloat()?
+          orbit.push({
+            x: createFloatExpFromInfNum(ix),
+            y: createFloatExpFromInfNum(iy)
+          });
+        } else {
+          orbit.push({
+            x: parseFloat(infNumExpString(ix)),
+            y: parseFloat(infNumExpString(iy))
+          });
+        }
         ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
         iy = infNumAdd(y, infNumMul(two, infNumMul(ix, iy)));
         ix = copyInfNum(ixTemp);
@@ -171,7 +213,7 @@ const plots = [{
   },
   // x, y, referenceX, and referenceY must be infNum objects of a coordinate in the abstract plane being computed upon
   // referenceOrbit is array of pre-converted InfNum->float: [{x: ,y: },{x: , y: }]
-  "computeBoundPointColorPerturb": function(n, precis, x, y, referenceX, referenceY, referenceOrbit) {
+  "computeBoundPointColorPerturbFloat": function(n, precis, x, y, referenceX, referenceY, referenceOrbit) {
 
     const maxIter = n;
 
@@ -185,7 +227,7 @@ const plots = [{
     //
     //  𝑧→2𝑍𝑧+𝑧^2+𝑐
     //
-    //  in which most of the high precision 𝑍,𝐶 have cancelled out, and 𝑧 can be iterated with low precision numerics. 
+    //  in which most of the high precision 𝑍,𝐶 have cancelled out, and 𝑧 can be iterated with low precision numerics.
 
     // the below algorithm for perturbation glitch avoidance (re-basing the
     //   delta orbit back to the same reference orbit when the absolute
@@ -256,6 +298,93 @@ const plots = [{
       return windowCalcIgnorePointColor; // special color value that will not be displayed
     }
   },
+  "computeBoundPointColorPerturbFloatExp": function(n, precis, x, y, referenceX, referenceY, referenceOrbit) {
+
+    const four = createFloatExpFromNumber(4);
+    const two = createFloatExpFromNumber(2);
+    const maxIter = n;
+
+    //  from https://fractalwiki.org/wiki/Perturbation_theory
+    //
+    //  The escape time formula for the Mandelbrot set involves iterating 𝑧→𝑧2+𝑐 starting from 𝑧=0 with 𝑐 being the coordinates of the pixel. Perturbation works by replacing each variable with an unevaluated sum of a high precision reference (upper case) and a low precision delta (lower case). Thus:
+    //
+    //  𝑍+𝑧→(𝑍+𝑧)^2+(𝐶+𝑐)
+    //
+    //  which can be re-arranged (using 𝑍→𝑍2+𝐶) to give:
+    //
+    //  𝑧→2𝑍𝑧+𝑧^2+𝑐
+    //
+    //  in which most of the high precision 𝑍,𝐶 have cancelled out, and 𝑧 can be iterated with low precision numerics.
+
+    // the below algorithm for perturbation glitch avoidance (re-basing the
+    //   delta orbit back to the same reference orbit when the absolute
+    //   value of the delta exceeds the reference, or when the reference
+    //   orbit has been followed to the end) is from Zhuoran's post here:
+    // https://fractalforums.org/fractal-mathematics-and-new-theories/28/another-solution-to-perturbation-glitches/4360
+
+    const deltaCx = infNumSub(x, referenceX);
+    const deltaCy = infNumSub(y, referenceY);
+
+    // (it seems more efficient to let JavaScript truncate by using
+    //   the full exponential notation with parseFloat(), but maybe
+    //   some precision is lost and it would be better to truncate
+    //   first, then call parseFloat()?
+    let deltaC = {
+      x: createFloatExpFromInfNum(deltaCx),
+      y: createFloatExpFromInfNum(deltaCy)
+    };
+    let iter = 0;
+
+    // since the last reference orbit may have escaped, use the one before
+    //   the last as the last? (i don't think it really matters)
+    const maxReferenceIter = referenceOrbit.length - 2;
+    let referenceIter = 0;
+
+    let deltaZ = {x: createFloatExpFromNumber(0), y: createFloatExpFromNumber(0)};
+    let z = null;
+    let zAbs = null;
+    let deltaZAbs = null;
+
+    try {
+      while (iter < maxIter) {
+
+        deltaZ = complexFloatExpAdd(
+          complexFloatExpAdd(
+            complexFloatExpMul(complexFloatExpRealMul(referenceOrbit[referenceIter], two), deltaZ),
+            complexFloatExpMul(deltaZ, deltaZ)
+          ),
+          deltaC);
+
+        referenceIter++;
+
+        z = complexFloatExpAdd(referenceOrbit[referenceIter], deltaZ);
+        zAbs = complexFloatExpAbs(z);
+        if (floatExpGt(zAbs, four)) {
+          break;
+        }
+        deltaZAbs = complexFloatExpAbs(deltaZ);
+        if (floatExpLt(zAbs, deltaZAbs) || referenceIter == maxReferenceIter) {
+          deltaZ = z;
+          referenceIter = 0;
+        }
+
+        iter++;
+      }
+
+      if (iter == maxIter) {
+        return -1.0; // background color
+      } else {
+        //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
+        return iter / maxIter;
+      }
+
+    } catch (e) {
+      console.log("ERROR CAUGHT when processing perturb-floatexp point",
+        {x:infNumToString(x), y:infNumToString(y), iter:iter, maxIter:maxIter, refIter:referenceIter, maxRefIter:maxReferenceIter});
+      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+      return windowCalcIgnorePointColor; // special color value that will not be displayed
+    }
+  },
   // these settings are auto-applied when this plot is activated
   "forcedDefaults": {
     "n": 40,
@@ -271,11 +400,11 @@ const plots = [{
       //   later, when the pixels are being calculated?
       // "basic-float" (basic escape time algorithm with regular JavaScript numbers (64-bit floats))
       // "perturb-float" (perturbation theory with arbitrary precision reference orbit and float delta orbit)
+      // "perturb-floatexp" (with port of floatexp)
       // "basic-arbprecis" (super-slow basic escape time algorithm with arbitrary precision)
       //
       // future methods that may be implemented:
       // "perturb-double" (with something like double.js)
-      // "perturb-floatexp" (with port of floatexp)
       // "sa-float" (series approximation)
       // "sa-double"
       // "sa-floatexp"
@@ -285,7 +414,11 @@ const plots = [{
         algorithm: "basic-float"
       };
       if (infNumGe(precisScale, createInfNum("1e304"))) {
-        ret.algorithm = "basic-arbprecis";
+        // looks like floatexp (with perturbation) can handle very
+        //   large scales, where only full arbitrary precision could
+        //   before, yet is much faster
+        //ret.algorithm = "basic-arbprecis";
+        ret.algorithm = "perturb-floatexp";
       } else if (infNumGe(precisScale, createInfNum("3e13"))) {
         ret.algorithm = "perturb-float";
       }

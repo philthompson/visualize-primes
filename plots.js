@@ -29,6 +29,10 @@ function complexFloatAdd(a, b) {
   return {x:a.x+b.x, y:a.y+b.y};
 }
 
+function complexFloatAbs(a) {
+  return a.x * a.x + a.y * a.y;
+}
+
 function complexFloatExpMul(a, b) {
   return {
     x: floatExpSub(floatExpMul(a.x, b.x), floatExpMul(a.y, b.y)),
@@ -380,6 +384,168 @@ const plots = [{
 
     } catch (e) {
       console.log("ERROR CAUGHT when processing perturb-floatexp point",
+        {x:infNumToString(x), y:infNumToString(y), iter:iter, maxIter:maxIter, refIter:referenceIter, maxRefIter:maxReferenceIter});
+      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+      return windowCalcIgnorePointColor; // special color value that will not be displayed
+    }
+  },
+  "computeBlaCoefficients": function(algorithm, referenceOrbit) {
+
+    // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+
+    if (algorithm.includes("floatexp")) {
+
+      let two = createFloatExpFromNumber(2);
+      let blaTable = new Map();
+
+      // compute coefficients for each possible number of iterations to skip, from 1 to n
+      let a = {x:createFloatExpFromNumber(1), y:createFloatExpFromNumber(0)};
+      let b = {x:createFloatExpFromNumber(0), y:createFloatExpFromNumber(0)};
+      let refDoubled = null;
+      const epsilon = 2 ** -53;
+      for (let l = 1; l < referenceOrbit.length - 2; l++) {
+        refDoubled = complexFloatExpRealMul(referenceOrbit[l], two);
+        a = complexFloatExpMul(refDoubled, a);
+        b = complexFloatExpAdd(complexFloatExpMul(refDoubled, b), {x:createFloatExpFromNumber(1), y:createFloatExpFromNumber(0)});
+        blaTable.set(l, {a:a, b:b});
+      }
+
+      return blaTable;
+    } else if (!algorithm.includes("float")) {
+      console.log("unexpected/unknown reference orbit algorithm [" + algorithm + "], falling back to float");
+    }
+
+    let blaTable = new Map();
+
+    // compute coefficients for each possible number of iterations to skip, from 1 to n
+    let a = {x:1, y:0};
+    let b = {x:0, y:0};
+    let refDoubled = null;
+    const epsilon = 2 ** -53;
+    for (let l = 1; l < referenceOrbit.length - 2; l++) {
+      refDoubled = complexFloatRealMul(referenceOrbit[l], 2);
+      a = complexFloatMul(refDoubled, a);
+      b = complexFloatAdd(complexFloatMul(refDoubled, b), {x:1, y:0});
+      blaTable.set(l, {a:a, b:b});
+    }
+
+    return blaTable;
+  },
+  // x, y, referenceX, and referenceY must be infNum objects of a coordinate in the abstract plane being computed upon
+  // referenceOrbit is array of pre-converted InfNum->float: [{x: ,y: },{x: , y: }]
+  "computeBoundPointColorBLAFloat": function(n, precis, x, y, referenceX, referenceY, referenceOrbit, blaTable) {
+
+    const maxIter = n;
+
+    //  from https://fractalwiki.org/wiki/Perturbation_theory
+    //
+    //  The escape time formula for the Mandelbrot set involves iterating 𝑧→𝑧2+𝑐 starting from 𝑧=0 with 𝑐 being the coordinates of the pixel. Perturbation works by replacing each variable with an unevaluated sum of a high precision reference (upper case) and a low precision delta (lower case). Thus:
+    //
+    //  𝑍+𝑧→(𝑍+𝑧)^2+(𝐶+𝑐)
+    //
+    //  which can be re-arranged (using 𝑍→𝑍2+𝐶) to give:
+    //
+    //  𝑧→2𝑍𝑧+𝑧^2+𝑐
+    //
+    //  in which most of the high precision 𝑍,𝐶 have cancelled out, and 𝑧 can be iterated with low precision numerics.
+
+    // the below algorithm for perturbation glitch avoidance (re-basing the
+    //   delta orbit back to the same reference orbit when the absolute
+    //   value of the delta exceeds the reference, or when the reference
+    //   orbit has been followed to the end) is from Zhuoran's post here:
+    // https://fractalforums.org/fractal-mathematics-and-new-theories/28/another-solution-to-perturbation-glitches/4360
+
+    const deltaCx = infNumSub(x, referenceX);
+    const deltaCy = infNumSub(y, referenceY);
+
+    // (it seems more efficient to let JavaScript truncate by using
+    //   the full exponential notation with parseFloat(), but maybe
+    //   some precision is lost and it would be better to truncate
+    //   first, then call parseFloat()?
+    let deltaC = {
+      x: parseFloat(infNumExpString(deltaCx)),
+      y: parseFloat(infNumExpString(deltaCy))
+    };
+
+    const deltaCabs = complexFloatAbs(deltaC);
+
+    let iter = 0;
+
+    // since the last reference orbit may have escaped, use the one before
+    //   the last as the last? (i don't think it really matters)
+    const maxReferenceIter = referenceOrbit.length - 2;
+    let referenceIter = 0;
+
+    let deltaZ = {x: 0.0, y: 0.0};
+    let z = null;
+    let zAbs = null;
+    let deltaZAbs = null;
+
+    try {
+      while (iter < maxIter) {
+        deltaZ = complexFloatAdd(
+          complexFloatAdd(
+            complexFloatMul(complexFloatRealMul(referenceOrbit[referenceIter], 2), deltaZ),
+            complexFloatMul(deltaZ, deltaZ)
+          ),
+          deltaC);
+
+        iter++;
+        referenceIter++;
+
+        z = complexFloatAdd(referenceOrbit[referenceIter], deltaZ);
+        zAbs = (z.x*z.x) + (z.y*z.y);
+        if (zAbs > 4) {
+          break;
+        }
+        //deltaZAbs = (deltaZ.x*deltaZ.x) + (deltaZ.y*deltaZ.y);
+        deltaZAbs = complexFloatAbs(deltaZ);
+        if (zAbs < deltaZAbs || referenceIter == maxReferenceIter) {
+          deltaZ = z;
+          referenceIter = 0;
+        } else {
+          const epsilonRefAbs = (2 ** -53) * complexFloatAbs(referenceOrbit[referenceIter]);
+          let goodL = null;
+          // TODO - use binary search to find maximum valid value of l
+          //for (let l = 1; l < n; l++) { // we have to stop before maxReferenceIter, right? since maxReferenceIter might be < n
+          for (let l = 1; referenceIter + l < maxReferenceIter - 1; l++) {
+            let blaL = blaTable.get(l);
+
+            if (deltaZabs < epsilonRefAbs/blaL.a && deltaCabs < epsilonRefAbs/blaL.b) {
+              goodL = l;
+
+            // if we can't skip any more iterations, use the last value
+            //   (which is the maximum valid number to skip)
+            } else {
+              break;
+            }
+          }
+          // if no iters were skippable, use regular perturbation for the next iteration
+          // otherwise
+          // if some iters are skippable, apply BLA function here to skip iterations
+          // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+          // BLA+perturb algorithm: https://fractalforums.org/index.php?topic=4360.msg31574#msg31574
+          if (goodL !== null) {
+            deltaZ = complexFloatAdd(
+              complexFloatMul(blaTable.get(goodL).a, deltaZ),
+              complexFloatMul(blaTable.get(goodL).b, deltaC)
+            );
+            iter += goodL;
+            referenceIter += goodL;
+          }
+        }
+
+      }
+
+      if (iter == maxIter) {
+        return -1.0; // background color
+      } else {
+        //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
+        return iter / maxIter;
+      }
+
+    } catch (e) {
+      console.log("ERROR CAUGHT when processing perturb point",
         {x:infNumToString(x), y:infNumToString(y), iter:iter, maxIter:maxIter, refIter:referenceIter, maxRefIter:maxReferenceIter});
       console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
       return windowCalcIgnorePointColor; // special color value that will not be displayed

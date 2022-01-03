@@ -126,10 +126,11 @@ function runCalc(msg) {
     windowCalc.workers[i].onmessage = onSubWorkerMessage;
   }
 
-  if (!windowCalc.algorithm.startsWith("perturb-")) {
+  if (!windowCalc.algorithm.startsWith("perturb-") && !windowCalc.algorithm.startsWith("bla-")) {
     windowCalc.referencePx = null;
     windowCalc.referencePy = null;
     windowCalc.referenceOrbit = null;
+    windowCalc.referenceBlaTable = null;
 
   // if we are using perturbation theory, we'll now calculate the
   //   reference point and its full orbit (which will be used for
@@ -173,6 +174,9 @@ function runCalc(msg) {
     windowCalc.referencePx = referencePx;
     windowCalc.referencePy = referencePy;
     windowCalc.referenceOrbit = referenceOrbit;
+
+    // if we are using bivariate linear approximation, calculate the coefficients
+    windowCalc.referenceBlaTable = plotsByName[windowCalc.plot].computeBlaCoefficients(windowCalc.algorithm, windowCalc.referenceOrbit);
   }
 
   calculatePass();
@@ -362,6 +366,8 @@ var onSubWorkerMessage = function(msg) {
     handleSubworkerCompletedChunk(msg);
   } else if (msg.data.t == "send-reference-orbit") {
     handleReferenceOrbitRequest(msg);
+  } else if (msg.data.t == "send-bla-table") {
+    handleBlaTableRequest(msg);
   } else {
     console.log("worker received unknown message from subworker:", e);
   }
@@ -375,6 +381,19 @@ function handleReferenceOrbitRequest(msg) {
       referencePx: windowCalc.referencePx,
       referencePy: windowCalc.referencePy,
       referenceOrbit: windowCalc.referenceOrbit,
+      referencePlotId: windowCalc.plotId
+    }
+  });
+}
+
+function handleBlaTableRequest(msg) {
+  const worker = msg.target;
+  worker.postMessage({
+    t: "bla-table",
+    v: {
+      referencePx: windowCalc.referencePx,
+      referencePy: windowCalc.referencePy,
+      referenceBlaTable: windowCalc.referenceBlaTable,
       referencePlotId: windowCalc.plotId
     }
   });

@@ -584,9 +584,11 @@ const plots = [{
         //   large scales, where only full arbitrary precision could
         //   before, yet is much faster
         //ret.algorithm = "basic-arbprecis";
-        ret.algorithm = "perturb-floatexp";
+        //ret.algorithm = "perturb-floatexp";
+        ret.algorithm = "bla-floatexp";
       } else if (infNumGe(precisScale, createInfNum("3e13"))) {
-        ret.algorithm = "perturb-float";
+        //ret.algorithm = "perturb-float";
+        ret.algorithm = "bla-float";
       }
       // these values need more testing to ensure they create pixel-identical images
       //   to higher-precision images

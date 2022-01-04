@@ -510,8 +510,9 @@ const plots = [{
           //for (let l = 1; l < n; l++) { // we have to stop before maxReferenceIter, right? since maxReferenceIter might be < n
           for (let l = 1; referenceIter + l < maxReferenceIter - 1; l++) {
             let blaL = blaTable.get(l);
-
-            if (deltaZabs < epsilonRefAbs/blaL.a && deltaCabs < epsilonRefAbs/blaL.b) {
+            let aCriterion = complexFloatAbs(blaL.a) * deltaZAbs;
+            let bCriterion = complexFloatAbs(blaL.b) * deltaCabs;
+            if (complexFloatAbs(blaL.a) * deltaZAbs < epsilonRefAbs && complexFloatAbs(blaL.b) * deltaCabs < epsilonRefAbs) {
               goodL = l;
 
             // if we can't skip any more iterations, use the last value

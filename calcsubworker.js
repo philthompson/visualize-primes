@@ -59,9 +59,10 @@ self.onmessage = function(e) {
   } else if (referenceBlaTable === null && lastComputeChunkMsg.chunk.algorithm.startsWith("bla-")) {
     postMessage({t: "send-bla-table", v:0});
   } else {
+    let chunk = lastComputeChunkMsg;
     lastComputeChunkMsg = null;
     //computeChunk(e.data.v.plotId, e.data.v.chunk, e.data.v.cachedIndices, referencePx, referencePy, referenceOrbit);
-    computeChunk(e.data.v.plotId, e.data.v.chunk, e.data.v.cachedIndices);
+    computeChunk(chunk.plotId, chunk.chunk, chunk.cachedIndices);
   }
 };
 

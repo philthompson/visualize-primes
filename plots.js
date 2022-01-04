@@ -30,7 +30,8 @@ function complexFloatAdd(a, b) {
 }
 
 function complexFloatAbs(a) {
-  return a.x * a.x + a.y * a.y;
+  //return a.x * a.x + a.y * a.y;
+  return Math.hypot(a.x, a.y);
 }
 
 function complexFloatExpMul(a, b) {
@@ -402,7 +403,6 @@ const plots = [{
       let a = {x:createFloatExpFromNumber(1), y:createFloatExpFromNumber(0)};
       let b = {x:createFloatExpFromNumber(0), y:createFloatExpFromNumber(0)};
       let refDoubled = null;
-      const epsilon = 2 ** -53;
       for (let l = 1; l < referenceOrbit.length - 2; l++) {
         refDoubled = complexFloatExpRealMul(referenceOrbit[l], two);
         a = complexFloatExpMul(refDoubled, a);
@@ -421,7 +421,6 @@ const plots = [{
     let a = {x:1, y:0};
     let b = {x:0, y:0};
     let refDoubled = null;
-    const epsilon = 2 ** -53;
     for (let l = 1; l < referenceOrbit.length - 2; l++) {
       refDoubled = complexFloatRealMul(referenceOrbit[l], 2);
       a = complexFloatMul(refDoubled, a);
@@ -494,8 +493,8 @@ const plots = [{
         referenceIter++;
 
         z = complexFloatAdd(referenceOrbit[referenceIter], deltaZ);
-        zAbs = (z.x*z.x) + (z.y*z.y);
-        if (zAbs > 4) {
+        zAbs = complexFloatAbs(z);
+        if (zAbs > 2) {
           break;
         }
         //deltaZAbs = (deltaZ.x*deltaZ.x) + (deltaZ.y*deltaZ.y);

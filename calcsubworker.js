@@ -137,14 +137,14 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       //  console.log("chunk position and reference point are the same!!?!?");
       //}
       const perturbFn = chunk.algorithm.includes("floatexp") ?
-        plotsByName[chunk.plot].computeBoundPointColorPerturbFloatExp
+        plotsByName[chunk.plot].computeBoundPointColorPerturbOrBlaFloatExp
         :
-        plotsByName[chunk.plot].computeBoundPointColorPerturbFloat;
+        plotsByName[chunk.plot].computeBoundPointColorPerturbOrBlaFloat;
 
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, referencePx, referencePy, referenceOrbit);
+          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit);
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result
@@ -153,14 +153,14 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
     } else if (chunk.algorithm.startsWith("bla-")) {
 
       const blaFn = chunk.algorithm.includes("floatexp") ?
-        plotsByName[chunk.plot].computeBoundPointColorBLAFloatExp
+        plotsByName[chunk.plot].computeBoundPointColorPerturbOrBlaFloatExp
         :
-        plotsByName[chunk.plot].computeBoundPointColorBLAFloat;
+        plotsByName[chunk.plot].computeBoundPointColorPerturbOrBlaFloat;
 
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = blaFn(chunk.chunkN, chunk.chunkPrecision, px, py, referencePx, referencePy, referenceOrbit, referenceBlaTables);
+          results[i] = blaFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables);
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result

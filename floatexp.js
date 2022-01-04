@@ -257,6 +257,7 @@ function floatExpLe(a, b) {
 //
 // use "var" here instead of "const" to keep the browser from complaining
 //   about re-declaring it
+var sqrt10 = 10 ** 0.5;
 function floatExpSqrt(a) {
   if (a.v === 0) {
     return a;

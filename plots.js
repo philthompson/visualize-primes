@@ -398,6 +398,12 @@ const plots = [{
   },
   "computeBlaTables": function(algorithm, referenceOrbit) {
 
+    // since we are using JavaScript float, which is a double-precision
+    //   float, we will use 2^-53 for epsilon here (based on discussion
+    //   here: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806)
+    // actually using 3^-53 for more accuracy
+    const epsilonFloat = 3 ** -53;
+
     // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
 
     if (algorithm.includes("floatexp")) {
@@ -421,10 +427,7 @@ const plots = [{
         });
       }
 
-      // since we are using JavaScript float, which is a double-precision
-      //   float, we will use 2^-53 for epsilon here (based on discussion
-      //   here: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806)
-      let epsilon = createFloatExpFromNumber(2 ** -53);
+      let epsilon = createFloatExpFromNumber(epsilonFloat);
       let epsilonRefAbsTable = new Map();
       for (let i = 0; i < referenceOrbit.length; i++) {
         epsilonRefAbsTable.set(i, floatExpMul(epsilon, complexFloatExpAbsHypot(referenceOrbit[i])));
@@ -453,13 +456,9 @@ const plots = [{
       });
     }
 
-    // since we are using JavaScript float, which is a double-precision
-    //   float, we will use 2^-53 for epsilon here (based on discussion
-    //   here: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806)
-    let epsilon = (2 ** -53);
     let epsilonRefAbsTable = new Map();
     for (let i = 0; i < referenceOrbit.length; i++) {
-      epsilonRefAbsTable.set(i, epsilon * complexFloatAbs(referenceOrbit[i]));
+      epsilonRefAbsTable.set(i, epsilonFloat * complexFloatAbs(referenceOrbit[i]));
     }
 
     return {coefTable: blaTable, epsilonRefAbsTable: epsilonRefAbsTable};
@@ -539,24 +538,65 @@ const plots = [{
           deltaZ = z;
           referenceIter = 0;
         } else {
-          //const epsilonRefAbs = (2 ** -53) * complexFloatAbs(referenceOrbit[referenceIter]);
           const epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter);
-          let goodL = null;
-          // TODO - use binary search to find maximum valid value of l
-          //for (let l = 1; l < n; l++) { // we have to stop before maxReferenceIter, right? since maxReferenceIter might be < n
-          for (let l = 1; referenceIter + l < maxReferenceIter - 1; l++) {
-            let blaL = blaTables.coefTable.get(l);
-            //let aCriterion = blaL.aAbs * deltaZAbs;
-            //let bCriterion = blaL.bAbs * deltaCabs;
-            if (blaL.aAbs * deltaZAbs < epsilonRefAbs && blaL.bAbs * deltaCabs < epsilonRefAbs) {
-              goodL = l;
 
-            // if we can't skip any more iterations, use the last value
-            //   (which is the maximum valid number to skip)
-            } else {
-              break;
+//          let goodL = null;
+//          // TODO - use binary search to find maximum valid value of l
+//          //for (let l = 1; l < n; l++) { // we have to stop before maxReferenceIter, right? since maxReferenceIter might be < n
+//          for (let l = 1; referenceIter + l < maxReferenceIter - 1; l++) {
+//            let blaL = blaTables.coefTable.get(l);
+//            //let aCriterion = blaL.aAbs * deltaZAbs;
+//            //let bCriterion = blaL.bAbs * deltaCabs;
+//            if (blaL.aAbs * deltaZAbs < epsilonRefAbs && blaL.bAbs * deltaCabs < epsilonRefAbs) {
+//              goodL = l;
+//
+//            // if we can't skip any more iterations, use the last value
+//            //   (which is the maximum valid number to skip)
+//            } else {
+//              break;
+//            }
+//          }
+
+          let goodL = null;
+          if (referenceIter / maxReferenceIter < 0.9) {
+            //let goodLbin = null;
+            // only proceeed with binary search if first entry (for 1 iteration) in
+            //   BLA table is valid
+            let blaL = blaTables.coefTable.get(1);
+            if (blaL.aAbs * deltaZAbs < epsilonRefAbs && blaL.bAbs * deltaCabs < epsilonRefAbs) {
+              goodL = 1;
+              //let goodLbin = null;
+              let lo = 2;
+              // this caused, for 2 pixels, us to skip beyond the end of the reference orbit, somehow
+              //let hi = maxReferenceIter - referenceIter - 1;
+              // this eliminated almost all the artifacts
+              //let hi = maxReferenceIter - referenceIter - 10;
+              let hi = maxReferenceIter - referenceIter - 15;
+              let lCheck = null;
+              //let blaL = null;
+              while (lo <= hi) {
+                lCheck = (lo + hi) >>1;
+                blaL = blaTables.coefTable.get(lCheck);
+                if (blaL.aAbs * deltaZAbs < epsilonRefAbs && blaL.bAbs * deltaCabs < epsilonRefAbs) {
+                  blaL = blaTables.coefTable.get(lCheck+1);
+                  if (blaL !== undefined && blaL.aAbs * deltaZAbs < epsilonRefAbs && blaL.bAbs * deltaCabs < epsilonRefAbs) {
+                    //goodLbin = lCheck+1;
+                    goodL = lCheck+1;
+                    // continue binary search in upper half of remaining l's, above this valid value
+                    lo = lCheck + 2;
+                  } else {
+                    // continue binary search in upper half of remaining l's, below this non-valid value
+                    hi = lCheck - 1;
+                  }
+                } else {
+                  // continue binary search in upper half of remaining l's, below this non-valid value
+                  hi = lCheck - 1;
+                }
+              }
             }
+            //goodL = goodLbin;
           }
+
           // if no iters were skippable, use regular perturbation for the next iteration
           // otherwise
           // if some iters are skippable, apply BLA function here to skip iterations

@@ -413,7 +413,12 @@ const plots = [{
         refDoubled = complexFloatExpRealMul(referenceOrbit[l], two);
         a = complexFloatExpMul(refDoubled, a);
         b = complexFloatExpAdd(complexFloatExpMul(refDoubled, b), {x:createFloatExpFromNumber(1), y:createFloatExpFromNumber(0)});
-        blaTable.set(l, {a:a, b:b});
+        blaTable.set(l, {
+          a:    a,
+          aAbs: complexFloatExpAbsHypot(a),
+          b:    b,
+          bAbs: complexFloatExpAbsHypot(b)
+        });
       }
 
       // since we are using JavaScript float, which is a double-precision
@@ -440,7 +445,12 @@ const plots = [{
       refDoubled = complexFloatRealMul(referenceOrbit[l], 2);
       a = complexFloatMul(refDoubled, a);
       b = complexFloatAdd(complexFloatMul(refDoubled, b), {x:1, y:0});
-      blaTable.set(l, {a:a, b:b});
+      blaTable.set(l, {
+        a:    a,
+        aAbs: complexFloatAbs(a),
+        b:    b,
+        bAbs: complexFloatAbs(b)
+      });
     }
 
     // since we are using JavaScript float, which is a double-precision
@@ -536,9 +546,9 @@ const plots = [{
           //for (let l = 1; l < n; l++) { // we have to stop before maxReferenceIter, right? since maxReferenceIter might be < n
           for (let l = 1; referenceIter + l < maxReferenceIter - 1; l++) {
             let blaL = blaTables.coefTable.get(l);
-            let aCriterion = complexFloatAbs(blaL.a) * deltaZAbs;
-            let bCriterion = complexFloatAbs(blaL.b) * deltaCabs;
-            if (complexFloatAbs(blaL.a) * deltaZAbs < epsilonRefAbs && complexFloatAbs(blaL.b) * deltaCabs < epsilonRefAbs) {
+            //let aCriterion = blaL.aAbs * deltaZAbs;
+            //let bCriterion = blaL.bAbs * deltaCabs;
+            if (blaL.aAbs * deltaZAbs < epsilonRefAbs && blaL.bAbs * deltaCabs < epsilonRefAbs) {
               goodL = l;
 
             // if we can't skip any more iterations, use the last value

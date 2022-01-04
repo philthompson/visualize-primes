@@ -130,7 +130,7 @@ function runCalc(msg) {
     windowCalc.referencePx = null;
     windowCalc.referencePy = null;
     windowCalc.referenceOrbit = null;
-    windowCalc.referenceBlaTable = null;
+    windowCalc.referenceBlaTables = null;
 
   // if we are using perturbation theory, we'll now calculate the
   //   reference point and its full orbit (which will be used for
@@ -176,7 +176,7 @@ function runCalc(msg) {
     windowCalc.referenceOrbit = referenceOrbit;
 
     // if we are using bivariate linear approximation, calculate the coefficients
-    windowCalc.referenceBlaTable = plotsByName[windowCalc.plot].computeBlaCoefficients(windowCalc.algorithm, windowCalc.referenceOrbit);
+    windowCalc.referenceBlaTables = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, windowCalc.referenceOrbit);
   }
 
   calculatePass();
@@ -366,8 +366,8 @@ var onSubWorkerMessage = function(msg) {
     handleSubworkerCompletedChunk(msg);
   } else if (msg.data.t == "send-reference-orbit") {
     handleReferenceOrbitRequest(msg);
-  } else if (msg.data.t == "send-bla-table") {
-    handleBlaTableRequest(msg);
+  } else if (msg.data.t == "send-bla-tables") {
+    handleBlaTablesRequest(msg);
   } else {
     console.log("worker received unknown message from subworker:", e);
   }
@@ -386,14 +386,14 @@ function handleReferenceOrbitRequest(msg) {
   });
 }
 
-function handleBlaTableRequest(msg) {
+function handleBlaTablesRequest(msg) {
   const worker = msg.target;
   worker.postMessage({
-    t: "bla-table",
+    t: "bla-tables",
     v: {
       referencePx: windowCalc.referencePx,
       referencePy: windowCalc.referencePy,
-      referenceBlaTable: windowCalc.referenceBlaTable,
+      referenceBlaTables: windowCalc.referenceBlaTables,
       referencePlotId: windowCalc.plotId
     }
   });

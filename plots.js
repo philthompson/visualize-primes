@@ -55,8 +55,14 @@ function complexFloatExpAdd(a, b) {
   };
 }
 
+// this is the SQUARED absolute value (to get actual hypotenuse,
+//   need to take square root of this)
 function complexFloatExpAbs(a) {
   return floatExpAdd(floatExpMul(a.x, a.x), floatExpMul(a.y, a.y));
+}
+
+function complexFloatExpAbsHypot(a) {
+  return floatExpSqrt(complexFloatExpAbs(a));
 }
 
 const windowCalcIgnorePointColor = -2;
@@ -390,7 +396,7 @@ const plots = [{
       return windowCalcIgnorePointColor; // special color value that will not be displayed
     }
   },
-  "computeBlaCoefficients": function(algorithm, referenceOrbit) {
+  "computeBlaTables": function(algorithm, referenceOrbit) {
 
     // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
 
@@ -410,7 +416,16 @@ const plots = [{
         blaTable.set(l, {a:a, b:b});
       }
 
-      return blaTable;
+      // since we are using JavaScript float, which is a double-precision
+      //   float, we will use 2^-53 for epsilon here (based on discussion
+      //   here: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806)
+      let epsilon = createFloatExpFromNumber(2 ** -53);
+      let epsilonRefAbsTable = new Map();
+      for (let i = 0; i < referenceOrbit.length; i++) {
+        epsilonRefAbsTable.set(i, floatExpMul(epsilon, complexFloatExpAbsHypot(referenceOrbit[i])));
+      }
+
+      return {coefTable: blaTable, epsilonRefAbsTable: epsilonRefAbsTable};
     } else if (!algorithm.includes("float")) {
       console.log("unexpected/unknown reference orbit algorithm [" + algorithm + "], falling back to float");
     }
@@ -428,11 +443,22 @@ const plots = [{
       blaTable.set(l, {a:a, b:b});
     }
 
+    // since we are using JavaScript float, which is a double-precision
+    //   float, we will use 2^-53 for epsilon here (based on discussion
+    //   here: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806)
+    let epsilon = (2 ** -53);
+    let epsilonRefAbsTable = new Map();
+    for (let i = 0; i < referenceOrbit.length; i++) {
+      epsilonRefAbsTable.set(i, epsilon * complexFloatAbs(referenceOrbit[i]));
+    }
+
+    return {coefTable: blaTable, epsilonRefAbsTable: epsilonRefAbsTable};
+
     return blaTable;
   },
   // x, y, referenceX, and referenceY must be infNum objects of a coordinate in the abstract plane being computed upon
   // referenceOrbit is array of pre-converted InfNum->float: [{x: ,y: },{x: , y: }]
-  "computeBoundPointColorBLAFloat": function(n, precis, x, y, referenceX, referenceY, referenceOrbit, blaTable) {
+  "computeBoundPointColorBLAFloat": function(n, precis, x, y, referenceX, referenceY, referenceOrbit, blaTables) {
 
     const maxIter = n;
 
@@ -503,12 +529,13 @@ const plots = [{
           deltaZ = z;
           referenceIter = 0;
         } else {
-          const epsilonRefAbs = (2 ** -53) * complexFloatAbs(referenceOrbit[referenceIter]);
+          //const epsilonRefAbs = (2 ** -53) * complexFloatAbs(referenceOrbit[referenceIter]);
+          const epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter);
           let goodL = null;
           // TODO - use binary search to find maximum valid value of l
           //for (let l = 1; l < n; l++) { // we have to stop before maxReferenceIter, right? since maxReferenceIter might be < n
           for (let l = 1; referenceIter + l < maxReferenceIter - 1; l++) {
-            let blaL = blaTable.get(l);
+            let blaL = blaTables.coefTable.get(l);
             let aCriterion = complexFloatAbs(blaL.a) * deltaZAbs;
             let bCriterion = complexFloatAbs(blaL.b) * deltaCabs;
             if (complexFloatAbs(blaL.a) * deltaZAbs < epsilonRefAbs && complexFloatAbs(blaL.b) * deltaCabs < epsilonRefAbs) {
@@ -527,8 +554,8 @@ const plots = [{
           // BLA+perturb algorithm: https://fractalforums.org/index.php?topic=4360.msg31574#msg31574
           if (goodL !== null) {
             deltaZ = complexFloatAdd(
-              complexFloatMul(blaTable.get(goodL).a, deltaZ),
-              complexFloatMul(blaTable.get(goodL).b, deltaC)
+              complexFloatMul(blaTables.coefTable.get(goodL).a, deltaZ),
+              complexFloatMul(blaTables.coefTable.get(goodL).b, deltaC)
             );
             iter += goodL;
             referenceIter += goodL;

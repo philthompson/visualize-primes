@@ -25,7 +25,7 @@ var referencePx = null;
 var referencePy = null;
 var referenceOrbit = null;
 var referencePlotId = null;
-var referenceBlaTable = null;
+var referenceBlaTables = null;
 
 self.onmessage = function(e) {
   if (e.data.t == "compute-chunk") {
@@ -33,17 +33,17 @@ self.onmessage = function(e) {
 
     if (referencePlotId !== null && lastComputeChunkMsg.chunk.plotId !== referencePlotId) {
       referenceOrbit = null;
-      referenceBlaTable = null;
+      referenceBlaTables = null;
     }
   } else if (e.data.t == "reference-orbit") {
     referencePx = e.data.v.referencePx;
     referencePy = e.data.v.referencePy;
     referenceOrbit = e.data.v.referenceOrbit;
     referencePlotId = e.data.v.referencePlotId;
-  } else if (e.data.t == "bla-table") {
+  } else if (e.data.t == "bla-tables") {
     referencePx = e.data.v.referencePx;
     referencePy = e.data.v.referencePy;
-    referenceBlaTable = e.data.v.referenceBlaTable;
+    referenceBlaTables = e.data.v.referenceBlaTables;
     referencePlotId = e.data.v.referencePlotId;
   } else {
     console.log("subworker received unknown message:", e);
@@ -56,8 +56,8 @@ self.onmessage = function(e) {
         lastComputeChunkMsg.chunk.algorithm.startsWith("bla-")
       )) {
     postMessage({t: "send-reference-orbit", v:0});
-  } else if (referenceBlaTable === null && lastComputeChunkMsg.chunk.algorithm.startsWith("bla-")) {
-    postMessage({t: "send-bla-table", v:0});
+  } else if (referenceBlaTables === null && lastComputeChunkMsg.chunk.algorithm.startsWith("bla-")) {
+    postMessage({t: "send-bla-tables", v:0});
   } else {
     let chunk = lastComputeChunkMsg;
     lastComputeChunkMsg = null;
@@ -160,7 +160,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = blaFn(chunk.chunkN, chunk.chunkPrecision, px, py, referencePx, referencePy, referenceOrbit, referenceBlaTable);
+          results[i] = blaFn(chunk.chunkN, chunk.chunkPrecision, px, py, referencePx, referencePy, referenceOrbit, referenceBlaTables);
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result

@@ -90,6 +90,10 @@ self.onmessage = function(e) {
 // for now, the main thread will not pass a "worker-calc" message to this
 //   worker once a calculation is already running
 function runCalc(msg) {
+  // save the previous N (iterations), if any, so we can tell if the
+  //   center point (and thus reference orbit) from the last window
+  //   are re-usable for this window
+  let prevN = windowCalc.n;
   windowCalc.plotId = msg.plotId;
   windowCalc.plot = msg.plot;
   windowCalc.stopped = false;
@@ -139,44 +143,75 @@ function runCalc(msg) {
 
     // start with middle of window for reference point (doesn't have to
     //   exactly align with a pixel)
-    let referencePx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)), 0n)));
-    let referencePy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)), 0n)));
-    let referenceOrbit = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, referencePx, referencePy);
+    let newReferencePx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)), 0n)));
+    let newReferencePy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)), 0n)));
 
-    // move around a little to try other points that may orbit for longer
-    //   (this is slow and doesn't seem to be the actual problem, and is
-    //   probably not necessary at all)
-    // TODO: use percentage of window size to try points evenly spaced in
-    //         the window
-    console.log("calculated middle reference orbit, with [" + referenceOrbit.length + "] iterations, for point:");
-    console.log("referencePx: " + infNumToString(referencePx));
-    console.log("referencePy: " + infNumToString(referencePy));
-
-    const findLongerReferenceOrbit = false;
-    if (findLongerReferenceOrbit) {
-      for (let xPixMove = -5; xPixMove < 6; xPixMove++) {
-        for (let yPixMove = -5; yPixMove < 6; yPixMove++) {
-          let testPx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)+(xPixMove*10)), 0n)));
-          let testPy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)+(yPixMove*10)), 0n)));
-          let testOrbit = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, testPx, testPy);
-          if (testOrbit.length > referenceOrbit.length) {
-            referencePx = testPx;
-            referencePy = testPy;
-            referenceOrbit =  testOrbit;
-            console.log("calculated better reference orbit, with [" + referenceOrbit.length + "] iterations, for point:");
-            console.log("referencePx: " + infNumToString(referencePx));
-            console.log("referencePy: " + infNumToString(referencePy));
-          }
-        }
+    let refPointHasMoved = false;
+    if (windowCalc.referencePx === null || windowCalc.referencePy === null) {
+      refPointHasMoved = true;
+    } else {
+      // check ratio between this and previous x position
+      let ratio = infNumGt(windowCalc.referencePx, newReferencePx) ?
+        infNumDiv(windowCalc.referencePx, newReferencePx, windowCalc.precision)
+        :
+        infNumDiv(newReferencePx, windowCalc.referencePx, windowCalc.precision);
+      if (infNumGt(ratio, infNum(103n, -2n))) { // 3% change == 1.03
+        refPointHasMoved = true;
+      }
+      // check ratio between this and previous y position
+      ratio = infNumGt(windowCalc.referencePy, newReferencePy) ?
+        infNumDiv(windowCalc.referencePy, newReferencePy, windowCalc.precision)
+        :
+        infNumDiv(newReferencePy, windowCalc.referencePy, windowCalc.precision);
+      if (infNumGt(ratio, infNum(103n, -2n))) { // 3% change == 1.03
+        refPointHasMoved = true;
       }
     }
 
-    windowCalc.referencePx = referencePx;
-    windowCalc.referencePy = referencePy;
-    windowCalc.referenceOrbit = referenceOrbit;
+    if (prevN === null || prevN < windowCalc.n ||
+        windowCalc.referenceOrbit === null || refPointHasMoved) {
 
-    // if we are using bivariate linear approximation, calculate the coefficients
-    windowCalc.referenceBlaTables = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, windowCalc.referenceOrbit);
+      let referenceOrbit = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, newReferencePx, newReferencePy);
+
+      // move around a little to try other points that may orbit for longer
+      //   (this is slow and doesn't seem to be the actual problem, and is
+      //   probably not necessary at all)
+      // TODO: use percentage of window size to try points evenly spaced in
+      //         the window
+      console.log("calculated new middle reference orbit, with [" + referenceOrbit.length + "] iterations, for point:");
+      console.log("referencePx: " + infNumToString(newReferencePx));
+      console.log("referencePy: " + infNumToString(newReferencePy));
+
+      const findLongerReferenceOrbit = false;
+      if (findLongerReferenceOrbit) {
+        for (let xPixMove = -5; xPixMove < 6; xPixMove++) {
+          for (let yPixMove = -5; yPixMove < 6; yPixMove++) {
+            let testPx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)+(xPixMove*10)), 0n)));
+            let testPy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)+(yPixMove*10)), 0n)));
+            let testOrbit = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, testPx, testPy);
+            if (testOrbit.length > referenceOrbit.length) {
+              newReferencePx = testPx;
+              newReferencePy = testPy;
+              referenceOrbit =  testOrbit;
+              console.log("calculated better reference orbit, with [" + referenceOrbit.length + "] iterations, for point:");
+              console.log("referencePx: " + infNumToString(newReferencePx));
+              console.log("referencePy: " + infNumToString(newReferencePy));
+            }
+          }
+        }
+      }
+
+      windowCalc.referencePx = newReferencePx;
+      windowCalc.referencePy = newReferencePy;
+      windowCalc.referenceOrbit = referenceOrbit;
+
+      // if we are using bivariate linear approximation, calculate the coefficients
+      windowCalc.referenceBlaTables = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, windowCalc.referenceOrbit);
+    } else {
+      console.log("re-using previously-calculated reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
+      console.log("referencePx: " + infNumToString(windowCalc.referencePx));
+      console.log("referencePy: " + infNumToString(windowCalc.referencePy));
+    }
   }
 
   calculatePass();

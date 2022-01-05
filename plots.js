@@ -288,8 +288,6 @@ const plots = [{
     }
 
     return {coefTable: blaTable, epsilonRefAbsTable: epsilonRefAbsTable};
-
-    return blaTable;
   },
   // x, y, referenceX, and referenceY must be infNum objects of a coordinate in the abstract plane being computed upon
   // referenceOrbit is array of pre-converted InfNum->float: [{x: ,y: },{x: , y: }]

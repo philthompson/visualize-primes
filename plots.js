@@ -67,14 +67,14 @@ function complexFloatExpAbsHypot(a) {
 
 function complexInfNumRealMul(a, realInfNum) {
   return {
-    x: floatExpMul(a.x, realInfNum),
-    y: floatExpMul(a.y, realInfNum)
+    x: infNumMul(a.x, realInfNum),
+    y: infNumMul(a.y, realInfNum)
   };
 }
 
 function complexInfNumRealAdd(a, realInfNum) {
   return {
-    x: floatExpAdd(a.x, realInfNum),
+    x: infNumAdd(a.x, realInfNum),
     y: copyInfNum(a.y)
   };
 }
@@ -88,8 +88,8 @@ function complexInfNumMul(a, b) {
 
 function complexInfNumAdd(a, b) {
   return {
-    x: floatExpAdd(a.x, b.x),
-    y: floatExpAdd(a.y, b.y)
+    x: infNumAdd(a.x, b.x),
+    y: infNumAdd(a.y, b.y)
   };
 }
 
@@ -258,7 +258,7 @@ const plots = [{
       return orbit;
     }
   },
-  "computeSaCoefficients": function(algorithm, referenceOrbit, leftEdge, rightEdge, topEdge, bottomEdge) {
+  "computeSaCoefficients": function(precision, algorithm, referenceX, referenceY, referenceOrbit, leftEdge, rightEdge, topEdge, bottomEdge) {
     let nTerms = 5;
     // parse out number of series approximation terms from the algorithm name
     const algoSplit = algorithm.split("-");
@@ -282,7 +282,10 @@ const plots = [{
     // https://www.fractalforums.com/index.php?topic=18482.msg74200#msg74200
     // this is the "several orders of magnitude" the smallest term in
     //   the first group must be than the largest term in the second group
-    const termShrinkCutoff = infNum(100n);
+    //
+    // since the values being compared are squared, we must
+    //   square this also
+    const termShrinkCutoff = infNum(100n*100n, 0n);
 
     // calculate test points
     const testPoints = [];
@@ -295,10 +298,12 @@ const plots = [{
     const dimDiv = 3;
     let px = leftEdge;
     let py = topEdge;
-    let xStep = infNumDiv(infNumSub(rightEdge, leftEdge), infNum(BigInt(dimDiv), 0n));
-    let yStep = infNumDiv(infNumSub(topEdge, bottomEdge), infNum(BigInt(dimDiv), 0n));
-    for (let i = 0; i < dimDiv; i++) {
-      for (let j = 0; j < dimDiv; j++) {
+    let xStep = infNumDiv(infNumSub(rightEdge, leftEdge), infNum(BigInt(dimDiv), 0n), precision);
+    let yStep = infNumDiv(infNumSub(topEdge, bottomEdge), infNum(BigInt(dimDiv), 0n), precision);
+    // note <= in loop conditions here -- we want to span edge to edge
+    //   inclusive of both edges
+    for (let i = 0; i <= dimDiv; i++) {
+      for (let j = 0; j <= dimDiv; j++) {
         testPoints.push({
           x: copyInfNum(px),
           y: copyInfNum(py)
@@ -377,10 +382,10 @@ const plots = [{
     //   single test point
     for (let i = 0; i < referenceOrbit.length; i++) {
 
+      twoRefIter = complexInfNumRealMul({x:referenceOrbit[i].xap, y:referenceOrbit[i].yap}, two);
+
       // compute next iteration of all terms
       for (let k = 0; k < nTerms; k++) {
-
-        twoRefIter = complexInfNumRealMul({x:referenceOrbit[i].xap, y:referenceOrbit[i].yap}, two);
 
         // special case for 0th term (A)
         if (k === 0) {
@@ -391,7 +396,7 @@ const plots = [{
           // notice continue condition is "up<dn" here
           for (let up = 0, dn = k-1; up<dn; up++, dn--) {
             nextTerms[k] = complexInfNumAdd(nextTerms[k],
-              complexInfNumRealMul(complexInfNumMul(terms[up], terms[dn]), 2)
+              complexInfNumRealMul(complexInfNumMul(terms[up], terms[dn]), two)
             );
           }
 
@@ -406,7 +411,7 @@ const plots = [{
               );
             } else {
               nextTerms[k] = complexInfNumAdd(nextTerms[k],
-                complexInfNumRealMul(complexInfNumMul(terms[up], terms[dn]), 2)
+                complexInfNumRealMul(complexInfNumMul(terms[up], terms[dn]), two)
               );
             }
           }
@@ -415,37 +420,59 @@ const plots = [{
 
       let validTestPoints = 0;
       // check for iters to skip for all calculated test points
-      for (let p = 0; p < testPoints; p++) {
+      for (let p = 0; p < testPoints.length; p++) {
+
+        let deltaC = {
+          x: infNumSub(testPoints[p].x, referenceX),
+          y: infNumSub(testPoints[p].y, referenceY)
+        };
 
         let coefTermsAreValid = false;
         // check validity of iteration coefficients 
         // splitting terms into two groups, so start from one
         for (let j = 1; j < nTerms; j++) {
+          let deltaCpower = {x:one, y:one};
           let firstSmallest = null;
           let secondLargest = null;
           // find smallest term in 1st group for test point
           for (let k = 0; k < j; k++) {
-            if (firstSmallest === null ||
-                // no need to actually take square root of sum of squares
-                infNumLt(complexInfNumAbsSquared(nextTerms[k]), firstSmallest)) {
-              firstSmallest = nextTerms[k];
+            // for the A term, 1 is multiplied by deltaC to get deltaC^1
+            // for the B term, that result is again multiplied by deltaC to get deltaC^2
+            // for the C term, ... we get deltaC^3
+            deltaCpower = complexInfNumMul(deltaCpower, deltaC);
+            // no need to actually take square root of sum of squares
+            //   to do the size comparison
+            let wholeTerm = complexInfNumAbsSquared(complexInfNumMul(deltaCpower, nextTerms[k]));
+            if (firstSmallest === null || infNumLt(wholeTerm, firstSmallest)) {
+              firstSmallest = copyInfNum(wholeTerm);
             }
           }
           // find largest term in 2nd group for test point
           for (let k = j; k < nTerms; k++) {
-            if (secondLargest === null ||
-                // no need to actually take square root of sum of squares
-                infNumGt(complexInfNumAbsSquared(nextTerms[k]), secondLargest)) {
-              secondLargest = nextTerms[k];
+            deltaCpower = complexInfNumMul(deltaCpower, deltaC);
+            // no need to actually take square root of sum of squares
+            //   to do the size comparison
+            let wholeTerm = complexInfNumAbsSquared(complexInfNumMul(deltaCpower, nextTerms[k]));
+            if (secondLargest === null || infNumGt(wholeTerm, secondLargest)) {
+              secondLargest = copyInfNum(wholeTerm);
             }
           }
           // take square root of the comparison terms
-          firstSmallest = infNumRoughSqrt(firstSmallest);
-          secondLargest = infNumRoughSqrt(secondLargest);
+          //firstSmallest = infNumRoughSqrt(firstSmallest);
+          //secondLargest = infNumRoughSqrt(secondLargest);
 
           // divide smallest from 1st by largest from 2nd
           // ratio should be >100? >1000?
-          if (infNumGt(infNumDiv(firstSmallest, secondLargest), termShrinkCutoff)) {
+          // (can use small value for division precision here)
+          if (secondLargest.v === 0n) {
+            coefTermsAreValid = true;
+            // once we have a valid point at which to create two comparison groups,
+            //   we don't need to test any other groupings
+            break;
+          }
+          let ratio = infNumDiv(firstSmallest, secondLargest, 8);
+          //if (secondLargest.v === 0n || infNumGt(infNumDiv(firstSmallest, secondLargest, 8), termShrinkCutoff)) {
+          if (infNumGt(ratio, termShrinkCutoff)) {
             coefTermsAreValid = true;
             // once we have a valid point at which to create two comparison groups,
             //   we don't need to test any other groupings
@@ -465,6 +492,7 @@ const plots = [{
           break;
         }
       }
+
       // if the coefficients at this iteration were not valid for any single test point
       //   we will return the previous iteration (since that was the last one where
       //   coefficients were valid for ALL test points)
@@ -480,8 +508,11 @@ const plots = [{
 
       // if the coefficients are valid for all test points, we can skip i+1 iterations,
       //   so continue on and test the next iteration
-      for (let j = 0; i < terms.length; j++) {
-        terms[j] = copyInfNum(nextTerms[j]);
+      for (let j = 0; j < terms.length; j++) {
+        terms[j] = {
+          x: infNumTruncateToLen(nextTerms[j].x, precision),
+          y: infNumTruncateToLen(nextTerms[j].y, precision)
+        };
       }
     }
 
@@ -490,11 +521,17 @@ const plots = [{
     //   iteration's position delta using arbitrary precision?)
     if (algorithm.includes("floatexp")) {
       for (let i = 0; i < terms.length; i++) {
-        terms[i] = createFloatExpFromInfNum(terms[i]);
+        terms[i] = {
+          x: createFloatExpFromInfNum(terms[i].x),
+          y: createFloatExpFromInfNum(terms[i].y)
+        };
       }
     } else {
       for (let i = 0; i < terms.length; i++) {
-        terms[i] = parseFloat(infNumExpString(terms[i]));
+        terms[i] = {
+          x: parseFloat(infNumExpString(terms[i].x)),
+          y: parseFloat(infNumExpString(terms[i].y))
+        };
       }
     }
 
@@ -636,7 +673,7 @@ const plots = [{
 
     // saCoefficients: {itersToSkip:itersToSkip, coefficients:terms};
     if (useSa && saCoefficients.itersToSkip > 0) {
-      let deltaCpower = {x: 1, y:1};
+      let deltaCpower = {x:1, y:1};
       for (let i = 0; i < saCoefficients.coefficients.length; i++) {
         deltaCpower = complexFloatMul(deltaCpower, deltaC);
         deltaZ = complexFloatAdd(deltaZ, complexFloatMul(saCoefficients.coefficients[i], deltaCpower));
@@ -956,12 +993,12 @@ const plots = [{
         //ret.algorithm = "basic-arbprecis";
         //ret.algorithm = "perturb-floatexp";
         //ret.algorithm = "bla-floatexp";
-        ret.algorithm = "bla-sapx6-floatexp";
-      } else if (infNumGe(precisScale, createInfNum("3e50"))) {
-        ret.algorithm = "bla-sapx3-float";
+        ret.algorithm = "bla-sapx8-floatexp";
+      } else if (infNumGe(precisScale, createInfNum("3e150"))) {
+        ret.algorithm = "bla-sapx4-float";
       } else if (infNumGe(precisScale, createInfNum("3e13"))) {
-        //ret.algorithm = "perturb-float";
-        ret.algorithm = "bla-float";
+        ret.algorithm = "perturb-float";
+        //ret.algorithm = "bla-float";
       }
       // these values need more testing to ensure they create pixel-identical images
       //   to higher-precision images

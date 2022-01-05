@@ -439,6 +439,21 @@ function infNumEq(a, b) {
   return normalized[0].v === normalized[1].v;
 }
 function infNumLt(a, b) {
+  if (a.v < b.v && a.e <= b.e) {
+    return true;
+  } else if (a.v === 0n) {
+    if (b.v <= 0n) {
+      return false;
+    } else {
+      return true;
+    }
+  } else if (b.v === 0n) {
+    if (a.v < 0n) {
+      return true;
+    } else {
+      return false;
+    }
+  }
   const normalized = normInfNum(a, b);
   return normalized[0].v < normalized[1].v;
 }
@@ -449,6 +464,18 @@ function infNumLe(a, b) {
 function infNumGt(a, b) {
   if (a.v > b.v && a.e >= b.e) {
     return true;
+  } else if (a.v === 0n) {
+    if (b.v < 0n) {
+      return true;
+    } else {
+      return false;
+    }
+  } else if (b.v === 0n) {
+    if (a.v < 0n) {
+      return false;
+    } else {
+      return true;
+    }
   }
   const normalized = normInfNum(a, b);
   return normalized[0].v > normalized[1].v;

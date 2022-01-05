@@ -219,7 +219,7 @@ function runCalc(msg) {
       // regardless of whether we re-use the reference orbit, we have to re-calculate
       //   series approximation coefficients because the test points, which determine
       //   how many iterations to skip, are dependent on the window size+location
-      windowCalc.saCoefficients = plotsByName[windowCalc.plot].computeSaCoefficients(windowCalc.algorithm, windowCalc.referenceOrbit, windowCalc.leftEdge, windowCalc.rightEdge, windowCalc.topEdge, windowCalc.bottomEdge);
+      windowCalc.saCoefficients = plotsByName[windowCalc.plot].computeSaCoefficients(windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, windowCalc.leftEdge, windowCalc.rightEdge, windowCalc.topEdge, windowCalc.bottomEdge);
     } else {
       windowCalc.saCoefficients = null;
     }

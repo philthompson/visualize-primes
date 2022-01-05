@@ -66,7 +66,8 @@ const windowCalc = {
   "stopped": true,
   "referencePx": null,
   "referencePy": null,
-  "referenceOrbit": null
+  "referenceOrbit": null,
+  "saCoefficients": null
 };
 
 self.onmessage = function(e) {
@@ -130,11 +131,12 @@ function runCalc(msg) {
     windowCalc.workers[i].onmessage = onSubWorkerMessage;
   }
 
-  if (!windowCalc.algorithm.startsWith("perturb-") && !windowCalc.algorithm.startsWith("bla-")) {
+  if (!windowCalc.algorithm.includes("perturb-") && !windowCalc.algorithm.includes("bla-")) {
     windowCalc.referencePx = null;
     windowCalc.referencePy = null;
     windowCalc.referenceOrbit = null;
     windowCalc.referenceBlaTables = null;
+    windowCalc.saCoefficients = null;
 
   // if we are using perturbation theory, we'll now calculate the
   //   reference point and its full orbit (which will be used for
@@ -211,6 +213,15 @@ function runCalc(msg) {
       console.log("re-using previously-calculated reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
       console.log("referencePx: " + infNumToString(windowCalc.referencePx));
       console.log("referencePy: " + infNumToString(windowCalc.referencePy));
+    }
+
+    if (windowCalc.algorithm.includes("sapx")) {
+      // regardless of whether we re-use the reference orbit, we have to re-calculate
+      //   series approximation coefficients because the test points, which determine
+      //   how many iterations to skip, are dependent on the window size+location
+      windowCalc.saCoefficients = plotsByName[windowCalc.plot].computeSaCoefficients(windowCalc.algorithm, windowCalc.referenceOrbit, windowCalc.leftEdge, windowCalc.rightEdge, windowCalc.topEdge, windowCalc.bottomEdge);
+    } else {
+      windowCalc.saCoefficients = null;
     }
   }
 
@@ -403,6 +414,8 @@ var onSubWorkerMessage = function(msg) {
     handleReferenceOrbitRequest(msg);
   } else if (msg.data.t == "send-bla-tables") {
     handleBlaTablesRequest(msg);
+  } else if (msg.data.t == "send-sa-coefficients") {
+    handleSaCoefficientsRequest(msg);
   } else {
     console.log("worker received unknown message from subworker:", e);
   }
@@ -429,6 +442,19 @@ function handleBlaTablesRequest(msg) {
       referencePx: windowCalc.referencePx,
       referencePy: windowCalc.referencePy,
       referenceBlaTables: windowCalc.referenceBlaTables,
+      referencePlotId: windowCalc.plotId
+    }
+  });
+}
+
+function handleSaCoefficientsRequest(msg) {
+  const worker = msg.target;
+  worker.postMessage({
+    t: "sa-coefficients",
+    v: {
+      referencePx: windowCalc.referencePx,
+      referencePy: windowCalc.referencePy,
+      saCoefficients: windowCalc.saCoefficients,
       referencePlotId: windowCalc.plotId
     }
   });

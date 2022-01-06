@@ -439,6 +439,21 @@ function infNumEq(a, b) {
   return normalized[0].v === normalized[1].v;
 }
 function infNumLt(a, b) {
+  if (a.v < b.v && a.e <= b.e) {
+    return true;
+  } else if (a.v === 0n) {
+    if (b.v <= 0n) {
+      return false;
+    } else {
+      return true;
+    }
+  } else if (b.v === 0n) {
+    if (a.v < 0n) {
+      return true;
+    } else {
+      return false;
+    }
+  }
   const normalized = normInfNum(a, b);
   return normalized[0].v < normalized[1].v;
 }
@@ -449,6 +464,18 @@ function infNumLe(a, b) {
 function infNumGt(a, b) {
   if (a.v > b.v && a.e >= b.e) {
     return true;
+  } else if (a.v === 0n) {
+    if (b.v < 0n) {
+      return true;
+    } else {
+      return false;
+    }
+  } else if (b.v === 0n) {
+    if (a.v < 0n) {
+      return false;
+    } else {
+      return true;
+    }
   }
   const normalized = normInfNum(a, b);
   return normalized[0].v > normalized[1].v;
@@ -682,4 +709,88 @@ function infNumMagnitude(n) {
   let afterDecimal = n.v < 0 ? value.length - 2 : value.length - 1;
   let finalExponent = parseInt(n.e) + afterDecimal;
   return finalExponent;
+}
+
+//
+// Math.sqrt(2*(10**7)) === Math.sqrt(2) * (10**3.5)
+//
+// 10**3.5 === 10**0.5 * 10**3
+//
+// Math.sqrt(2*(10**7)) === Math.sqrt(2) * 10**0.5 * 10**3
+//
+// use "var" here instead of "const" to keep the browser from complaining
+//   about re-declaring it
+var infNumSqrt10 = infNum(31622776601683795n, -16n);
+function infNumRoughSqrt(a) {
+  if (a.v === 0n) {
+    return a;
+  }
+  // we want to keep exponent an integer, so we must
+  //   check whether it's even before dividing by 2
+  if (a.e % 2n === 0n) {
+    return {
+      v: bigIntRoughSqrt(a.v),
+      e: a.e / 2n
+    };
+  } else {
+    return infNumMul(infNumSqrt10, {
+      v: bigIntRoughSqrt(a.v),
+      // >>1 is equivalent to Math.floor(a.e/2) BUT bitwise operations force
+      //   JavaScript numbers down to unsigned 32-bit integers, so we cannot
+      //   use bitwise operations here
+      e: Math.floor(a.e/2)
+    });
+  }
+}
+
+// rough but hopefully fast sqrt(BigInt)
+// principal:
+//   Math.sqrt(4000) === Math.sqrt(10**3)    * Math.sqrt(4)
+//   Math.sqrt(4000) === (10**(3/2))         * Math.sqrt(4)
+//   Math.sqrt(4000) === (10**1) * (10**0.5) * Math.sqrt(4)
+function bigIntRoughSqrt(a) {
+  if (a < 0n) {
+    throw "cannot take rough square root of negative value";
+  }
+  let digits = a.toString().length;
+  const mag = digits - 1;
+  //const magMinusTwo = mag - 2;
+  //let mantissa = null;
+  //if (magMinusTwo < 0) {
+  //  // get first three digits of value
+  //  // 5 (v:5n,e:0n) is magnitude 0
+  //  // (5n * (10n**(-2n*-1n))) / (10n**(0n*-1n)) => 500n
+  //  // 0.054321 (v:54321n,e:-6n) is magnitude -2
+  //  // (54321n * (10n**(-4n*-1n))) / (10n**(-6n*-1n)) => 543n
+  //  mantissa = (a.v * (10n**BigInt(magMinusTwo*-1))) / (10n**(a.e*-1n));
+  //} else {
+  //  // get first three digits of value
+  //  // 398765 is magnitude 5
+  //  // 398765n / (10n**(5n-2n)) => 398n
+  //  mantissa = a.v / (10n**BigInt(magMinusTwo));
+  //}
+  //const floatMantissa = parseFloat(mantissa) / 100.0;
+  //return floatMantissa;
+
+  // make a copy of the argument (necessary?)
+  let mantissa = a * 10n;
+  digits++;
+  while (mantissa < 100n) {
+    mantissa *= 10n;
+    digits++;
+  }
+  // keep first 3 digits of mantissa
+  mantissa = mantissa / (10n**BigInt(digits - 3));
+  const floatMantissa = parseFloat(mantissa) / 100.0;
+
+  // to perform square root, we are dividing magnitude in half
+  // if magnitude is not an even number, multiply by 3, which is
+  //   roughly the square root of 10, since:
+  // 10**3.5 === 10**0.5 * 10**3
+  const sqrt1000 = mag % 2 === 0 ?
+    BigInt(Math.round(Math.sqrt(floatMantissa) * 1000.0)) * (10n**(BigInt(mag/2)))
+    :
+    BigInt(Math.round(Math.sqrt(floatMantissa) * 1000.0)) * (10n**(BigInt(Math.floor(mag/2)))) * 3n;
+
+  return sqrt1000 / BigInt(1000n);
 }

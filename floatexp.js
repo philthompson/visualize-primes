@@ -248,6 +248,38 @@ function floatExpLe(a, b) {
   return floatExpEq(a, b) || floatExpLt(a, b);
 }
 
+//
+// Math.sqrt(2*(10**7)) === Math.sqrt(2) * (10**3.5)
+//
+// 10**3.5 === 10**0.5 * 10**3
+//
+// Math.sqrt(2*(10**7)) === Math.sqrt(2) * 10**0.5 * 10**3
+//
+// use "var" here instead of "const" to keep the browser from complaining
+//   about re-declaring it
+var sqrt10 = 10 ** 0.5;
+function floatExpSqrt(a) {
+  if (a.v === 0) {
+    return a;
+  }
+  // we want to keep exponent an integer, so we must
+  //   check whether it's even before dividing by 2
+  if (a.e % 2 === 0) {
+    return floatExpAlign({
+      v: Math.sqrt(a.v),
+      e: a.e / 2
+    });
+  } else {
+    return floatExpAlign({
+      v: Math.sqrt(a.v) * sqrt10,
+      // >>1 is equivalent to Math.floor(a.e/2) BUT bitwise operations force
+      //   JavaScript numbers down to unsigned 32-bit integers, so we cannot
+      //   use bitwise operations here
+      e: Math.floor(a.e/2)
+    });
+  }
+}
+
 
 function floatExpToString(n) {
   return n.v + "e" + n.e;
@@ -329,4 +361,12 @@ if (doUnitTests) {
   b = createFloatExpFromString("100");
   c = floatExpLe(a, b);
   console.log(a, "<=", b, "=", c, " // 2 <= 100 = true");
+
+  a = createFloatExpFromInfNum({v:2n, e:7n});
+  c = floatExpSqrt(a);
+  console.log("sqrt(", a, ") =", c, " // sqrt({v:2, e:7}) = {v:Math.sqrt(2)*Math.sqrt(10), e:3}");
+
+  a = createFloatExpFromInfNum({v:2n, e:10n});
+  c = floatExpSqrt(a);
+  console.log("sqrt(", a, ") =", c, " // sqrt({v:2, e:10}) = {v:Math.sqrt(2), e:5}");
 }

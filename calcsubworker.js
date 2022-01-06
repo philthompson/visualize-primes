@@ -25,34 +25,58 @@ var referencePx = null;
 var referencePy = null;
 var referenceOrbit = null;
 var referencePlotId = null;
+var referenceBlaTables = null;
+var saCoefficients = null;
 
 self.onmessage = function(e) {
   if (e.data.t == "compute-chunk") {
-    if (referencePlotId !== null && e.data.v.chunk.plotId !== referencePlotId) {
+    lastComputeChunkMsg = e.data.v;
+
+    if (referencePlotId !== null && lastComputeChunkMsg.chunk.plotId !== referencePlotId) {
       referenceOrbit = null;
-    }
-    if (referenceOrbit === null && e.data.v.chunk.algorithm.startsWith("perturb-")) {
-      lastComputeChunkMsg = e.data.v;
-      postMessage({t: "send-reference-orbit", v:0});
-    } else {
-      computeChunk(e.data.v.plotId, e.data.v.chunk, e.data.v.cachedIndices, referencePx, referencePy, referenceOrbit);
+      referenceBlaTables = null;
+      saCoefficients = null;
     }
   } else if (e.data.t == "reference-orbit") {
     referencePx = e.data.v.referencePx;
     referencePy = e.data.v.referencePy;
     referenceOrbit = e.data.v.referenceOrbit;
     referencePlotId = e.data.v.referencePlotId;
-    if (lastComputeChunkMsg !== null) {
-      let chunk = lastComputeChunkMsg;
-      lastComputeChunkMsg = null;
-      computeChunk(chunk.plotId, chunk.chunk, chunk.cachedIndices, referencePx, referencePy, referenceOrbit);
-    }
+  } else if (e.data.t == "bla-tables") {
+    referencePx = e.data.v.referencePx;
+    referencePy = e.data.v.referencePy;
+    referenceBlaTables = e.data.v.referenceBlaTables;
+    referencePlotId = e.data.v.referencePlotId;
+  } else if (e.data.t == "sa-coefficients") {
+    referencePx = e.data.v.referencePx;
+    referencePy = e.data.v.referencePy;
+    saCoefficients = e.data.v.saCoefficients;
+    referencePlotId = e.data.v.referencePlotId;
   } else {
     console.log("subworker received unknown message:", e);
   }
+  if (lastComputeChunkMsg === null) {
+    return;
+  }
+  if (referenceOrbit === null && (
+        lastComputeChunkMsg.chunk.algorithm.includes("perturb-") ||
+        lastComputeChunkMsg.chunk.algorithm.includes("bla-") ||
+        lastComputeChunkMsg.chunk.algorithm.includes("sapx")
+      )) {
+    postMessage({t: "send-reference-orbit", v:0});
+  } else if (referenceBlaTables === null && lastComputeChunkMsg.chunk.algorithm.includes("bla-")) {
+    postMessage({t: "send-bla-tables", v:0});
+  } else if (saCoefficients === null && lastComputeChunkMsg.chunk.algorithm.includes("sapx")) {
+    postMessage({t: "send-sa-coefficients", v:0});
+  } else {
+    let chunk = lastComputeChunkMsg;
+    lastComputeChunkMsg = null;
+    computeChunk(chunk.plotId, chunk.chunk, chunk.cachedIndices);
+  }
 };
 
-var computeChunk = function(plotId, chunk, cachedIndices, referencePx, referencePy, referenceOrbit) {
+//var computeChunk = function(plotId, chunk, cachedIndices, referencePx, referencePy, referenceOrbit) {
+var computeChunk = function(plotId, chunk, cachedIndices) {
   // TODO: just use overall time as measured in main thread, don't keep
   //         separate running times on a per-chunk or per-subworker basis
   //var chunkStartMs = Date.now();
@@ -95,7 +119,7 @@ var computeChunk = function(plotId, chunk, cachedIndices, referencePx, reference
   const results = new Array(chunk.chunkLen);
   // if entire chunk is cached, we don't have to do anything
   if (cachedIndices.length < chunk.chunkLen) {
-    if (!chunk.algorithm.startsWith("perturb-")) {
+    if (chunk.algorithm.includes("basic-")) {
 //    if (moveX) {
 //      for (let i = 0; i < chunk.chunkLen; i++) {
 //        if (!binarySearchIncludesNumber(cachedIndices, i)) {
@@ -117,19 +141,35 @@ var computeChunk = function(plotId, chunk, cachedIndices, referencePx, reference
 
     // if not calculating with straightforward algorithm, we will use
     //   the perturbation theory algorithm
-    } else {
+    } else if (chunk.algorithm.includes("perturb-")) {
       //if (infNumEq(chunk.chunkPos.x, referencePx) && infNumEq(chunk.chunkPos.y, referencePy)) {
       //  console.log("chunk position and reference point are the same!!?!?");
       //}
       const perturbFn = chunk.algorithm.includes("floatexp") ?
-        plotsByName[chunk.plot].computeBoundPointColorPerturbFloatExp
+        plotsByName[chunk.plot].computeBoundPointColorPerturbOrBlaFloatExp
         :
-        plotsByName[chunk.plot].computeBoundPointColorPerturbFloat;
+        plotsByName[chunk.plot].computeBoundPointColorPerturbOrBlaFloat;
 
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, referencePx, referencePy, referenceOrbit);
+          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients);
+        }
+        // since we want to start at the given starting position, increment
+        //   the position AFTER computing each result
+        py = infNumAddNorm(py, incY);
+      }
+    } else if (chunk.algorithm.includes("bla-")) {
+
+      const blaFn = chunk.algorithm.includes("floatexp") ?
+        plotsByName[chunk.plot].computeBoundPointColorPerturbOrBlaFloatExp
+        :
+        plotsByName[chunk.plot].computeBoundPointColorPerturbOrBlaFloat;
+
+      // assuming chunks are all moving along the y axis, for single px
+      for (let i = 0; i < chunk.chunkLen; i++) {
+        if (!binarySearchIncludesNumber(cachedIndices, i)) {
+          results[i] = blaFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients);
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result

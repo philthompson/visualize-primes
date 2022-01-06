@@ -265,7 +265,7 @@ const plots = [{
       return orbit;
     }
   },
-  "computeSaCoefficients": function(precision, algorithm, referenceX, referenceY, referenceOrbit, leftEdge, rightEdge, topEdge, bottomEdge) {
+  "computeSaCoefficientsInfNum": function(precision, algorithm, referenceX, referenceY, referenceOrbit, leftEdge, rightEdge, topEdge, bottomEdge) {
     let nTerms = 5;
     // parse out number of series approximation terms from the algorithm name
     const algoSplit = algorithm.split("-");
@@ -302,7 +302,7 @@ const plots = [{
     // 3 -> test 4 points along top edge, 4 points across at 1/3 down from top,
     //           4 points across at 2/3 down from top, and 4 points along bottom edge
     // 4 -> test 5 points along top edge ...
-    const dimDiv = 3;
+    const dimDiv = 2;
     let px = leftEdge;
     let py = topEdge;
     let xStep = infNumDiv(infNumSub(rightEdge, leftEdge), infNum(BigInt(dimDiv), 0n), precision);
@@ -346,8 +346,6 @@ const plots = [{
     // Fn+1 = 2XnFn + 2AnEn + 2BnDn + Cn^2
     // Gn+1 = 2XnGn + 2AnFn + 2BnEn + 2CnDn
 
-    let lastValidIteration = -1;
-
     // iterate through ref orbit, stopping once SA is no longer valid for any
     //   single test point
     for (let i = 0; i < referenceOrbit.length; i++) {
@@ -386,22 +384,6 @@ const plots = [{
             }
           }
         }
-      }
-
-      // only test every 10th iteration against all test points
-      // theoretically, we'd spend 1/10th the time checking test points
-      //   to miss an average of only 5 iterations that could have been
-      //   skipped
-      if (i % 100 !== 0) {
-        // if the coefficients are valid for all test points, we can skip i+1 iterations,
-        //   so continue on and test the next iteration
-        for (let j = 0; j < terms.length; j++) {
-          terms[j] = {
-            x: infNumTruncateToLen(nextTerms[j].x, precision),
-            y: infNumTruncateToLen(nextTerms[j].y, precision)
-          };
-        }
-        continue;
       }
 
       let validTestPoints = 0;
@@ -487,14 +469,12 @@ const plots = [{
         // at i=0, if none are valid, we'll return 0 (we can skip 0 iterations)
         // at i=1, if none are valid, we'll return 1 (we can skip 1 iteration)
         // ...
-        //itersToSkip = i;
-        itersToSkip = lastValidIteration;
+        itersToSkip = i;
         // break before copying nextTerms into terms (since the previous
         //   terms are the last valid terms)
         break;
       }
 
-      lastValidIteration = i;
       if (i % 10000 === 0) {
         console.log("all test points are valid for skipping [" + (i).toLocaleString() + "] iterations");
       }
@@ -537,7 +517,7 @@ const plots = [{
     }
 
   },
-  "computeSaCoefficientsFloatExp": function(precision, algorithm, referenceX, referenceY, referenceOrbit, leftEdge, rightEdge, topEdge, bottomEdge) {
+  "computeSaCoefficients": function(precision, algorithm, referenceX, referenceY, referenceOrbit, leftEdge, rightEdge, topEdge, bottomEdge) {
     let nTerms = 5;
     // parse out number of series approximation terms from the algorithm name
     const algoSplit = algorithm.split("-");
@@ -574,7 +554,7 @@ const plots = [{
     // 3 -> test 4 points along top edge, 4 points across at 1/3 down from top,
     //           4 points across at 2/3 down from top, and 4 points along bottom edge
     // 4 -> test 5 points along top edge ...
-    const dimDiv = 3;
+    const dimDiv = 2;
     let px = leftEdge;
     let py = topEdge;
     let xStep = infNumDiv(infNumSub(rightEdge, leftEdge), infNum(BigInt(dimDiv), 0n), precision);
@@ -619,8 +599,6 @@ const plots = [{
     // Fn+1 = 2XnFn + 2AnEn + 2BnDn + Cn^2
     // Gn+1 = 2XnGn + 2AnFn + 2BnEn + 2CnDn
 
-    let lastValidIteration = -1;
-
     // iterate through ref orbit, stopping once SA is no longer valid for any
     //   single test point
     for (let i = 0; i < referenceOrbit.length; i++) {
@@ -661,21 +639,6 @@ const plots = [{
             }
           }
         }
-      }
-
-      // only test every 10th iteration against all test points
-      // theoretically, we'd spend 1/10th the time checking test points
-      //   to miss an average of only 5 iterations that could have been
-      //   skipped
-      if (i % 100 !== 0) {
-        // if the coefficients are valid for all test points, we can skip i+1 iterations,
-        //   so continue on and test the next iteration
-        for (let j = 0; j < terms.length; j++) {
-          // out of desperation, seeing if cloning this is necessary
-          //terms[j] = nextTerms[j];
-          terms[j] = structuredClone(nextTerms[j]);
-        }
-        continue;
       }
 
       let validTestPoints = 0;
@@ -761,14 +724,12 @@ const plots = [{
         // at i=0, if none are valid, we'll return 0 (we can skip 0 iterations)
         // at i=1, if none are valid, we'll return 1 (we can skip 1 iteration)
         // ...
-        //itersToSkip = i;
-        itersToSkip = lastValidIteration;
+        itersToSkip = i;
         // break before copying nextTerms into terms (since the previous
         //   terms are the last valid terms)
         break;
       }
 
-      lastValidIteration = i;
       if (i % 10000 === 0) {
         console.log("all test points are valid for skipping [" + (i).toLocaleString() + "] iterations");
       }

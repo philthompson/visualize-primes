@@ -64,12 +64,12 @@ function complexFloatExpAdd(a, b) {
 
 // this is the SQUARED absolute value (to get actual hypotenuse,
 //   need to take square root of this)
-function complexFloatExpAbs(a) {
+function complexFloatExpAbsSquared(a) {
   return floatExpAdd(floatExpMul(a.x, a.x), floatExpMul(a.y, a.y));
 }
 
 function complexFloatExpAbsHypot(a) {
-  return floatExpSqrt(complexFloatExpAbs(a));
+  return floatExpSqrt(complexFloatExpAbsSquared(a));
 }
 
 function complexInfNumRealMul(a, realInfNum) {
@@ -414,7 +414,7 @@ const plots = [{
         };
 
         let coefTermsAreValid = false;
-        // check validity of iteration coefficients 
+        // check validity of iteration coefficients
         // splitting terms into two groups, so start from one
         for (let j = 1; j < nTerms; j++) {
           //let deltaCpower = {x:one, y:one};
@@ -671,7 +671,9 @@ const plots = [{
         // if the coefficients are valid for all test points, we can skip i+1 iterations,
         //   so continue on and test the next iteration
         for (let j = 0; j < terms.length; j++) {
-          terms[j] = nextTerms[j];
+          // out of desperation, seeing if cloning this is necessary
+          //terms[j] = nextTerms[j];
+          terms[j] = structuredClone(nextTerms[j]);
         }
         continue;
       }
@@ -697,7 +699,7 @@ const plots = [{
           for (let k = 0; k < j; k++) {
             // no need to actually take square root of sum of squares
             //   to do the size comparison
-            let wholeTerm = complexFloatExpAbs(complexFloatExpMul(deltaCpower, nextTerms[k]));
+            let wholeTerm = complexFloatExpAbsSquared(complexFloatExpMul(deltaCpower, nextTerms[k]));
             if (firstSmallest === null || floatExpLt(wholeTerm, firstSmallest)) {
               firstSmallest = structuredClone(wholeTerm);
             }
@@ -710,7 +712,7 @@ const plots = [{
           for (let k = j; k < nTerms; k++) {
             // no need to actually take square root of sum of squares
             //   to do the size comparison
-            let wholeTerm = complexFloatExpAbs(complexFloatExpMul(deltaCpower, nextTerms[k]));
+            let wholeTerm = complexFloatExpAbsSquared(complexFloatExpMul(deltaCpower, nextTerms[k]));
             if (secondLargest === null || floatExpGt(wholeTerm, secondLargest)) {
               secondLargest = structuredClone(wholeTerm);
             }
@@ -774,8 +776,9 @@ const plots = [{
       // if the coefficients are valid for all test points, we can skip i+1 iterations,
       //   so continue on and test the next iteration
       for (let j = 0; j < terms.length; j++) {
-        terms[j] = nextTerms[j];
-        //terms[j] = structuredClone(nextTerms[j]);
+        // out of desperation, seeing if cloning this is needed
+        //terms[j] = nextTerms[j];
+        terms[j] = structuredClone(nextTerms[j]);
         //terms[j] = {
         //  x: structuredClone(nextTerms[j].x),
         //  y: structuredClone(nextTerms[j].y)

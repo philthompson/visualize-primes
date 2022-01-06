@@ -328,45 +328,6 @@ const plots = [{
     // start this negative, so we can tell when all iterations are valid
     let itersToSkip = -1;
 
-//    // from sft_maths.pdf (original K. I. Martin perturbation theory and series approximation document)
-//    // An+1 = 2XnAn + 1
-//    // Bn+1 = 2XnBn + An^2
-//    // Cn+1 = 2XnCn + 2AnBn
-//    // from "Botond Kosa" (Mandel Machine author) https://www.fractalforums.com/index.php?topic=18482.msg71342#msg71342
-//    // Dn+1 = 2XnDn + 2AnCn + Bn^2
-//    // En+1 = 2XnEn + 2AnDn + 2BnCn
-//
-//    // iterate through ref orbit, stopping once SA is no longer valid for any
-//    //   single test point
-//    for (let i = 0; i < referenceOrbit.length; i++) {
-//
-//      twoRefIter = complexInfNumRealMul({x:referenceOrbit[i].xap, y:referenceOrbit[i].yap}, two);
-//      //twoRefIter = {x:infNumMul(referenceOrbit[i].xap, two), y:infNumMul(referenceOrbit[i].yap, two)};
-//
-//      nextTerms[0] = complexInfNumRealAdd(complexInfNumMul(twoRefIter, terms[0]), one); // A
-//      nextTerms[1] = complexInfNumAdd(complexInfNumMul(twoRefIter, terms[1]), complexInfNumMul(terms[0], terms[0])); // B
-//      nextTerms[2] = complexInfNumAdd(complexInfNumMul(twoRefIter, terms[2]), complexInfNumRealMul(complexInfNumMul(terms[0], terms[1]), 2)); // C
-//      nextTerms[3] = complexInfNumAdd(complexInfNumAdd(complexInfNumMul(twoRefIter, terms[3]), complexInfNumRealMul(complexInfNumMul(terms[0], terms[2]), 2)), complexInfNumMul(terms[0], terms[0])); // D
-//      nextTerms[4] = complexInfNumAdd(complexInfNumAdd(complexInfNumMul(twoRefIter, terms[4]), complexInfNumRealMul(complexInfNumMul(terms[0], terms[3]), 2)), complexInfNumRealMul(complexInfNumMul(terms[1], terms[2]), 2)); // E
-//
-//      if (/* ! validity check */) {
-//        itersToSkip = i;
-//        break;
-//      }
-//
-//      for (let j = 0; i < terms.length; j++) {
-//        terms[j] = copyInfNum(nextTerms[j]);
-//      }
-//    }
-//
-//    if (itersToSkip == null) {
-//      return {itersToSkip:referenceOrbit.length, coefficients:nextTerms};
-//    } else {
-//      return {itersToSkip:itersToSkip, coefficients:terms};
-//    }
-
-    ///////////////////////////////////////////////////////////
-
     // from sft_maths.pdf (original K. I. Martin perturbation theory and series approximation document)
     // An+1 = 2XnAn + 1
     // Bn+1 = 2XnBn + An^2

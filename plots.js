@@ -48,6 +48,13 @@ function complexFloatExpRealMul(a, realFloatExp) {
   };
 }
 
+function complexFloatExpRealAdd(a, realFloatExp) {
+  return {
+    x: floatExpAdd(a.x, realFloatExp),
+    y: structuredClone(a.y)
+  };
+}
+
 function complexFloatExpAdd(a, b) {
   return {
     x: floatExpAdd(a.x, b.x),
@@ -339,6 +346,8 @@ const plots = [{
     // Fn+1 = 2XnFn + 2AnEn + 2BnDn + Cn^2
     // Gn+1 = 2XnGn + 2AnFn + 2BnEn + 2CnDn
 
+    let lastValidIteration = -1;
+
     // iterate through ref orbit, stopping once SA is no longer valid for any
     //   single test point
     for (let i = 0; i < referenceOrbit.length; i++) {
@@ -379,6 +388,22 @@ const plots = [{
         }
       }
 
+      // only test every 10th iteration against all test points
+      // theoretically, we'd spend 1/10th the time checking test points
+      //   to miss an average of only 5 iterations that could have been
+      //   skipped
+      if (i % 100 !== 0) {
+        // if the coefficients are valid for all test points, we can skip i+1 iterations,
+        //   so continue on and test the next iteration
+        for (let j = 0; j < terms.length; j++) {
+          terms[j] = {
+            x: infNumTruncateToLen(nextTerms[j].x, precision),
+            y: infNumTruncateToLen(nextTerms[j].y, precision)
+          };
+        }
+        continue;
+      }
+
       let validTestPoints = 0;
       // check for iters to skip for all calculated test points
       for (let p = 0; p < testPoints.length; p++) {
@@ -392,31 +417,32 @@ const plots = [{
         // check validity of iteration coefficients 
         // splitting terms into two groups, so start from one
         for (let j = 1; j < nTerms; j++) {
-          let deltaCpower = {x:one, y:one};
+          //let deltaCpower = {x:one, y:one};
+          let deltaCpower = structuredClone(deltaC);
           let firstSmallest = null;
           let secondLargest = null;
           // find smallest term in 1st group for test point
           for (let k = 0; k < j; k++) {
-            // for the A term, 1 is multiplied by deltaC to get deltaC^1
-            // for the B term, that result is again multiplied by deltaC to get deltaC^2
-            // for the C term, ... we get deltaC^3
-            deltaCpower = complexInfNumMul(deltaCpower, deltaC);
             // no need to actually take square root of sum of squares
             //   to do the size comparison
             let wholeTerm = complexInfNumAbsSquared(complexInfNumMul(deltaCpower, nextTerms[k]));
             if (firstSmallest === null || infNumLt(wholeTerm, firstSmallest)) {
               firstSmallest = copyInfNum(wholeTerm);
             }
+            // for the A term, 1 is multiplied by deltaC to get deltaC^1
+            // for the B term, that result is again multiplied by deltaC to get deltaC^2
+            // for the C term, ... we get deltaC^3
+            deltaCpower = complexInfNumMul(deltaCpower, deltaC);
           }
           // find largest term in 2nd group for test point
           for (let k = j; k < nTerms; k++) {
-            deltaCpower = complexInfNumMul(deltaCpower, deltaC);
             // no need to actually take square root of sum of squares
             //   to do the size comparison
             let wholeTerm = complexInfNumAbsSquared(complexInfNumMul(deltaCpower, nextTerms[k]));
             if (secondLargest === null || infNumGt(wholeTerm, secondLargest)) {
               secondLargest = copyInfNum(wholeTerm);
             }
+            deltaCpower = complexInfNumMul(deltaCpower, deltaC);
           }
           // take square root of the comparison terms
           //firstSmallest = infNumRoughSqrt(firstSmallest);
@@ -461,10 +487,16 @@ const plots = [{
         // at i=0, if none are valid, we'll return 0 (we can skip 0 iterations)
         // at i=1, if none are valid, we'll return 1 (we can skip 1 iteration)
         // ...
-        itersToSkip = i;
+        //itersToSkip = i;
+        itersToSkip = lastValidIteration;
         // break before copying nextTerms into terms (since the previous
         //   terms are the last valid terms)
         break;
+      }
+
+      lastValidIteration = i;
+      if (i % 10000 === 0) {
+        console.log("all test points are valid for skipping [" + (i).toLocaleString() + "] iterations");
       }
 
       // if the coefficients are valid for all test points, we can skip i+1 iterations,
@@ -492,6 +524,273 @@ const plots = [{
         terms[i] = {
           x: parseFloat(infNumExpString(terms[i].x)),
           y: parseFloat(infNumExpString(terms[i].y))
+        };
+      }
+    }
+
+    if (itersToSkip < 0) {
+      console.log("skipping ALL [" + referenceOrbit.length + "] iterations of the reference orbit with [" + terms.length + "]-term SA... hmm...");
+      return {itersToSkip:referenceOrbit.length, coefficients:terms};
+    } else {
+      console.log("skipping [" + itersToSkip + "] iterations with [" + terms.length + "]-term SA");
+      return {itersToSkip:itersToSkip, coefficients:terms};
+    }
+
+  },
+  "computeSaCoefficientsFloatExp": function(precision, algorithm, referenceX, referenceY, referenceOrbit, leftEdge, rightEdge, topEdge, bottomEdge) {
+    let nTerms = 5;
+    // parse out number of series approximation terms from the algorithm name
+    const algoSplit = algorithm.split("-");
+    for (let i = 0; i < algoSplit.length; i++) {
+      if (algoSplit[i].startsWith("sapx")) {
+        nTerms = parseInt(algoSplit[i].substring(4));
+        break;
+      }
+    }
+
+    if (nTerms <= 0) {
+      console.log("series approximation has 0 or fewer terms in the algorithm name [" + algorithm + "], so NOT doing SA");
+      return {itersToSkip:0, coefficients:[]};
+    }
+
+    // for coefficients to be valid at an iteration, they
+    //   need to be getting much smaller (one example is,
+    ///  when read from left to right, from the Nth term
+    //   to the N+1th term)
+    // this is spelled out in a more exact fashion here:
+    // https://www.fractalforums.com/index.php?topic=18482.msg74200#msg74200
+    // this is the "several orders of magnitude" the smallest term in
+    //   the first group must be than the largest term in the second group
+    //
+    // since the values being compared are squared, we must
+    //   square this also
+    const termShrinkCutoff = createFloatExpFromNumber(1000*1000);
+
+    // calculate test points
+    const testPoints = [];
+    // divisions per dimension
+    // 1 -> test 4 corners only
+    // 2 -> test 4 corners, 4 edge middles, and image center
+    // 3 -> test 4 points along top edge, 4 points across at 1/3 down from top,
+    //           4 points across at 2/3 down from top, and 4 points along bottom edge
+    // 4 -> test 5 points along top edge ...
+    const dimDiv = 3;
+    let px = leftEdge;
+    let py = topEdge;
+    let xStep = infNumDiv(infNumSub(rightEdge, leftEdge), infNum(BigInt(dimDiv), 0n), precision);
+    let yStep = infNumDiv(infNumSub(topEdge, bottomEdge), infNum(BigInt(dimDiv), 0n), precision);
+    // note <= in loop conditions here -- we want to span edge to edge
+    //   inclusive of both edges
+    for (let i = 0; i <= dimDiv; i++) {
+      for (let j = 0; j <= dimDiv; j++) {
+        testPoints.push({
+          x: copyInfNum(px),
+          y: copyInfNum(py)
+        });
+        py = infNumAdd(py, yStep);
+      }
+      px = infNumAdd(px, xStep);
+    }
+
+    // ... do these need to be calculated with arbitrary precision?
+
+    let zero = createFloatExpFromNumber(0); // NOT a complex number
+    let one = createFloatExpFromNumber(1); // NOT a complex number
+    let two = createFloatExpFromNumber(2); // NOT a complex number
+    let twoRefIter = null;
+
+    // initialize terms to 0, at 0th iteration ...
+    const terms = new Array(nTerms).fill({x:zero, y:zero});
+    // ... except for 'A' term, which is initialized to 1
+    terms[0] = {x:one, y:zero};
+
+    const nextTerms = new Array(nTerms);
+    // start this negative, so we can tell when all iterations are valid
+    let itersToSkip = -1;
+
+    // from sft_maths.pdf (original K. I. Martin perturbation theory and series approximation document)
+    // An+1 = 2XnAn + 1
+    // Bn+1 = 2XnBn + An^2
+    // Cn+1 = 2XnCn + 2AnBn
+    // from "Botond Kosa" (Mandel Machine author) https://www.fractalforums.com/index.php?topic=18482.msg71342#msg71342
+    // Dn+1 = 2XnDn + 2AnCn + Bn^2
+    // En+1 = 2XnEn + 2AnDn + 2BnCn
+    // my guesses for subsequent F and G terms:
+    // Fn+1 = 2XnFn + 2AnEn + 2BnDn + Cn^2
+    // Gn+1 = 2XnGn + 2AnFn + 2BnEn + 2CnDn
+
+    let lastValidIteration = -1;
+
+    // iterate through ref orbit, stopping once SA is no longer valid for any
+    //   single test point
+    for (let i = 0; i < referenceOrbit.length; i++) {
+
+      //twoRefIter = complexFloatExpRealMul({x:referenceOrbit[i].xap, y:referenceOrbit[i].yap}, two);
+      // this only works if the reference orbit is floatexp... have to convert if using "...-float" algo
+      twoRefIter = complexFloatExpRealMul(referenceOrbit[i], two);
+
+      // compute next iteration of all terms
+      for (let k = 0; k < nTerms; k++) {
+
+        // special case for 0th term (A)
+        if (k === 0) {
+          nextTerms[k] = complexFloatExpRealAdd(complexFloatExpMul(twoRefIter, terms[k]), one);
+
+        } else if (k % 2 === 0) {
+          nextTerms[k] = complexFloatExpMul(twoRefIter, terms[k]);
+          // notice continue condition is "up<dn" here
+          for (let up = 0, dn = k-1; up<dn; up++, dn--) {
+            nextTerms[k] = complexFloatExpAdd(nextTerms[k],
+              complexFloatExpRealMul(complexFloatExpMul(terms[up], terms[dn]), two)
+            );
+          }
+
+        // odd (B=1, D=3) terms end in squared term
+        } else {
+          nextTerms[k] = complexFloatExpMul(twoRefIter, terms[k]);
+          // notice continue condition is "up<=dn" here
+          for (let up = 0, dn = k-1; up<=dn; up++, dn--) {
+            if (up===dn) {
+              nextTerms[k] = complexFloatExpAdd(nextTerms[k],
+                complexFloatExpMul(terms[up], terms[dn]) // since up=dn here, we are squaring that coefficient
+              );
+            } else {
+              nextTerms[k] = complexFloatExpAdd(nextTerms[k],
+                complexFloatExpRealMul(complexFloatExpMul(terms[up], terms[dn]), two)
+              );
+            }
+          }
+        }
+      }
+
+      // only test every 10th iteration against all test points
+      // theoretically, we'd spend 1/10th the time checking test points
+      //   to miss an average of only 5 iterations that could have been
+      //   skipped
+      if (i % 100 !== 0) {
+        // if the coefficients are valid for all test points, we can skip i+1 iterations,
+        //   so continue on and test the next iteration
+        for (let j = 0; j < terms.length; j++) {
+          terms[j] = nextTerms[j];
+        }
+        continue;
+      }
+
+      let validTestPoints = 0;
+      // check for iters to skip for all calculated test points
+      for (let p = 0; p < testPoints.length; p++) {
+
+        let deltaC = {
+          x: createFloatExpFromInfNum(infNumSub(testPoints[p].x, referenceX)),
+          y: createFloatExpFromInfNum(infNumSub(testPoints[p].y, referenceY))
+        };
+
+        let coefTermsAreValid = false;
+        // check validity of iteration coefficients
+        // splitting terms into two groups, so start from one
+        for (let j = 1; j < nTerms; j++) {
+          //let deltaCpower = {x:one, y:one};
+          let deltaCpower = structuredClone(deltaC);
+          let firstSmallest = null;
+          let secondLargest = null;
+          // find smallest term in 1st group for test point
+          for (let k = 0; k < j; k++) {
+            // no need to actually take square root of sum of squares
+            //   to do the size comparison
+            let wholeTerm = complexFloatExpAbs(complexFloatExpMul(deltaCpower, nextTerms[k]));
+            if (firstSmallest === null || floatExpLt(wholeTerm, firstSmallest)) {
+              firstSmallest = structuredClone(wholeTerm);
+            }
+            // for the A term, 1 is multiplied by deltaC to get deltaC^1
+            // for the B term, that result is again multiplied by deltaC to get deltaC^2
+            // for the C term, ... we get deltaC^3
+            deltaCpower = complexFloatExpMul(deltaCpower, deltaC);
+          }
+          // find largest term in 2nd group for test point
+          for (let k = j; k < nTerms; k++) {
+            // no need to actually take square root of sum of squares
+            //   to do the size comparison
+            let wholeTerm = complexFloatExpAbs(complexFloatExpMul(deltaCpower, nextTerms[k]));
+            if (secondLargest === null || floatExpGt(wholeTerm, secondLargest)) {
+              secondLargest = structuredClone(wholeTerm);
+            }
+            deltaCpower = complexFloatExpMul(deltaCpower, deltaC);
+          }
+          // take square root of the comparison terms
+          //firstSmallest = infNumRoughSqrt(firstSmallest);
+          //secondLargest = infNumRoughSqrt(secondLargest);
+
+          // divide smallest from 1st by largest from 2nd
+          // ratio should be >100? >1000?
+          // (can use small value for division precision here)
+          if (secondLargest.v === 0n) {
+            coefTermsAreValid = true;
+            // once we have a valid point at which to create two comparison groups,
+            //   we don't need to test any other groupings
+            break;
+          }
+          let ratio = floatExpDiv(firstSmallest, secondLargest);
+          //if (secondLargest.v === 0n || infNumGt(infNumDiv(firstSmallest, secondLargest, 8), termShrinkCutoff)) {
+          if (floatExpGt(ratio, termShrinkCutoff)) {
+            coefTermsAreValid = true;
+            // once we have a valid point at which to create two comparison groups,
+            //   we don't need to test any other groupings
+            break;
+          }
+
+          // if ratio is not > 100, continue and test the next grouping (we'll
+          //   move the group split one term to the right)
+        }
+
+        // if no valid groupings have been found, we cannot skip this many iterations for this test point
+        if (coefTermsAreValid) {
+          validTestPoints++;
+        } else {
+          // if the coefficients at this iteration were not valid for any single test point
+          //   we don't need to keep trying the other points
+          break;
+        }
+      }
+
+      // if the coefficients at this iteration were not valid for any single test point
+      //   we will return the previous iteration (since that was the last one where
+      //   coefficients were valid for ALL test points)
+      if (validTestPoints < testPoints.length) {
+        // at i=0, if none are valid, we'll return 0 (we can skip 0 iterations)
+        // at i=1, if none are valid, we'll return 1 (we can skip 1 iteration)
+        // ...
+        //itersToSkip = i;
+        itersToSkip = lastValidIteration;
+        // break before copying nextTerms into terms (since the previous
+        //   terms are the last valid terms)
+        break;
+      }
+
+      lastValidIteration = i;
+      if (i % 10000 === 0) {
+        console.log("all test points are valid for skipping [" + (i).toLocaleString() + "] iterations");
+      }
+
+      // if the coefficients are valid for all test points, we can skip i+1 iterations,
+      //   so continue on and test the next iteration
+      for (let j = 0; j < terms.length; j++) {
+        terms[j] = nextTerms[j];
+        //terms[j] = structuredClone(nextTerms[j]);
+        //terms[j] = {
+        //  x: structuredClone(nextTerms[j].x),
+        //  y: structuredClone(nextTerms[j].y)
+        //};
+      }
+    }
+
+    // convert coefficients to the algorithm's number type
+    // (necesssary? can we just evaluate each pixel's starting
+    //   iteration's position delta using arbitrary precision?)
+    if (!algorithm.includes("floatexp") && algorithm.includes("float")) {
+      for (let i = 0; i < terms.length; i++) {
+        terms[i] = {
+          x: parseFloat(floatExpToString(terms[i].x)),
+          y: parseFloat(floatExpToString(terms[i].y))
         };
       }
     }
@@ -1003,6 +1302,7 @@ const plots = [{
         //   the precision -- more research is needed on this
         if (ret.precision < 0) {
           ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.01);
+          //ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.1);
         }
       }
       console.log("mandelbrot settings for scale:", ret);

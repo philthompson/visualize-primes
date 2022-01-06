@@ -153,7 +153,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit, saCoefficients);
+          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients);
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result

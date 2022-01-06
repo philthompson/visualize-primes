@@ -285,7 +285,7 @@ const plots = [{
     //
     // since the values being compared are squared, we must
     //   square this also
-    const termShrinkCutoff = infNum(100n*100n, 0n);
+    const termShrinkCutoff = infNum(1000n*1000n, 0n);
 
     // calculate test points
     const testPoints = [];
@@ -308,9 +308,9 @@ const plots = [{
           x: copyInfNum(px),
           y: copyInfNum(py)
         });
-        py = infNumAdd(leftEdge, yStep);
+        py = infNumAdd(py, yStep);
       }
-      px = infNumAdd(leftEdge, xStep);
+      px = infNumAdd(px, xStep);
     }
 
     // ... do these need to be calculated with arbitrary precision?
@@ -673,10 +673,10 @@ const plots = [{
 
     // saCoefficients: {itersToSkip:itersToSkip, coefficients:terms};
     if (useSa && saCoefficients.itersToSkip > 0) {
-      let deltaCpower = {x:1, y:1};
+      let deltaCpower = structuredClone(deltaC);
       for (let i = 0; i < saCoefficients.coefficients.length; i++) {
-        deltaCpower = complexFloatMul(deltaCpower, deltaC);
         deltaZ = complexFloatAdd(deltaZ, complexFloatMul(saCoefficients.coefficients[i], deltaCpower));
+        deltaCpower = complexFloatMul(deltaCpower, deltaC);
       }
       iter += saCoefficients.itersToSkip;
       referenceIter += saCoefficients.itersToSkip;
@@ -805,6 +805,11 @@ const plots = [{
     //   "bla-float"    : BLA+perturb, and for
     //   "perturb-float": perturb only
     const useBla = algorithm.includes("bla-");
+    // this function can also use series approximation:
+    //   "bla-sapx6-float"      : BLA+perturb, with 6-term series approximation
+    //   "bla-sapx17-float"     : BLA+perturb, with 17-term series approximation
+    //   "perturb-sapx9-float" : perturb, with 9-term series approximation
+    const useSa = algorithm.includes("sapx");
 
     //const four = createFloatExpFromNumber(4);
     const two = createFloatExpFromNumber(2);
@@ -853,6 +858,17 @@ const plots = [{
     let z = null;
     let zAbs = null;
     let deltaZAbs = null;
+
+    // saCoefficients: {itersToSkip:itersToSkip, coefficients:terms};
+    if (useSa && saCoefficients.itersToSkip > 0) {
+      let deltaCpower = structuredClone(deltaC);
+      for (let i = 0; i < saCoefficients.coefficients.length; i++) {
+        deltaZ = complexFloatExpAdd(deltaZ, complexFloatExpMul(saCoefficients.coefficients[i], deltaCpower));
+        deltaCpower = complexFloatExpMul(deltaCpower, deltaC);
+      }
+      iter += saCoefficients.itersToSkip;
+      referenceIter += saCoefficients.itersToSkip;
+    }
 
     try {
       while (iter < maxIter) {
@@ -995,7 +1011,10 @@ const plots = [{
         //ret.algorithm = "bla-floatexp";
         ret.algorithm = "bla-sapx8-floatexp";
       } else if (infNumGe(precisScale, createInfNum("3e150"))) {
-        ret.algorithm = "bla-sapx4-float";
+        // it seems like BLA, at least my code, isn't working until
+        //   scale is beyond ~1e300, but hopefully series approximation
+        //    would be useful at 3e150 and perhaps smaller scales also
+        ret.algorithm = "perturb-sapx4-float";
       } else if (infNumGe(precisScale, createInfNum("3e13"))) {
         ret.algorithm = "perturb-float";
         //ret.algorithm = "bla-float";

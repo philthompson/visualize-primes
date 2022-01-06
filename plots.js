@@ -14,6 +14,18 @@ if (typeof importScripts === 'function') {
   importScripts("floatexp.js?v=" + (appVersion || scriptAppVersion));
 }
 
+//const floatMath = {
+//  complexMul: function(a, b) { ... }
+//};
+
+//const floatExpMath = {
+//  complexMul: function(a, b) { ... }
+//};
+
+//const infNumMath = {
+//  complexMul: function(a, b) { ... }
+//};
+
 function complexFloatMul(a, b) {
   return {
     x: (a.x*b.x) - (a.y*b.y),
@@ -216,6 +228,11 @@ const plots = [{
     const maxIter = n;
     const two = infNum(2n, 0n);
     const four = infNum(4n, 0n);
+    const sixteen = infNum(16n, 0n);
+    // try using slightly larger bailout (4) for ref orbit
+    //   than for perturb orbit (which uses smallest possible
+    //   bailout of 2)
+    const bailoutSquared = sixteen;
 
     // the coords used for iteration
     var ix = infNum(0n, 0n);
@@ -228,7 +245,7 @@ const plots = [{
       while (iter < maxIter) {
         ixSq = infNumMul(ix, ix);
         iySq = infNumMul(iy, iy);
-        if (infNumGt(infNumAdd(ixSq, iySq), four)) {
+        if (infNumGt(infNumAdd(ixSq, iySq), bailoutSquared)) {
           break;
         }
         if (useFloatExp) {
@@ -554,7 +571,7 @@ const plots = [{
     // 3 -> test 4 points along top edge, 4 points across at 1/3 down from top,
     //           4 points across at 2/3 down from top, and 4 points along bottom edge
     // 4 -> test 5 points along top edge ...
-    const dimDiv = 2;
+    const dimDiv = 3;
     let px = leftEdge;
     let py = topEdge;
     let xStep = infNumDiv(infNumSub(rightEdge, leftEdge), infNum(BigInt(dimDiv), 0n), precision);
@@ -950,7 +967,7 @@ const plots = [{
           }
 */
           let goodL = null;
-          if (referenceIter / maxReferenceIter < 0.9) {
+          if (referenceIter / maxReferenceIter < 0.95) {
             //let goodLbin = null;
             // only proceeed with binary search if first entry (for 1 iteration) in
             //   BLA table is valid
@@ -971,6 +988,7 @@ const plots = [{
                 blaL = blaTables.coefTable.get(lCheck);
                 if (blaL.aAbs * deltaZAbs < epsilonRefAbs && blaL.bAbs * deltaCabs < epsilonRefAbs) {
                   // check the BLA at the subsequent l value, probably not necessary...
+                  /*
                   blaL = blaTables.coefTable.get(lCheck+1);
                   if (blaL !== undefined && blaL.aAbs * deltaZAbs < epsilonRefAbs && blaL.bAbs * deltaCabs < epsilonRefAbs) {
                     //goodLbin = lCheck+1;
@@ -981,6 +999,8 @@ const plots = [{
                     // continue binary search in upper half of remaining l's, below this non-valid value
                     hi = lCheck - 1;
                   }
+                  */
+                  lo = lCheck + 1;
                 } else {
                   // continue binary search in upper half of remaining l's, below this non-valid value
                   hi = lCheck - 1;
@@ -1121,7 +1141,7 @@ const plots = [{
           const epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter);
 
           let goodL = null;
-          if (referenceIter / maxReferenceIter < 0.9) {
+          if (referenceIter / maxReferenceIter < 0.95) {
             //let goodLbin = null;
             // only proceeed with binary search if first entry (for 1 iteration) in
             //   BLA table is valid
@@ -1143,6 +1163,7 @@ const plots = [{
                 blaL = blaTables.coefTable.get(lCheck);
                 if (floatExpLt(floatExpMul(blaL.aAbs, deltaZAbs), epsilonRefAbs) &&
                     floatExpLt(floatExpMul(blaL.bAbs, deltaCabs), epsilonRefAbs)) {
+                  /*
                   // check the BLA at the subsequent l value, probably not necessary...
                   blaL = blaTables.coefTable.get(lCheck+1);
                   if (blaL !== undefined &&
@@ -1156,6 +1177,8 @@ const plots = [{
                     // continue binary search in upper half of remaining l's, below this non-valid value
                     hi = lCheck - 1;
                   }
+                  */
+                  lo = lCheck + 1;
                 } else {
                   // continue binary search in upper half of remaining l's, below this non-valid value
                   hi = lCheck - 1;
@@ -1233,7 +1256,8 @@ const plots = [{
         //ret.algorithm = "basic-arbprecis";
         //ret.algorithm = "perturb-floatexp";
         //ret.algorithm = "bla-floatexp";
-        ret.algorithm = "bla-sapx8-floatexp";
+        //ret.algorithm = "bla-sapx16-floatexp";
+        ret.algorithm = "perturb-sapx8-floatexp";
       } else if (infNumGe(precisScale, createInfNum("3e150"))) {
         // it seems like BLA, at least my code, isn't working until
         //   scale is beyond ~1e300, but hopefully series approximation

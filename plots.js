@@ -1280,7 +1280,11 @@ const plots = [{
         precision: 12,
         algorithm: "basic-float"
       };
-      if (infNumGe(precisScale, createInfNum("1e304"))) {
+      if (infNumGe(precisScale, createInfNum("1e800"))) {
+        ret.algorithm = "perturb-sapx32-floatexp";
+      } else if (infNumGe(precisScale, createInfNum("1e500"))) {
+        ret.algorithm = "perturb-sapx16-floatexp";
+      } else if (infNumGe(precisScale, createInfNum("1e304"))) {
         // looks like floatexp (with perturbation) can handle very
         //   large scales, where only full arbitrary precision could
         //   before, yet is much faster
@@ -1289,7 +1293,9 @@ const plots = [{
         //ret.algorithm = "bla-floatexp";
         //ret.algorithm = "bla-sapx16-floatexp";
         ret.algorithm = "perturb-sapx8-floatexp";
-      } else if (infNumGe(precisScale, createInfNum("3e150"))) {
+      } else if (infNumGe(precisScale, createInfNum("1e200"))) {
+        ret.algorithm = "perturb-sapx6-float";
+      } else if (infNumGe(precisScale, createInfNum("1e100"))) {
         // it seems like BLA, at least my code, isn't working until
         //   scale is beyond ~1e300, but hopefully series approximation
         //    would be useful at 3e150 and perhaps smaller scales also
@@ -1306,23 +1312,14 @@ const plots = [{
         ret.precision = 12;
       } else if (infNumLt(precisScale, createInfNum("3e13"))) {
         ret.precision = 20;
+      // for scales at/larger than 1e100, use the magnitude as
+      //   basis for the precision -- more research is needed on this
+      } else if (infNumLt(precisScale, createInfNum("1e100"))) {
+        ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.2);
+      } else if (infNumLt(precisScale, createInfNum("1e200"))) {
+        ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.1);
       } else {
-        // if the scale is <1e32, set precision to 32
-        // if the scale is <1e48, set precision to 48
-        // ...
-        ret.precision = -1;
-        for (let i = 32; i <= 304; i+=16) {
-          if (infNumLt(precisScale, createInfNum("1e" + i))) {
-            ret.precision = i;
-            break;
-          }
-        }
-        // for scales at/larger than 1e304, use the magnitude as
-        //   the precision -- more research is needed on this
-        if (ret.precision < 0) {
-          ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.01);
-          //ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.1);
-        }
+        ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.01);
       }
       console.log("mandelbrot settings for scale:", ret);
       return ret;

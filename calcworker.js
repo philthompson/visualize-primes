@@ -64,6 +64,8 @@ const windowCalc = {
   "referencePx": null,
   "referencePy": null,
   "referenceOrbit": null,
+  "referenceOrbitPrecision": null,
+  "referenceOrbitN": null,
   "referenceBlaTables": null,
   "referenceBlaN": null,
   "saCoefficients": null,
@@ -92,10 +94,6 @@ self.onmessage = function(e) {
 // for now, the main thread will not pass a "worker-calc" message to this
 //   worker once a calculation is already running
 function runCalc(msg) {
-  // save the previous N (iterations), if any, so we can tell if the
-  //   center point (and thus reference orbit) from the last window
-  //   are re-usable for this window
-  let prevN = windowCalc.n;
   windowCalc.plotId = msg.plotId;
   windowCalc.plot = msg.plot;
   windowCalc.stopped = false;
@@ -158,25 +156,27 @@ function runCalc(msg) {
     if (windowCalc.referencePx === null || windowCalc.referencePy === null) {
       refPointHasMoved = true;
     } else {
-      // check ratio between this and previous x position
-      let ratio = infNumGt(windowCalc.referencePx, newReferencePx) ?
-        infNumDiv(windowCalc.referencePx, newReferencePx, windowCalc.precision)
-        :
-        infNumDiv(newReferencePx, windowCalc.referencePx, windowCalc.precision);
-      if (infNumGt(ratio, infNum(103n, -2n))) { // 3% change == 1.03
+      // check difference between this and previous x position
+      let xDiff = infNumSub(windowCalc.referencePx, newReferencePx);
+      let yDiff = infNumSub(windowCalc.referencePy, newReferencePy);
+      let squaredDiff = infNumAdd(infNumMul(xDiff, xDiff), infNumMul(yDiff, yDiff));
+
+      // 5% of pixel width move (radius) is allowable
+      let maxAllowablePixelsMove = Math.ceil(windowCalc.canvasWidth * 0.05);
+      let maxAllowableMove = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(maxAllowablePixelsMove), 0n));
+      // square this as well
+      maxAllowableMove = infNumMul(maxAllowableMove, maxAllowableMove);
+
+      if (infNumGt(squaredDiff, maxAllowableMove)) {
         refPointHasMoved = true;
-      }
-      // check ratio between this and previous y position
-      ratio = infNumGt(windowCalc.referencePy, newReferencePy) ?
-        infNumDiv(windowCalc.referencePy, newReferencePy, windowCalc.precision)
-        :
-        infNumDiv(newReferencePy, windowCalc.referencePy, windowCalc.precision);
-      if (infNumGt(ratio, infNum(103n, -2n))) { // 3% change == 1.03
-        refPointHasMoved = true;
+        console.log("the previous ref orbit is NOT within [" + maxAllowablePixelsMove + "] pixels, so we need a new ref orbit");
+      } else {
+        console.log("the previous ref orbit is within [" + maxAllowablePixelsMove + "] pixels, so it's still valid");
       }
     }
 
-    if (prevN === null || prevN < windowCalc.n ||
+    if (windowCalc.referenceOrbitN === null || windowCalc.referenceOrbitN < windowCalc.n ||
+        windowCalc.referenceOrbitPrecision === null || windowCalc.referenceOrbitPrecision / windowCalc.precision < 0.98 ||
         windowCalc.referenceOrbit === null || refPointHasMoved) {
 
       // since SA and BLA computed coefficients/terms are dependent on
@@ -217,6 +217,8 @@ function runCalc(msg) {
       windowCalc.referencePx = newReferencePx;
       windowCalc.referencePy = newReferencePy;
       windowCalc.referenceOrbit = referenceOrbit;
+      windowCalc.referenceOrbitN = windowCalc.n;
+      windowCalc.referenceOrbitPrecision = windowCalc.precision;
 
     } else {
       console.log("re-using previously-calculated reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");

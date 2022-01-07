@@ -256,16 +256,16 @@ const plots = [{
           //   first, then call parseFloat()?
           orbit.push({
             x: createFloatExpFromInfNum(ix),
-            y: createFloatExpFromInfNum(iy),
-            xap: copyInfNum(ix), // include arbitrary precision x and y as well
-            yap: copyInfNum(iy)
+            y: createFloatExpFromInfNum(iy)
+            //xap: copyInfNum(ix), // include arbitrary precision x and y as well
+            //yap: copyInfNum(iy)
           });
         } else {
           orbit.push({
             x: parseFloat(infNumExpString(ix)),
-            y: parseFloat(infNumExpString(iy)),
-            xap: copyInfNum(ix), // include arbitrary precision x and y as well
-            yap: copyInfNum(iy)
+            y: parseFloat(infNumExpString(iy))
+            //xap: copyInfNum(ix), // include arbitrary precision x and y as well
+            //yap: copyInfNum(iy)
           });
         }
         ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));

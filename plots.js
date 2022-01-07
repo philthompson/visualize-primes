@@ -1312,10 +1312,16 @@ const plots = [{
         ret.precision = 12;
       } else if (infNumLt(precisScale, createInfNum("3e13"))) {
         ret.precision = 20;
-      // for scales at/larger than 1e100, use the magnitude as
+      // for scales at/larger than 1e24, use the magnitude as
       //   basis for the precision -- more research is needed on this
+      } else if (infNumLt(precisScale, createInfNum("1e40"))) {
+        ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.7);
+      } else if (infNumLt(precisScale, createInfNum("1e60"))) {
+        ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.5);
       } else if (infNumLt(precisScale, createInfNum("1e100"))) {
-        ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.2);
+        ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.4);
+      } else if (infNumLt(precisScale, createInfNum("1e150"))) {
+        ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.25);
       } else if (infNumLt(precisScale, createInfNum("1e200"))) {
         ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.1);
       } else {

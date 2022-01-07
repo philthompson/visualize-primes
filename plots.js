@@ -282,7 +282,7 @@ const plots = [{
       return orbit;
     }
   },
-  "computeSaCoefficientsInfNum": function(precision, algorithm, referenceX, referenceY, referenceOrbit, leftEdge, rightEdge, topEdge, bottomEdge) {
+  "computeSaCoefficientsInfNum": function(precision, algorithm, referenceX, referenceY, referenceOrbit, windowEdges) {
     let nTerms = 5;
     // parse out number of series approximation terms from the algorithm name
     const algoSplit = algorithm.split("-");
@@ -320,10 +320,10 @@ const plots = [{
     //           4 points across at 2/3 down from top, and 4 points along bottom edge
     // 4 -> test 5 points along top edge ...
     const dimDiv = 2;
-    let px = leftEdge;
-    let py = topEdge;
-    let xStep = infNumDiv(infNumSub(rightEdge, leftEdge), infNum(BigInt(dimDiv), 0n), precision);
-    let yStep = infNumDiv(infNumSub(topEdge, bottomEdge), infNum(BigInt(dimDiv), 0n), precision);
+    let px = windowEdges.left;
+    let py = windowEdges.top;
+    let xStep = infNumDiv(infNumSub(windowEdges.right, windowEdges.left), infNum(BigInt(dimDiv), 0n), precision);
+    let yStep = infNumDiv(infNumSub(windowEdges.top, windowEdges.bottom), infNum(BigInt(dimDiv), 0n), precision);
     // note <= in loop conditions here -- we want to span edge to edge
     //   inclusive of both edges
     for (let i = 0; i <= dimDiv; i++) {
@@ -534,7 +534,7 @@ const plots = [{
     }
 
   },
-  "computeSaCoefficients": function(precision, algorithm, referenceX, referenceY, referenceOrbit, leftEdge, rightEdge, topEdge, bottomEdge) {
+  "computeSaCoefficients": function(precision, algorithm, referenceX, referenceY, referenceOrbit, windowEdges) {
     let nTerms = 5;
     // parse out number of series approximation terms from the algorithm name
     const algoSplit = algorithm.split("-");
@@ -572,10 +572,10 @@ const plots = [{
     //           4 points across at 2/3 down from top, and 4 points along bottom edge
     // 4 -> test 5 points along top edge ...
     const dimDiv = 3;
-    let px = leftEdge;
-    let py = topEdge;
-    let xStep = infNumDiv(infNumSub(rightEdge, leftEdge), infNum(BigInt(dimDiv), 0n), precision);
-    let yStep = infNumDiv(infNumSub(topEdge, bottomEdge), infNum(BigInt(dimDiv), 0n), precision);
+    let px = windowEdges.left;
+    let py = windowEdges.top;
+    let xStep = infNumDiv(infNumSub(windowEdges.right, windowEdges.left), infNum(BigInt(dimDiv), 0n), precision);
+    let yStep = infNumDiv(infNumSub(windowEdges.top, windowEdges.bottom), infNum(BigInt(dimDiv), 0n), precision);
     // note <= in loop conditions here -- we want to span edge to edge
     //   inclusive of both edges
     for (let i = 0; i <= dimDiv; i++) {

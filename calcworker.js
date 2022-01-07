@@ -39,10 +39,7 @@ const windowCalc = {
   "plot": null,
   "pointCalcFunction": null,
   "eachPixUnits": null,
-  "leftEdge": null,
-  "rightEdge": null,
-  "topEdge": null,
-  "bottomEdge": null,
+  "edges": null,
   "n": null,
   "precision": null,
   "algorithm": null,
@@ -99,10 +96,12 @@ function runCalc(msg) {
   windowCalc.plot = msg.plot;
   windowCalc.stopped = false;
   windowCalc.eachPixUnits = msg.eachPixUnits;
-  windowCalc.leftEdge = msg.leftEdge;
-  windowCalc.rightEdge = msg.rightEdge;
-  windowCalc.topEdge = msg.topEdge;
-  windowCalc.bottomEdge = msg.bottomEdge;
+  windowCalc.edges = {
+    left: msg.leftEdge,
+    right:  msg.rightEdge,
+    top: msg.topEdge,
+    bottom: msg.bottomEdge
+  };
   windowCalc.n = msg.n;
   windowCalc.precision = msg.precision;
   windowCalc.algorithm = msg.algorithm;
@@ -145,8 +144,8 @@ function runCalc(msg) {
 
     // start with middle of window for reference point (doesn't have to
     //   exactly align with a pixel)
-    let newReferencePx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)), 0n)));
-    let newReferencePy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)), 0n)));
+    let newReferencePx = infNumAdd(windowCalc.edges.left, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)), 0n)));
+    let newReferencePy = infNumAdd(windowCalc.edges.bottom, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)), 0n)));
 
     let refPointHasMoved = false;
     if (windowCalc.referencePx === null || windowCalc.referencePy === null) {
@@ -188,8 +187,8 @@ function runCalc(msg) {
       if (findLongerReferenceOrbit) {
         for (let xPixMove = -5; xPixMove < 6; xPixMove++) {
           for (let yPixMove = -5; yPixMove < 6; yPixMove++) {
-            let testPx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)+(xPixMove*10)), 0n)));
-            let testPy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)+(yPixMove*10)), 0n)));
+            let testPx = infNumAdd(windowCalc.edges.left, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)+(xPixMove*10)), 0n)));
+            let testPy = infNumAdd(windowCalc.edges.bottom, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)+(yPixMove*10)), 0n)));
             let testOrbit = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, testPx, testPy);
             if (testOrbit.length > referenceOrbit.length) {
               newReferencePx = testPx;
@@ -207,19 +206,32 @@ function runCalc(msg) {
       windowCalc.referencePy = newReferencePy;
       windowCalc.referenceOrbit = referenceOrbit;
 
-      // if we are using bivariate linear approximation, calculate the coefficients
-      windowCalc.referenceBlaTables = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, windowCalc.referenceOrbit);
     } else {
       console.log("re-using previously-calculated reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
       console.log("referencePx: " + infNumToString(windowCalc.referencePx));
       console.log("referencePy: " + infNumToString(windowCalc.referencePy));
     }
 
+    // if we are using bivariate linear approximation, and we haven't already
+    //   calculated them based on the ref orbit, calculate the coefficients
+    if (windowCalc.algorithm.includes("bla-")) {
+      if (windowCalc.referenceBlaTables === null ||
+          // not sure how changing N (max iterations) affects BLA coefficients,
+          //   so just require a full re-compute for now if it has changed
+          windowCalc.n !== windowCalc.referenceBlaN) {
+        self.postMessage({statusMessage: "Calculating BLA coefficient tables"});
+        windowCalc.referenceBlaN = windowCalc.n;
+        windowCalc.referenceBlaTables = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, windowCalc.referenceOrbit);
+      } else {
+        console.log("re-using previously-calculated BLA coefficient tables");
+      }
+    }
+
     if (windowCalc.algorithm.includes("sapx")) {
       // regardless of whether we re-use the reference orbit, we have to re-calculate
       //   series approximation coefficients because the test points, which determine
       //   how many iterations to skip, are dependent on the window size+location
-      windowCalc.saCoefficients = plotsByName[windowCalc.plot].computeSaCoefficients(windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, windowCalc.leftEdge, windowCalc.rightEdge, windowCalc.topEdge, windowCalc.bottomEdge);
+      windowCalc.saCoefficients = plotsByName[windowCalc.plot].computeSaCoefficients(windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, windowCalc.edges);
     } else {
       windowCalc.saCoefficients = null;
     }
@@ -604,7 +616,7 @@ var calculateWindowPassChunks = function() {
   const yPointsPerChunk = Math.ceil(windowCalc.canvasHeight / pixelSize) + 1;
   
   var incX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
-  var cursorX = infNumSub(windowCalc.leftEdge, incX);
+  var cursorX = infNumSub(windowCalc.edges.left, incX);
   for (var x = 0; x < windowCalc.canvasWidth; x+=pixelSize) {
     cursorX = infNumAdd(cursorX, incX);
     let chunk = {
@@ -613,7 +625,7 @@ var calculateWindowPassChunks = function() {
       // since we start at bottom edge, we increment pixels by subtracting Y value 
       //   (because javascript canvas Y coordinate is backwards)
       "chunkPixInc": {"x": 0, "y": -1 * pixelSize},
-      "chunkPos": {"x": copyInfNum(cursorX), "y": copyInfNum(windowCalc.bottomEdge)},
+      "chunkPos": {"x": copyInfNum(cursorX), "y": copyInfNum(windowCalc.edges.bottom)},
       // within the chunk inself, each position along the chunk is incremented in the
       //   Y dimension, and since chunk pixels are square, the amount incremented in
       //   the Y dimension is the same as incX
@@ -647,14 +659,14 @@ function cleanUpWindowCache() {
   let py = null;
   for (const pxEntry of windowCalc.pointsCache) {
     px = createInfNumFromFastStr(pxEntry[0]);
-    if (infNumLt(px, windowCalc.leftEdge) || infNumGt(px, windowCalc.rightEdge)) {
+    if (infNumLt(px, windowCalc.edges.left) || infNumGt(px,windowCalc.edges.right)) {
       cachedPxToDelete.push(pxEntry[0]);
       cachedPointsDeleted += pxEntry[1].size;
     } else {
       let cachedPyToDelete = [];
       for (const pyStr of pxEntry[1].keys()) {
         py = createInfNumFromFastStr(pyStr);
-        if (infNumLt(py, windowCalc.bottomEdge) || infNumGt(py, windowCalc.topEdge)) {
+        if (infNumLt(py, windowCalc.edges.bottom) || infNumGt(py, windowCalc.edges.top)) {
           cachedPyToDelete.push(pyStr);
         } else {
           cachedPointsKept++;

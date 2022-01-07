@@ -64,7 +64,11 @@ const windowCalc = {
   "referencePx": null,
   "referencePy": null,
   "referenceOrbit": null,
-  "saCoefficients": null
+  "referenceBlaTables": null,
+  "referenceBlaN": null,
+  "saCoefficients": null,
+  "saCoefficientsN": null,
+  "saCoefficientsEdges": null
 };
 
 self.onmessage = function(e) {
@@ -130,7 +134,10 @@ function runCalc(msg) {
     windowCalc.workers[i].onmessage = onSubWorkerMessage;
   }
 
-  if (!windowCalc.algorithm.includes("perturb-") && !windowCalc.algorithm.includes("bla-")) {
+  if (windowCalc.algorithm.includes("basic-")) {
+    // do these really need to be cleared?  what if the user stays at the same
+    //   center+scale and toggles the algorithm a few times?  shouldn't these
+    //   computation-heavy items just sit untouched if not actually required to change?
     windowCalc.referencePx = null;
     windowCalc.referencePy = null;
     windowCalc.referenceOrbit = null;
@@ -171,6 +178,11 @@ function runCalc(msg) {
 
     if (prevN === null || prevN < windowCalc.n ||
         windowCalc.referenceOrbit === null || refPointHasMoved) {
+
+      // since SA and BLA computed coefficients/terms are dependent on
+      //   the ref orbit, wipe those when we calculate a new ref orbit
+      windowCalc.saCoefficients = null;
+      windowCalc.referenceBlaTables = null;
 
       let referenceOrbit = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, newReferencePx, newReferencePy);
 
@@ -229,11 +241,29 @@ function runCalc(msg) {
 
     if (windowCalc.algorithm.includes("sapx")) {
       // regardless of whether we re-use the reference orbit, we have to re-calculate
-      //   series approximation coefficients because the test points, which determine
-      //   how many iterations to skip, are dependent on the window size+location
-      windowCalc.saCoefficients = plotsByName[windowCalc.plot].computeSaCoefficients(windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, windowCalc.edges);
+      //   series approximation coefficients if any window edge has moved (it's probably
+      //   true that if the edges have only slightly moved, the test points in the
+      //   window would only be slightly different, and may still be valid, but that
+      //   would require some testing)
+      if (windowCalc.saCoefficients === null || windowCalc.saCoefficientsEdges === null ||
+          // not sure how changing N (max iterations) affects SA coefficients,
+          //   so just require a full re-compute for now if it has changed
+          windowCalc.n !== windowCalc.saCoefficientsN ||
+          !infNumEq(windowCalc.edges.left, windowCalc.saCoefficientsEdges.left) ||
+          !infNumEq(windowCalc.edges.right, windowCalc.saCoefficientsEdges.right) ||
+          !infNumEq(windowCalc.edges.top, windowCalc.saCoefficientsEdges.top) ||
+          !infNumEq(windowCalc.edges.bottom, windowCalc.saCoefficientsEdges.bottom)) {
+        windowCalc.saCoefficientsN = windowCalc.n;
+        windowCalc.saCoefficientsEdges = structuredClone(windowCalc.edges);
+        windowCalc.saCoefficients = plotsByName[windowCalc.plot].computeSaCoefficients(windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, windowCalc.edges);
+      } else {
+        console.log("re-using previously-calculated SA coefficients");
+      }
     } else {
-      windowCalc.saCoefficients = null;
+      // no need to wipe these... in the future, if SA can be easily toggled on/off by
+      //   the user, we'd want to re-use these if the window hasn't moved since when
+      //   these were calculated
+      //windowCalc.saCoefficients = null;
     }
   }
 

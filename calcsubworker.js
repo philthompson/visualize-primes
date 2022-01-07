@@ -145,10 +145,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       //if (infNumEq(chunk.chunkPos.x, referencePx) && infNumEq(chunk.chunkPos.y, referencePy)) {
       //  console.log("chunk position and reference point are the same!!?!?");
       //}
-      const perturbFn = chunk.algorithm.includes("floatexp") ?
-        plotsByName[chunk.plot].computeBoundPointColorPerturbOrBlaFloatExp
-        :
-        plotsByName[chunk.plot].computeBoundPointColorPerturbOrBlaFloat;
+      const perturbFn = plotsByName[chunk.plot].computeBoundPointColorPerturbOrBla;
 
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
@@ -161,10 +158,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       }
     } else if (chunk.algorithm.includes("bla-")) {
 
-      const blaFn = chunk.algorithm.includes("floatexp") ?
-        plotsByName[chunk.plot].computeBoundPointColorPerturbOrBlaFloatExp
-        :
-        plotsByName[chunk.plot].computeBoundPointColorPerturbOrBlaFloat;
+      const blaFn = plotsByName[chunk.plot].computeBoundPointColorPerturbOrBla;
 
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {

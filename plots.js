@@ -80,7 +80,7 @@ function complexFloatExpAbsSquared(a) {
   return floatExpAdd(floatExpMul(a.x, a.x), floatExpMul(a.y, a.y));
 }
 
-function complexFloatExpAbsHypot(a) {
+function complexFloatExpAbs(a) {
   return floatExpSqrt(complexFloatExpAbsSquared(a));
 }
 
@@ -810,16 +810,16 @@ const plots = [{
         b = complexFloatExpAdd(complexFloatExpMul(refDoubled, b), {x:createFloatExpFromNumber(1), y:createFloatExpFromNumber(0)});
         blaTable.set(l, {
           a:    a,
-          aAbs: complexFloatExpAbsHypot(a),
+          aAbs: complexFloatExpAbs(a),
           b:    b,
-          bAbs: complexFloatExpAbsHypot(b)
+          bAbs: complexFloatExpAbs(b)
         });
       }
 
       let epsilon = createFloatExpFromNumber(epsilonFloat);
       let epsilonRefAbsTable = new Map();
       for (let i = 0; i < referenceOrbit.length; i++) {
-        epsilonRefAbsTable.set(i, floatExpMul(epsilon, complexFloatExpAbsHypot(referenceOrbit[i])));
+        epsilonRefAbsTable.set(i, floatExpMul(epsilon, complexFloatExpAbs(referenceOrbit[i])));
       }
 
       return {coefTable: blaTable, epsilonRefAbsTable: epsilonRefAbsTable};
@@ -1089,7 +1089,7 @@ const plots = [{
       y: createFloatExpFromInfNum(deltaCy)
     };
 
-    const deltaCabs = complexFloatExpAbsHypot(deltaC);
+    const deltaCabs = complexFloatExpAbs(deltaC);
 
     let iter = 0;
 
@@ -1128,12 +1128,12 @@ const plots = [{
         referenceIter++;
 
         z = complexFloatExpAdd(referenceOrbit[referenceIter], deltaZ);
-        zAbs = complexFloatExpAbsHypot(z);
+        zAbs = complexFloatExpAbs(z);
         if (floatExpGt(zAbs, two)) {
           iter--;
           break;
         }
-        deltaZAbs = complexFloatExpAbsHypot(deltaZ);
+        deltaZAbs = complexFloatExpAbs(deltaZ);
         if (floatExpLt(zAbs, deltaZAbs) || referenceIter == maxReferenceIter) {
           deltaZ = z;
           referenceIter = 0;

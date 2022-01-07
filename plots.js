@@ -241,6 +241,7 @@ const plots = [{
     var iySq = infNum(0n, 0n);
     var ixTemp = infNum(0n, 0n);
     var iter = 0;
+    var statusIterCounter = 0;
     try {
       while (iter < maxIter) {
         ixSq = infNumMul(ix, ix);
@@ -273,6 +274,11 @@ const plots = [{
         ix = infNumTruncateToLen(ix, precis);
         iy = infNumTruncateToLen(iy, precis);
         iter++;
+        statusIterCounter++;
+        if (statusIterCounter >= 5000) {
+          statusIterCounter = 0;
+          console.log("computed " + (Math.round(iter * 10000.0 / maxIter)/100.0) + "% of reference orbit");
+        }
       }
 
       return orbit;
@@ -797,29 +803,43 @@ const plots = [{
 
     if (algorithm.includes("floatexp")) {
 
+      let zero = createFloatExpFromNumber(0);
+      let one = createFloatExpFromNumber(1);
       let two = createFloatExpFromNumber(2);
       let blaTable = new Map();
 
       // compute coefficients for each possible number of iterations to skip, from 1 to n
-      let a = {x:createFloatExpFromNumber(1), y:createFloatExpFromNumber(0)};
-      let b = {x:createFloatExpFromNumber(0), y:createFloatExpFromNumber(0)};
+      let a = {x:one, y:zero};
+      let b = {x:zero, y:zero};
       let refDoubled = null;
+      let statusIterCounter = 0;
       for (let l = 1; l < referenceOrbit.length - 2; l++) {
         refDoubled = complexFloatExpRealMul(referenceOrbit[l], two);
         a = complexFloatExpMul(refDoubled, a);
-        b = complexFloatExpAdd(complexFloatExpMul(refDoubled, b), {x:createFloatExpFromNumber(1), y:createFloatExpFromNumber(0)});
+        b = complexFloatExpAdd(complexFloatExpMul(refDoubled, b), {x:one, y:zero});
         blaTable.set(l, {
           a:    a,
           aAbs: complexFloatExpAbs(a),
           b:    b,
           bAbs: complexFloatExpAbs(b)
         });
+        statusIterCounter++;
+        if (statusIterCounter >= 5000) {
+          statusIterCounter = 0;
+          console.log("computed " + (Math.round(iter * 10000.0 / maxIter)/100.0) + "% of BLA coefficients");
+        }
       }
 
       let epsilon = createFloatExpFromNumber(epsilonFloat);
       let epsilonRefAbsTable = new Map();
+      statusIterCounter = 0;
       for (let i = 0; i < referenceOrbit.length; i++) {
         epsilonRefAbsTable.set(i, floatExpMul(epsilon, complexFloatExpAbs(referenceOrbit[i])));
+        statusIterCounter++;
+        if (statusIterCounter >= 5000) {
+          statusIterCounter = 0;
+          console.log("computed " + (Math.round(iter * 10000.0 / maxIter)/100.0) + "% of BLA epsilon criteria");
+        }
       }
 
       return {coefTable: blaTable, epsilonRefAbsTable: epsilonRefAbsTable};
@@ -833,6 +853,7 @@ const plots = [{
     let a = {x:1, y:0};
     let b = {x:0, y:0};
     let refDoubled = null;
+    let statusIterCounter = 0;
     for (let l = 1; l < referenceOrbit.length - 2; l++) {
       refDoubled = complexFloatRealMul(referenceOrbit[l], 2);
       a = complexFloatMul(refDoubled, a);
@@ -843,11 +864,21 @@ const plots = [{
         b:    b,
         bAbs: complexFloatAbs(b)
       });
+      statusIterCounter++;
+      if (statusIterCounter >= 5000) {
+        statusIterCounter = 0;
+        console.log("computed " + (Math.round(iter * 10000.0 / maxIter)/100.0) + "% of BLA coefficients");
+      }
     }
 
     let epsilonRefAbsTable = new Map();
+    statusIterCounter = 0;
     for (let i = 0; i < referenceOrbit.length; i++) {
       epsilonRefAbsTable.set(i, epsilonFloat * complexFloatAbs(referenceOrbit[i]));
+      if (statusIterCounter >= 5000) {
+        statusIterCounter = 0;
+        console.log("computed " + (Math.round(iter * 10000.0 / maxIter)/100.0) + "% of BLA epsilon criteria");
+      }
     }
 
     return {coefTable: blaTable, epsilonRefAbsTable: epsilonRefAbsTable};

@@ -644,7 +644,8 @@ const plots = [{
     //   here: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806)
     // actually using 3^-53 for more accuracy
     // since we only use it when halved, just halve it right away here
-    const epsilon = math.div(math.createFromNumber(2 ** -53), math.two);
+    const epsilon = math.createFromNumber(2 ** -53);
+    const epsilonSquared = math.mul(epsilon, epsilon);
 
     // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
 
@@ -662,9 +663,9 @@ const plots = [{
       b = math.complexAdd(math.complexMul(refDoubled, b), {x:math.one, y:math.zero});
       blaTable.set(l, {
         a:    a,
-        //aAbs: math.complexAbs(a),
-        b:    b
-        //bAbs: math.complexAbs(b)
+        aas: math.complexAbsSquared(a),
+        b:    b,
+        bas: math.complexAbsSquared(b)
       });
       statusIterCounter++;
       if (statusIterCounter >= 5000) {
@@ -677,7 +678,7 @@ const plots = [{
     statusIterCounter = 0;
     maxIter = referenceOrbit.length;
     for (let i = 0; i < maxIter; i++) {
-      epsilonRefAbsTable.set(i, math.mul(epsilon, math.complexAbs(math.complexRealMul(referenceOrbit[i], math.two))));
+      epsilonRefAbsTable.set(i, math.mul(epsilonSquared, math.complexAbsSquared(referenceOrbit[i])));
       statusIterCounter++;
       if (statusIterCounter >= 5000) {
         statusIterCounter = 0;
@@ -749,7 +750,7 @@ const plots = [{
       y: floatExpMath.createFromInfNum(deltaCy)
     };
 
-    const deltaCabs = math.complexAbs(deltaC);
+    const deltaCAbs = math.complexAbsSquared(deltaC);
 
     let iter = 0;
 
@@ -786,7 +787,6 @@ const plots = [{
     }
     let blaItersSkipped = 0;
     try {
-    if (!useBla) {
       while (iter < maxIter) {
 
         deltaZ = math.complexAdd(
@@ -809,34 +809,7 @@ const plots = [{
         if (math.lt(zAbs, deltaZAbs) || referenceIter == maxReferenceIter) {
           deltaZ = z;
           referenceIter = 0;
-        }
-      }
-    } else { 
-      while (iter < maxIter) {
-
-        deltaZ = math.complexAdd(
-          math.complexAdd(
-            math.complexMul(math.complexRealMul(referenceOrbit[referenceIter], math.two), deltaZ),
-            math.complexMul(deltaZ, deltaZ)
-          ),
-          deltaC);
-
-        iter++;
-        referenceIter++;
-
-        z = math.complexAdd(referenceOrbit[referenceIter], deltaZ);
-        zAbs = math.complexAbs(z);
-        if (math.gt(zAbs, math.two)) {
-          iter--;
-          break;
-        }
-        deltaZAbs = math.complexAbs(deltaZ);
-        if (math.lt(zAbs, deltaZAbs) || referenceIter == maxReferenceIter) {
-          deltaZ = z;
-          referenceIter = 0;
-        //} else if (useBla) {
-        } else {
-
+        } else if (useBla) {
           let goodL = null;
           if (referenceIter / maxReferenceIter < 0.95) {
             //let goodLbin = null;
@@ -844,17 +817,13 @@ const plots = [{
             //   BLA table is valid
             let blaL = blaTables.coefTable.get(1);
             let epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter+1);
-//            if (math.lt(math.mul(blaL.aAbs, deltaZAbs), epsilonRefAbs) &&
-//                math.lt(math.mul(blaL.bAbs, deltaCabs), epsilonRefAbs)) {
-            if (math.lt(math.complexAbs(math.complexMul(blaL.a, deltaZ)), epsilonRefAbs) &&
-                math.lt(math.complexAbs(math.complexMul(blaL.b, deltaC)), epsilonRefAbs)) {  
+            if (math.lt(deltaZAbs, math.div(epsilonRefAbs, blaL.aas)) &&
+                math.lt(deltaCAbs, math.div(epsilonRefAbs, blaL.bas))) {
               goodL = 1;
               //let goodLbin = null;
               let lo = 2;
               // this caused, for 2 pixels, us to skip beyond the end of the reference orbit, somehow
               //let hi = maxReferenceIter - referenceIter - 1;
-              // this eliminated almost all the artifacts
-              //let hi = maxReferenceIter - referenceIter - 10;
               let hi = maxReferenceIter - referenceIter - 15;
               let lCheck = null;
               //let blaL = null;
@@ -862,25 +831,8 @@ const plots = [{
                 lCheck = (lo + hi) >>1;
                 blaL = blaTables.coefTable.get(lCheck);
                 epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter+lCheck);
-//                if (math.lt(math.mul(blaL.aAbs, deltaZAbs), epsilonRefAbs) &&
-//                    math.lt(math.mul(blaL.bAbs, deltaCabs), epsilonRefAbs)) {
-                if (math.lt(math.complexAbs(math.complexMul(blaL.a, deltaZ)), epsilonRefAbs) &&
-                    math.lt(math.complexAbs(math.complexMul(blaL.b, deltaC)), epsilonRefAbs)) {  
-                  /*
-                  // check the BLA at the subsequent l value, probably not necessary...
-                  blaL = blaTables.coefTable.get(lCheck+1);
-                  if (blaL !== undefined &&
-                      floatExpLt(floatExpMul(blaL.aAbs, deltaZAbs), epsilonRefAbs) &&
-                      floatExpLt(floatExpMul(blaL.bAbs, deltaCabs), epsilonRefAbs)) {
-                    //goodLbin = lCheck+1;
-                    goodL = lCheck+1;
-                    // continue binary search in upper half of remaining l's, above this valid value
-                    lo = lCheck + 2;
-                  } else {
-                    // continue binary search in upper half of remaining l's, below this non-valid value
-                    hi = lCheck - 1;
-                  }
-                  */
+                if (math.lt(deltaZAbs, math.div(epsilonRefAbs, blaL.aas)) &&
+                    math.lt(deltaCAbs, math.div(epsilonRefAbs, blaL.bas))) {
                   lo = lCheck + 1;
                 } else {
                   // continue binary search in upper half of remaining l's, below this non-valid value
@@ -910,7 +862,6 @@ const plots = [{
           }
         }
       }
-    }
 
       if (iter == maxIter) {
         return {colorpct: -1.0, blaItersSkipped: blaItersSkipped}; // background color

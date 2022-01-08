@@ -665,9 +665,9 @@ const plots = [{
       b = math.complexAdd(math.complexMul(refDoubled, b), {x:math.one, y:math.zero});
       blaTable.set(l, {
         a:    a,
-        //aas: math.complexAbsSquared(a),
-        b:    b//,
-        //bas: math.complexAbsSquared(b)
+        aAbs: math.complexAbs(a),
+        b:    b,
+        bAbs: math.complexAbs(b)
       });
       statusIterCounter++;
       if (statusIterCounter >= 5000) {
@@ -680,7 +680,8 @@ const plots = [{
     statusIterCounter = 0;
     maxIter = referenceOrbit.length;
     for (let i = 0; i < maxIter; i++) {
-      epsilonRefAbsTable.set(i, math.mul(epsilonSquared, math.complexAbsSquared(math.complexRealMul(referenceOrbit[i], math.two))));
+      //epsilonRefAbsTable.set(i, math.mul(epsilonSquared, math.complexAbs(referenceOrbit[i])));
+      epsilonRefAbsTable.set(i, math.complexAbs(referenceOrbit[i]));
       statusIterCounter++;
       if (statusIterCounter >= 5000) {
         statusIterCounter = 0;
@@ -752,7 +753,7 @@ const plots = [{
       y: floatExpMath.createFromInfNum(deltaCy)
     };
 
-    const deltaCAbs = math.complexAbsSquared(deltaC);
+    const deltaCAbs = math.complexAbs(deltaC);
 
     let iter = 0;
 
@@ -813,6 +814,7 @@ const plots = [{
           deltaZ = z;
           referenceIter = 0;
         } else if (useBla) {
+          const epsilon = math.createFromNumber(16 ** -243);
           let goodL = null;
           if (referenceIter / maxReferenceIter < 0.95) {
 
@@ -826,11 +828,19 @@ const plots = [{
               epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter+lCheck);
               //if (math.lt(deltaZAbs, math.div(epsilonRefAbs, blaL.aas)) &&
               //    math.lt(deltaCAbs, math.div(epsilonRefAbs, blaL.bas))) {
+              //if (math.lt(
+              //    math.complexAbsSquared(math.complexAdd(
+              //      math.complexMul(blaL.a, deltaZ),
+              //      math.complexMul(blaL.b, deltaC))),
+              //    epsilonRefAbs)) {
               if (math.lt(
-                  math.complexAbsSquared(math.complexAdd(
-                    math.complexMul(blaL.a, deltaZ),
-                    math.complexMul(blaL.b, deltaC))),
-                  epsilonRefAbs)) {
+                    math.complexAbs(deltaZ),
+                    math.mul(
+                      epsilon,
+                      math.div(
+                        math.sub(epsilonRefAbs, math.mul(blaL.bAbs, deltaCAbs)),
+                        math.add(blaL.aAbs, math.one)))
+                  )) {
                 goodL = lCheck;
               } else {
                 break;

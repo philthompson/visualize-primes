@@ -646,7 +646,7 @@ const plots = [{
     //   here: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806)
     // actually using 3^-53 for more accuracy
     // since we only use it when halved, just halve it right away here
-    const epsilon = math.createFromNumber(1100 ** -53);
+    const epsilon = math.createFromNumber(2 ** -53);
     const epsilonSquared = math.mul(epsilon, epsilon);
 
     // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
@@ -665,9 +665,9 @@ const plots = [{
       b = math.complexAdd(math.complexMul(refDoubled, b), {x:math.one, y:math.zero});
       blaTable.set(l, {
         a:    a,
-        aas: math.complexAbsSquared(a),
-        b:    b,
-        bas: math.complexAbsSquared(b)
+        //aas: math.complexAbsSquared(a),
+        b:    b//,
+        //bas: math.complexAbsSquared(b)
       });
       statusIterCounter++;
       if (statusIterCounter >= 5000) {
@@ -680,7 +680,7 @@ const plots = [{
     statusIterCounter = 0;
     maxIter = referenceOrbit.length;
     for (let i = 0; i < maxIter; i++) {
-      epsilonRefAbsTable.set(i, math.mul(epsilonSquared, math.complexAbsSquared(referenceOrbit[i])));
+      epsilonRefAbsTable.set(i, math.mul(epsilonSquared, math.complexAbsSquared(math.complexRealMul(referenceOrbit[i], math.two))));
       statusIterCounter++;
       if (statusIterCounter >= 5000) {
         statusIterCounter = 0;
@@ -824,8 +824,13 @@ const plots = [{
             for (let lCheck = 1; lCheck < maxReferenceIter - referenceIter - 15; lCheck++) {
               blaL = blaTables.coefTable.get(lCheck);
               epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter+lCheck);
-              if (math.lt(deltaZAbs, math.div(epsilonRefAbs, blaL.aas)) &&
-                  math.lt(deltaCAbs, math.div(epsilonRefAbs, blaL.bas))) {
+              //if (math.lt(deltaZAbs, math.div(epsilonRefAbs, blaL.aas)) &&
+              //    math.lt(deltaCAbs, math.div(epsilonRefAbs, blaL.bas))) {
+              if (math.lt(
+                  math.complexAbsSquared(math.complexAdd(
+                    math.complexMul(blaL.a, deltaZ),
+                    math.complexMul(blaL.b, deltaC))),
+                  epsilonRefAbs)) {
                 goodL = lCheck;
               } else {
                 break;

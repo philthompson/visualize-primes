@@ -263,6 +263,8 @@ const plots = [{
     }
 
     // the coords used for iteration
+    const xConv = math.createFromInfNum(x);
+    const yConv = math.createFromInfNum(y);
     var ix = structuredClone(math.zero);
     var iy = structuredClone(math.zero);
     var ixSq = structuredClone(math.zero);
@@ -273,11 +275,11 @@ const plots = [{
       while (iter < maxIter) {
         ixSq = math.mul(ix, ix);
         iySq = math.mul(iy, iy);
-        if (math.gt(math.add(ixSq, iySq), four)) {
+        if (math.gt(math.add(ixSq, iySq), math.four)) {
           break;
         }
-        ixTemp = math.add(x, math.sub(ixSq, iySq));
-        iy = math.add(y, math.mul(two, math.mul(ix, iy)));
+        ixTemp = math.add(xConv, math.sub(ixSq, iySq));
+        iy = math.add(yConv, math.mul(math.two, math.mul(ix, iy)));
         ix = ixTemp;
         ix = math.truncateToSigDig(ix, precis);
         iy = math.truncateToSigDig(iy, precis);

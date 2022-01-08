@@ -868,6 +868,7 @@ const plots = [{
                 epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter+lCheck);
                 if (math.lt(deltaZAbs, math.div(epsilonRefAbs, blaL.aas)) &&
                     math.lt(deltaCAbs, math.div(epsilonRefAbs, blaL.bas))) {
+                  goodL = lCheck;
                   lo = lCheck + 1;
                 } else {
                   // continue binary search in upper half of remaining l's, below this non-valid value

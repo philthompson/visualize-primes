@@ -114,7 +114,8 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
     py = norm[0];
     incY = norm[1];
 //  }
-
+  let blaPixelsCount = 0;
+  let blaIterationsSkipped = 0;
   // pre-allocate array so we don't have to use array.push()
   const results = new Array(chunk.chunkLen);
   // if entire chunk is cached, we don't have to do anything
@@ -150,7 +151,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients);
+          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients).colorpct;
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result
@@ -164,6 +165,10 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
           results[i] = blaFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients);
+          let pixelResult = blaFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients);
+          results[i] = pixelResult.colorpct;
+          blaPixelsCount++;
+          blaIterationsSkipped += pixelResult.blaItersSkipped;
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result
@@ -174,6 +179,11 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
   chunk["results"] = results;
   chunk["plotId"] = plotId;
   postMessage({t: "completed-chunk", v:chunk});
+  if (blaPixelsCount > 0 && blaIterationsSkipped > 0) {
+    console.log("for entire chunk of [" + chunk.chunkLen + "] pixels, [" + (blaPixelsCount).toLocaleString() + "] pixels skipped [" + (blaIterationsSkipped).toLocaleString() + "] iterations with BLA, averaging [" + Math.floor(blaIterationsSkipped / blaPixelsCount) + "] per pixel");
+  //} else {
+  //  console.log("for entire chunk of [" + chunk.chunkLen + "] pixels, no pixels had BLA iteration skips");
+  }
 };
 
 // based on the function at https://stackoverflow.com/a/29018745/259456

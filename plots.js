@@ -646,7 +646,7 @@ const plots = [{
     //   here: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806)
     // actually using 3^-53 for more accuracy
     // since we only use it when halved, just halve it right away here
-    const epsilon = math.createFromNumber(2 ** -53);
+    const epsilon = math.createFromNumber(1100 ** -53);
     const epsilonSquared = math.mul(epsilon, epsilon);
 
     // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
@@ -788,6 +788,7 @@ const plots = [{
       }
     }
     let blaItersSkipped = 0;
+    let blaSkips = 0;
     try {
       while (iter < maxIter) {
 
@@ -814,7 +815,24 @@ const plots = [{
         } else if (useBla) {
           let goodL = null;
           if (referenceIter / maxReferenceIter < 0.95) {
-            //let goodLbin = null;
+
+            let blaL = null;
+            let epsilonRefAbs = null;
+            // using the ref orbit at the ref iter is wrong, but it did work
+            //   in one location...
+            //let epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter);
+            for (let lCheck = 1; lCheck < maxReferenceIter - referenceIter - 15; lCheck++) {
+              blaL = blaTables.coefTable.get(lCheck);
+              epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter+lCheck);
+              if (math.lt(deltaZAbs, math.div(epsilonRefAbs, blaL.aas)) &&
+                  math.lt(deltaCAbs, math.div(epsilonRefAbs, blaL.bas))) {
+                goodL = lCheck;
+              } else {
+                break;
+              }
+            }
+
+            /* comment out binary search for now
             // only proceeed with binary search if first entry (for 1 iteration) in
             //   BLA table is valid
             let blaL = blaTables.coefTable.get(1);
@@ -842,6 +860,7 @@ const plots = [{
                 }
               }
             }
+            comment out binary search for now */
           }
 
           // if no iters were skippable, use regular perturbation for the next iteration
@@ -859,6 +878,7 @@ const plots = [{
             iter += goodL;
             referenceIter += goodL;
             blaItersSkipped += goodL;
+            blaSkips++;
           //} else {
           //  console.log("NOT skipping any iters at pixel", {x:x, y:y});
           }
@@ -866,17 +886,17 @@ const plots = [{
       }
 
       if (iter == maxIter) {
-        return {colorpct: -1.0, blaItersSkipped: blaItersSkipped}; // background color
+        return {colorpct: -1.0, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips}; // background color
       } else {
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        return {colorpct: iter / maxIter, blaItersSkipped: blaItersSkipped};
+        return {colorpct: iter / maxIter, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};
       }
 
     } catch (e) {
       console.log("ERROR CAUGHT when calculating [" + algorithm + "] pixel color",
         {x:infNumToString(x), y:infNumToString(y), iter:iter, maxIter:maxIter, refIter:referenceIter, maxRefIter:maxReferenceIter});
       console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
-      return {colorpct: windowCalcIgnorePointColor, blaItersSkipped: blaItersSkipped}; // special color value that will not be displayed
+      return {colorpct: windowCalcIgnorePointColor, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips}; // special color value that will not be displayed
     }
   },
   // these settings are auto-applied when this plot is activated

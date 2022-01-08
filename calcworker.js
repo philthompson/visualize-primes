@@ -70,7 +70,10 @@ const windowCalc = {
   "referenceBlaN": null,
   "saCoefficients": null,
   "saCoefficientsN": null,
-  "saCoefficientsEdges": null
+  "saCoefficientsEdges": null,
+  "passBlaPixels": null,
+  "passBlaIterationsSkipped": null,
+  "passBlaSkips": null,
 };
 
 self.onmessage = function(e) {
@@ -538,6 +541,13 @@ function handleSubworkerCompletedChunk(msg) {
 
   // start next pass, if there is a next one
   if (windowCalc.chunksComplete >= windowCalc.totalChunks) {
+    if (windowCalc.passBlaPixels > 0) {
+      if (windowCalc.passBlaIterationsSkipped > 0) {
+        console.log("for entire pass, [" + (windowCalc.passBlaPixels).toLocaleString() + "] pixels skipped [" + (windowCalc.passBlaIterationsSkipped).toLocaleString() + "] iters with BLA, avgs: [" + Math.floor(windowCalc.passBlaIterationsSkipped / windowCalc.passBlaPixels) + "] per pixel, [" + Math.floor(windowCalc.passBlaIterationsSkipped / windowCalc.passBlaSkips) + "] per skip");
+      } else {
+        console.log("for entire pass, no pixels had BLA iteration skips");
+      }
+    }
     if (isImageComplete()) {
       cleanUpWindowCache();
     } else {
@@ -575,6 +585,12 @@ function settleChunkWithCacheAndPublish(msg) {
   windowCalc.passTotalPoints += newlySeenCachedPoints;
   //console.log("chunk cached points [" + newlySeenCachedPoints + "]");
 
+  if ("blaPixelsCount" in msg.data) {
+    windowCalc.passBlaPixels += msg.data.blaPixelsCount;
+    windowCalc.passBlaIterationsSkipped += msg.data.blaIterationsSkipped;
+    windowCalc.passBlaSkips += msg.data.blaSkips;
+  }
+
   // pass results up to main thread, then give next chunk to the worker
   // add status to the data passed up
   const status = {
@@ -611,6 +627,9 @@ function shuffleArray(array) {
 // call the plot's computeBoundPoints function in chunks, to better
 //   allow interuptions for long-running calculations
 var calculateWindowPassChunks = function() {
+  windowCalc.passBlaPixels = 0;
+  windowCalc.passBlaIterationsSkipped = 0;
+  windowCalc.passBlaSkips = 0;
   windowCalc.passTotalPoints = 0;
   windowCalc.passCachedPoints = 0;
   windowCalc.chunksComplete = 0;

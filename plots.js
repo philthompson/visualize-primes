@@ -307,6 +307,7 @@ const plots = [{
         :
         floatMath
       );
+    const outputIsFloatExp = outputMath.name == "floatexp";
 
     let orbit = [];
 
@@ -336,9 +337,10 @@ const plots = [{
         }
         orbit.push({
           x: outputMath.createFromInfNum(ix),
-          y: outputMath.createFromInfNum(iy)
-          //xap: copyInfNum(ix), // include arbitrary precision x and y as well
-          //yap: copyInfNum(iy)
+          y: outputMath.createFromInfNum(iy),
+          // if needed, include floatexp x and y as well, for SA coefficients calc
+          xfxp: outputIsFloatExp ? null : floatExpMath.createFromInfNum(ix),
+          yfxp: outputIsFloatExp ? null : floatExpMath.createFromInfNum(iy)
         });
         ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
         iy = infNumAdd(y, infNumMul(two, infNumMul(ix, iy)));
@@ -364,6 +366,16 @@ const plots = [{
     // always use FloatExp for SA coefficients
     const math = floatExpMath;
 
+    const algoMath = algorithm.includes("arbprecis") ?
+      infNumMath
+      :
+      (algorithm.includes("floatexp") ?
+        floatExpMath
+        :
+        floatMath
+      );
+    const algoMathIsFloatExp = algoMath.name == "floatexp";
+
     let nTerms = 0;
     // parse out number of series approximation terms from the algorithm name
     const algoSplit = algorithm.split("-");
@@ -373,9 +385,7 @@ const plots = [{
         break;
       }
     }
-    if (nTerms <= 0) {
-      nTerms = 3;
-    } else if (nTerms > 128) {
+    if (nTerms > 128) {
       nTerms = 128;
     }
 
@@ -451,9 +461,12 @@ const plots = [{
     //   single test point
     for (let i = 0; i < referenceOrbit.length; i++) {
 
-      //twoRefIter = complexFloatExpRealMul({x:referenceOrbit[i].xap, y:referenceOrbit[i].yap}, two);
-      // this only works if the reference orbit is floatexp... have to convert if using "...-float" algo
-      twoRefIter = math.complexRealMul(referenceOrbit[i], math.two);
+      // this only works if the reference orbit is floatexp... have to use pre-converted
+      //   values if using "...-float" or "...-arbprecis" algo
+      twoRefIter = algoMathIsFloatExp ?
+        math.complexRealMul(referenceOrbit[i], math.two)
+        :
+        math.complexRealMul({x:referenceOrbit[i].xfxp, y:referenceOrbit[i].yfxp}, math.two)
 
       // compute next iteration of all terms
       for (let k = 0; k < nTerms; k++) {
@@ -594,26 +607,17 @@ const plots = [{
       }
     }
 
-    const algoMath = algorithm.includes("arbprecis") ?
-      infNumMath
-      :
-      (algorithm.includes("floatexp") ?
-        floatExpMath
-        :
-        floatMath
-      );
-
     // convert coefficients to the algorithm's number type
     // (necesssary? can we just evaluate each pixel's starting
-    //   iteration's position delta using arbitrary precision?)
-    if (algoMath.name != math.name) {
-      for (let i = 0; i < terms.length; i++) {
-        terms[i] = {
-          x: algoMath.createFromExpString(math.toExpString(terms[i].x)),
-          y: algoMath.createFromExpString(math.toExpString(terms[i].y))
-        };
-      }
-    }
+    //   iteration's position delta using floatexp?)
+    //if (algoMath.name != math.name) {
+    //  for (let i = 0; i < terms.length; i++) {
+    //    terms[i] = {
+    //      x: algoMath.createFromExpString(math.toExpString(terms[i].x)),
+    //      y: algoMath.createFromExpString(math.toExpString(terms[i].y))
+    //    };
+    //  }
+    //}
 
     if (itersToSkip < 0) {
       console.log("skipping ALL [" + referenceOrbit.length + "] iterations of the reference orbit with [" + terms.length + "]-term SA... hmm...");
@@ -739,6 +743,11 @@ const plots = [{
       y: math.createFromInfNum(deltaCy)
     };
 
+    let deltaCFloatExp = {
+      x: floatExpMath.createFromInfNum(deltaCx),
+      y: floatExpMath.createFromInfNum(deltaCy)
+    };
+
     const deltaCabs = math.complexAbs(deltaC);
 
     let iter = 0;
@@ -754,14 +763,25 @@ const plots = [{
     let deltaZAbs = null;
 
     // saCoefficients: {itersToSkip:itersToSkip, coefficients:terms};
+    // always use floatexp math for SA
     if (useSa && saCoefficients.itersToSkip > 0) {
-      let deltaCpower = structuredClone(deltaC);
+      let deltaZFloatExp = {x: floatExpMath.zero, y: floatExpMath.zero};
+      let deltaCpower = structuredClone(deltaCFloatExp);
       for (let i = 0; i < saCoefficients.coefficients.length; i++) {
-        deltaZ = math.complexAdd(deltaZ, math.complexMul(saCoefficients.coefficients[i], deltaCpower));
-        deltaCpower = math.complexMul(deltaCpower, deltaC);
+        deltaZFloatExp = floatExpMath.complexAdd(deltaZFloatExp, floatExpMath.complexMul(saCoefficients.coefficients[i], deltaCpower));
+        deltaCpower = floatExpMath.complexMul(deltaCpower, deltaCFloatExp);
       }
       iter += saCoefficients.itersToSkip;
       referenceIter += saCoefficients.itersToSkip;
+      // convert to algorithm number type, if it's not floatexp
+      if (math.name == "floatexp") {
+        deltaZ = deltaZFloatExp;
+      } else {
+        deltaZ = {
+          x: math.createFromExpString(floatExpMath.toExpString(deltaZFloatExp.x)),
+          y: math.createFromExpString(floatExpMath.toExpString(deltaZFloatExp.y))
+        };
+      }
     }
 
     try {

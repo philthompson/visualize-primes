@@ -149,6 +149,7 @@ function runCalc(msg) {
   //   reference point and its full orbit (which will be used for
   //   all chunks in all passes)
   } else {
+    sendStatusMessage("Calculating reference orbit");
 
     // start with middle of window for reference point (doesn't have to
     //   exactly align with a pixel)
@@ -236,7 +237,7 @@ function runCalc(msg) {
           // not sure how changing N (max iterations) affects BLA coefficients,
           //   so just require a full re-compute for now if it has changed
           windowCalc.n !== windowCalc.referenceBlaN) {
-        self.postMessage({statusMessage: "Calculating BLA coefficient tables"});
+        sendStatusMessage("Calculating BLA coefficient tables");
         windowCalc.referenceBlaN = windowCalc.n;
         windowCalc.referenceBlaTables = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, windowCalc.referenceOrbit);
       } else {
@@ -258,6 +259,7 @@ function runCalc(msg) {
           !infNumEq(windowCalc.edges.right, windowCalc.saCoefficientsEdges.right) ||
           !infNumEq(windowCalc.edges.top, windowCalc.saCoefficientsEdges.top) ||
           !infNumEq(windowCalc.edges.bottom, windowCalc.saCoefficientsEdges.bottom)) {
+        sendStatusMessage("Calculating and testing SA coefficients");
         windowCalc.saCoefficientsN = windowCalc.n;
         windowCalc.saCoefficientsEdges = structuredClone(windowCalc.edges);
         windowCalc.saCoefficients = plotsByName[windowCalc.plot].computeSaCoefficients(windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, windowCalc.edges);
@@ -649,6 +651,7 @@ var calculateWindowPassChunks = function() {
   } else {
     windowCalc.lineWidth = potentialTempLineWidth;
   }
+  sendStatusMessage("Calculating pixels for " + windowCalc.lineWidth + "-wide pass");
   //console.log("worker is calculating chunks for the [" + windowCalc.lineWidth + "]-wide pixels pass");
 
   const pixelSize = windowCalc.lineWidth;
@@ -698,6 +701,13 @@ var calculateWindowPassChunks = function() {
 
   windowCalc.totalChunks = windowCalc.xPixelChunks.length;
 };
+
+function sendStatusMessage(message) {
+  self.postMessage({
+    plotId: windowCalc.plotId,
+    statusMessage: message
+  });
+}
 
 function cleanUpWindowCache() {
   // now that the image has been completed, delete any cached

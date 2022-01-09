@@ -1397,6 +1397,18 @@ var calcWorkerOnmessage = function(e) {
   if (e.data.plotId !== windowCalc.plotId) {
     return;
   }
+  if ("statusMessage" in e.data) {
+    const messageString = e.data.statusMessage;
+    repaintOnly();
+    drawStatusNotice(dContext, messageString);
+    if (showMousePosition) {
+      redrawMousePosNotice();
+    }
+    if (imageParametersCaption) {
+      drawImageParameters();
+    }
+    return;
+  }
   // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean, workersCount: string, workersNow: int}
   drawWorkerColorPoints(e);
   if (showMousePosition) {
@@ -1968,6 +1980,18 @@ function drawCalculatingNotice(ctx, pixelSize, percentComplete, workersNow) {
   ctx.fillStyle = "rgba(0,0,0,0.9)";
   const workersText = workersNow + " worker" + (workersNow > 1 ? "s" : "");
   ctx.fillText("Calculating " + pixelSize + "-wide pixels (" + percentComplete + "%) with " + workersText + " ...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
+}
+
+function drawStatusNotice(ctx, message) {
+  const canvas = ctx.canvas;
+  ctx.fillStyle = "rgba(100,100,100,1.0)";
+  const noticeHeight = Math.max(24, canvas.height * 0.03);
+  const textHeight = Math.round(noticeHeight * 0.6);
+  const noticeWidth = Math.max(200, textHeight * 24);
+  ctx.fillRect(0,canvas.height-noticeHeight,noticeWidth, noticeHeight);
+  ctx.font = textHeight + "px system-ui";
+  ctx.fillStyle = "rgba(0,0,0,0.9)";
+  ctx.fillText(message + " ...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
 }
 
 function drawStartingPassNotice() {

@@ -196,6 +196,7 @@ const infNumMath = {
   }
 };
 
+const windowCalcBackgroundColor = -1;
 const windowCalcIgnorePointColor = -2;
 
 // each "plot" has its own "privContext" that can contain whatever data/functions
@@ -255,7 +256,7 @@ const plots = [{
       }
 
       if (iter == maxIter) {
-        return -1.0; // background color
+        return windowCalcBackgroundColor;
       } else {
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
         return iter / maxIter;
@@ -287,7 +288,7 @@ const plots = [{
       }
 
       if (iter == maxIter) {
-        return -1.0; // background color
+        return windowCalcBackgroundColor;
       } else {
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
         return iter / maxIter;
@@ -902,7 +903,7 @@ const plots = [{
       }
 
       if (iter == maxIter) {
-        return {colorpct: -1.0, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips}; // background color
+        return {colorpct: windowCalcBackgroundColor, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};
       } else {
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
         return {colorpct: iter / maxIter, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};

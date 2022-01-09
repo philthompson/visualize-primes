@@ -66,7 +66,7 @@ const windowCalc = {
   stage: "",
   lineWidth: 0,
   xPixelChunks: [],
-  resultPoints: [],
+  pixelCache: [],
   pointsBounds: "",
   pointsCache: {},
   passTimeMs: 0,
@@ -754,11 +754,16 @@ for (let name in bgColorSchemes) {
   bgColorSchemeNames.push(name);
 }
 
-function getBgColor() {
+function getBgColor(stringFormat = true) {
+  let color = "rgba(0,0,0,1.0)";
   if (historyParams.bgColor in bgColorSchemes) {
-    return bgColorSchemes[historyParams.bgColor];
+    color = bgColorSchemes[historyParams.bgColor];
+  }
+  if (stringFormat) {
+    return color;
   } else {
-    return "rgba(0,0,0,1.0)";
+    let rgba = getBgColor().substr(5).split(',');
+    return getColor(parseInt(rgba[0]),parseInt(rgba[1]),parseInt(rgba[2]));
   }
 }
 
@@ -1029,7 +1034,7 @@ function buildGradientObj(gradientString) {
   return grad;
 }
 
-function applyBuiltGradient(gradient, percentage) {
+function applyBuiltGradient(gradient, percentage, stringFormat = true) {
   const pct = Math.max(0.0, Math.min(1.0, percentage));
   let color = "rgba(255,255,255,1.0)";
   for (let i = 0; i < gradient.orderedStops.length; i++) {
@@ -1040,11 +1045,15 @@ function applyBuiltGradient(gradient, percentage) {
         break;
       }
       let withinStopPct = (pct - stop.lower) / stop.range;
-      let r = (withinStopPct * stop.rRange) + stop.rLower;
-      let g = (withinStopPct * stop.gRange) + stop.gLower;
-      let b = (withinStopPct * stop.bRange) + stop.bLower;
-      color = "rgba(" + r + "," + g + "," + b + ",1.0)";
-      break;
+      let r = Math.floor((withinStopPct * stop.rRange) + stop.rLower);
+      let g = Math.floor((withinStopPct * stop.gRange) + stop.gLower);
+      let b = Math.floor((withinStopPct * stop.bRange) + stop.bLower);
+      if (stringFormat) {
+        color = "rgba(" + r + "," + g + "," + b + ",1.0)";
+        break;
+      } else {
+        return {r:r, g:g, b:b};
+      }
     }
   }
   return color;
@@ -1177,7 +1186,10 @@ function resetWindowCalcContext() {
   windowCalc.lineWidth = 128; // placeholder value
   windowCalc.pixelsImage = dContext.createImageData(dContext.canvas.width, dContext.canvas.height);
   windowCalc.xPixelChunks = [];
-  windowCalc.resultPoints = [];
+  windowCalc.pixelCache = new Array(dCanvas.width);
+  for (let i = 0; i < windowCalc.pixelCache.length; i++) {
+    windowCalc.pixelCache[i] = new Array(dCanvas.height);
+  }
   windowCalc.pointsBounds = "";
   windowCalc.passTimeMs = 0;
   windowCalc.totalTimeMs = 0;
@@ -1625,7 +1637,7 @@ btnGradGo.addEventListener("click", function() {
     windowPlotGradients[windowPlotGradients.length-1].gradient = historyParams.gradient;
     const gradients = plotsByName[historyParams.plot].calcFrom == "sequence" ? sequencePlotGradients : windowPlotGradients;
     setupGradientSelectControl(gradients);
-    redraw();
+    recolor();
   } catch (e) {
     displayGradientError(e);
   }
@@ -1857,6 +1869,8 @@ function drawColorPoints(windowPoints, pixelSize) {
   const width = canvas.width;
   const height = canvas.height;
   const pixelsImage = windowCalc.pixelsImage;
+  const bgColor = getBgColor(false);
+  let pointColor = null;
   for (let i = 0; i < windowPoints.length; i++) {
     // use lineWidth param as "resolution":
     //   1 = 1  pixel  drawn per point
@@ -1865,15 +1879,14 @@ function drawColorPoints(windowPoints, pixelSize) {
     const resX = windowPoints[i].px.x;
     const resY = windowPoints[i].px.y;
     const colorPct = windowPoints[i].px.c;
-    let pointColor = getBgColor();
     // just completely skip points with this special color "value"
     if (colorPct == windowCalcIgnorePointColor) {
       continue;
-    } else if (colorPct >= 0) {
-      pointColor = applyBuiltGradient(builtGradient, colorPct);
+    } else if (colorPct == windowCalcBackgroundColor) {
+      pointColor = bgColor;
+    } else {
+      pointColor = applyBuiltGradient(builtGradient, colorPct, false);
     }
-    const rgba = pointColor.substr(5).split(',');
-    pointColor = getColor(parseInt(rgba[0]),parseInt(rgba[1]),parseInt(rgba[2]));
     let pixelOffsetInImage = 0;
     for (let x = 0; x < pixelSize; x++) {
       // there may be a more efficient way to break early when pixels
@@ -1894,10 +1907,40 @@ function drawColorPoints(windowPoints, pixelSize) {
         pixelsImage.data[pixelOffsetInImage+1] = pointColor.g;
         pixelsImage.data[pixelOffsetInImage+2] = pointColor.b;
         pixelsImage.data[pixelOffsetInImage+3] = 255; // alpha
+        windowCalc.pixelCache[resX+x][resY+y] = colorPct;
       }
     }
   }
   dContext.putImageData(pixelsImage, 0, 0);
+}
+
+function recolor() {
+  resetGradientInput();
+  const width = dCanvas.width;
+  const height = dCanvas.height;
+  const bgColor = getBgColor(false);
+  let colorPct = -2;
+  let color = null;
+  let pixelOffsetInImage = null;
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      colorPct = windowCalc.pixelCache[x][y];
+      if (colorPct === undefined || colorPct == windowCalcIgnorePointColor) {
+        continue;
+      }
+      if (colorPct == windowCalcBackgroundColor) {
+        color = bgColor;
+      } else {
+        color = applyBuiltGradient(builtGradient, colorPct, false);
+      }
+      pixelOffsetInImage = ((y * width) + x) * 4;
+      windowCalc.pixelsImage.data[pixelOffsetInImage+0] = color.r;
+      windowCalc.pixelsImage.data[pixelOffsetInImage+1] = color.g;
+      windowCalc.pixelsImage.data[pixelOffsetInImage+2] = color.b;
+      windowCalc.pixelsImage.data[pixelOffsetInImage+3] = 255; // alpha
+    }
+  }
+  dContext.putImageData(windowCalc.pixelsImage, 0, 0);
 }
 
 function repaintOnly() {
@@ -2384,7 +2427,11 @@ window.addEventListener("keydown", function(e) {
     } catch (e) {
       displayGradientError(e);
     }
-    redraw();
+    if (plotsByName[historyParams.plot].calcFrom == "window") {
+      recolor();
+    } else {
+      redraw();
+    }
   } else if (e.keyCode == 66 || e.key == "b" || e.key == "B") {
     let schemeNum = -1;
     for (let i = 0; i < bgColorSchemeNames.length; i++) {
@@ -2398,7 +2445,11 @@ window.addEventListener("keydown", function(e) {
       schemeNum = 0;
     }
     historyParams.bgColor = bgColorSchemeNames[schemeNum];
-    redraw();
+    if (plotsByName[historyParams.plot].calcFrom == "window") {
+      recolor();
+    } else {
+      redraw();
+    }
   } else if (e.keyCode == 88 || e.key == "x" || e.key == "X") {
     let plotNum = -1;
     for (let i = 0; i < plots.length; i++) {
@@ -2505,6 +2556,7 @@ window.addEventListener("resize", function() {
     window.clearTimeout(resizeTimeout);
   }
   if (!autoResize) {
+    console.log("ignoring window resize event");
     return;
   }
   resizeTimeout = window.setTimeout(resizeCanvas, 500);

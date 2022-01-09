@@ -16,6 +16,7 @@ var mouseNoticePosX = infNum(0n, 0n);
 var mouseNoticePosY = infNum(0n, 0n);
 var shiftPressed = false;
 var commandPressed = false;
+var autoResize = true;
 
 var historyParams = {};
 var replaceStateTimeout = null;
@@ -128,6 +129,7 @@ const workersSelect = document.getElementById("workers-select");
 const gradientSelect = document.getElementById("gradient-select");
 const gradControlsDetails = document.getElementById("gradient-controls-details");
 const gradError = document.getElementById("gradient-error");
+const autoResizeCb = document.getElementById("auto-resize-cb");
 
 const blogLinkMain = document.getElementById("blog-link");
 const blogLinkMandel = document.getElementById("blog-link-mandel");
@@ -1663,7 +1665,7 @@ function updateGradientPreview() {
   }
 }
 
-gradControlsDetails.addEventListener("toggle", event => {
+gradControlsDetails.addEventListener("toggle", function() {
   if (gradControlsDetails.open) {
     updateGradientPreview();
   }
@@ -1680,6 +1682,14 @@ function hideGradientError() {
   gradError.style.display = "none";
   gradCanvasRow.style.display = "";
 }
+
+autoResizeCb.addEventListener("change", function() {
+  autoResize = autoResizeCb.checked;
+  if (autoResize) {
+    resizeCanvas();
+  }
+});
+autoResizeCb.checked = autoResize;
 
 const windowCalcStages = {
   drawCalculatingNotice: "draw-calculating-notice",
@@ -2481,15 +2491,23 @@ window.addEventListener("keydown", function(e) {
   }
 });
 
+function resizeCanvas() {
+  if (!autoResize) {
+    return;
+  }
+  setDScaleVars(dContext);
+  redraw();
+}
+
 // re-draw if there's been a window resize and more than 500ms has elapsed
 window.addEventListener("resize", function() {
   if (resizeTimeout !== null) {
     window.clearTimeout(resizeTimeout);
   }
-  resizeTimeout = window.setTimeout(function() {
-    setDScaleVars(dContext);
-    redraw();
-  }, 500);
+  if (!autoResize) {
+    return;
+  }
+  resizeTimeout = window.setTimeout(resizeCanvas, 500);
 });
 
 // thanks to https://stackoverflow.com/a/11183333/259456 for

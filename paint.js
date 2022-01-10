@@ -964,57 +964,55 @@ function buildGradientObj(gradientString) {
   grad.orderedStops = [];
   // apply width arg by scaling all stops
   const totalWidth = "width" in args ? Math.min(1.0, (args.width / 100.0)) : 1.0;
-  let prevStopRgb = null;
-  for (let i = 0; i < colors.length; i++) {
-    const colorLetter = colors.charAt(i);
-    if (! colorLetter in colorsByName) {
-      continue;
-    }
-    const colorRgb = colorsByName[colorLetter];
-    const stop = {};
 
-    if (prevStopRgb === null) {
-      prevStopRgb = colorRgb;
-      stop.lower = 0.0;
-      // if this is the first and last stop, set the upper pct, lower color, and zero range
-      if (colors.length == i + 1) {
-        stop.upper = totalWidth;
-        stop.rLower = prevStopRgb[0];
-        stop.gLower = prevStopRgb[1];
-        stop.bLower = prevStopRgb[2];
-        stop.rRange = 0.0;
-        stop.gRange = 0.0;
-        stop.bRange = 0.0;
-      // if this is the first but not last stop, set upper to zero
+  if (colors.length === 1) {
+    let colorRgb = colorsByName[colors];
+    if (colorRgb === undefined) {
+      colorRgb = colorsByName["o"];
+    }
+    grad.orderedStops.push({
+      lower: 0.0,
+      upper: totalWidth,
+      rLower: colorRgb[0],
+      gLower: colorRgb[1],
+      bLower: colorRgb[2],
+      rRange: 0.0,
+      gRange: 0.0,
+      bRange: 0.0
+    });
+  } else {
+    let prevStopUpper = 0.0;
+    for (let i = 0; i < colors.length - 1; i++) {
+      // for stop 0, gradient is color[0] -> color[1]
+      // for stop 1, gradient is color[1] -> color[2]
+      let colorRgbA = colorsByName[colors.charAt(i)];
+      if (colorRgbA === undefined) {
+        colorRgbA = colorsByName["w"];
+      }
+      let colorRgbB = colorsByName[colors.charAt(i+1)];
+      if (colorRgbB === undefined) {
+        colorRgbB = colorsByName["w"];
+      }
+      const stop = {};
+      stop.rLower = colorRgbA[0];
+      stop.gLower = colorRgbA[1];
+      stop.bLower = colorRgbA[2];
+      stop.rRange = colorRgbB[0] - stop.rLower;
+      stop.gRange = colorRgbB[1] - stop.gLower;
+      stop.bRange = colorRgbB[2] - stop.bLower;
+      stop.lower = prevStopUpper;
+      if (i == colors.length - 2) {
+        stop.upper = 1.0;
       } else {
-        stop.upper = 0.0;
+        // we cannot divide by zero because if there's only one stop, we
+        //   do not even enter this for loop
+        stop.upper = stop.lower + ((1.0 / (colors.length - 1)) * totalWidth);
       }
       grad.orderedStops.push(stop);
-      continue;
-    // if this is not the first stop, the lower is the previous stop's upper
-    } else {
-      stop.lower = grad.orderedStops[grad.orderedStops.length-1].upper;
+      prevStopUpper = stop.upper;
     }
-    stop.rLower = prevStopRgb[0];
-    stop.gLower = prevStopRgb[1];
-    stop.bLower = prevStopRgb[2];
-
-    if (colors.length == i + 1) {
-      //stop["upper"] = totalWidth;
-      stop.upper = 1.0;
-    } else {
-      // we cannot divide by zero because if there's only one stop, we've
-      //   already called break above
-      stop.upper = stop.lower + ((1.0 / (colors.length - 1)) * totalWidth);
-    }
-
-    stop.rRange = colorRgb[0] - stop.rLower;
-    stop.gRange = colorRgb[1] - stop.gLower;
-    stop.bRange = colorRgb[2] - stop.bLower;
-
-    prevStopRgb = colorRgb;
-    grad.orderedStops.push(stop);
   }
+
   const maxOffset = 1.0 - totalWidth;
   const offset = "offset" in args ? Math.min(maxOffset, (args.offset / 100.0)) : 0.0;
   // even if offset is zero, we still need to set each stop's range
@@ -1034,29 +1032,37 @@ function buildGradientObj(gradientString) {
   return grad;
 }
 
-function applyBuiltGradient(gradient, percentage, stringFormat = true) {
-  const pct = Math.max(0.0, Math.min(1.0, percentage));
-  let color = "rgba(255,255,255,1.0)";
-  for (let i = 0; i < gradient.orderedStops.length; i++) {
-    if (pct <= gradient.orderedStops[i].upper) {
-      let stop = gradient.orderedStops[i];
+
+function applyBuiltGradient(gradient, pct, stringFormat = true) {
+  let color = {r:255, g:255, b:255};
+  let lo = 0;
+  let hi = gradient.orderedStops.length - 1;
+  let x = null;
+  while (lo <= hi) {
+    x = (lo + hi) >>1;
+    if (pct < gradient.orderedStops[x].lower) {
+      hi = x - 1;
+    } else if (pct > gradient.orderedStops[x].upper) {
+      lo = x + 1;
+    } else {
+      let stop = gradient.orderedStops[x];
       // put code elsewhere to avoid needing this
-      if (stop.range == 0) {
-        break;
-      }
-      let withinStopPct = (pct - stop.lower) / stop.range;
-      let r = Math.floor((withinStopPct * stop.rRange) + stop.rLower);
-      let g = Math.floor((withinStopPct * stop.gRange) + stop.gLower);
-      let b = Math.floor((withinStopPct * stop.bRange) + stop.bLower);
-      if (stringFormat) {
-        color = "rgba(" + r + "," + g + "," + b + ",1.0)";
-        break;
-      } else {
-        return {r:r, g:g, b:b};
-      }
+      //if (stop.range > 0) {
+        let withinStopPct = (pct - stop.lower) / stop.range;
+        color = {
+          r: Math.floor((withinStopPct * stop.rRange) + stop.rLower),
+          g: Math.floor((withinStopPct * stop.gRange) + stop.gLower),
+          b: Math.floor((withinStopPct * stop.bRange) + stop.bLower)
+        };
+      //}
+      break;
     }
   }
-  return color;
+  if (stringFormat) {
+    return "rgba(" + color.r + "," + color.g + "," + color.b + ",1.0)";
+  } else {
+    return color;
+  }
 }
 
 function redraw() {

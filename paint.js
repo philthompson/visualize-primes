@@ -549,7 +549,8 @@ function parseUrlParams() {
     "v": 4,
     "lineWidth": 1,
     "n": 60,
-    "scale": infNum(400n, 0n),
+    //"scale": infNum(400n, 0n),
+    "mag": infNum(1n, 0n),
     "centerX": createInfNum("-0.65"),
     "centerY": infNum(0n, 0n),
     "gradient": "Bbgoyw",
@@ -558,25 +559,33 @@ function parseUrlParams() {
 
   // only change default settings if a known version of settings is given
   if (urlParams.has('v') && ["1","2","3","4"].includes(urlParams.get('v'))) {
-    let plot = params.plot;
+    let plotName = params.plot;
     if (["1","2","3"].includes(urlParams.get('v')) && urlParams.has('seq')) {
-      plot = urlParams.get('seq');
+      plotName = urlParams.get('seq');
     } else if (["4"].includes(urlParams.get('v')) && urlParams.has('plot')) {
-      plot = urlParams.get('plot');
+      plotName = urlParams.get('plot');
     }
-    if (plot in plotsByName) {
-      params.plot = plot;
+    if (plotName in plotsByName) {
+      params.plot = plotName;
     } else {
-      alert("no such plot [" + plot + "]");
+      alert("no such plot [" + plotName + "]");
     }
+    const plot = plotsByName[plotName];
     if (urlParams.has('n')) {
       params.n = parseInt(urlParams.get('n').replaceAll(",", ""));
       if (params.n < 0) {
         params.n = 100;
       }
     }
+    // scale takes precedence over "mag"nification
     if (urlParams.has("scale")) {
       params.scale = createInfNum(urlParams.get("scale").replaceAll(",", ""));
+      // since scale is present in URL, do not use scale to determine initial
+      //   magnification
+      params.mag = convertScaleToMagnification(params.scale, plot.magnificationFactor);
+    } else if (urlParams.has("mag")) {
+      params.mag = createInfNum(urlParams.get("mag").replaceAll(",", ""));
+      params.scale = convertMagnificationToScale(params.mag, plot.magnificationFactor);
     }
     // the very first URLs had "offsetX" and "offsetY" which were a percentage
     //   of canvas width/height to offset.  this meant URLs centered the plot
@@ -613,7 +622,7 @@ function parseUrlParams() {
       }
     }
     if (urlParams.has('lineWidth')) {
-      params.lineWidth = sanityCheckLineWidth(parseFloat(urlParams.get('lineWidth')) || 1.0, false, plotsByName[params.plot]);
+      params.lineWidth = sanityCheckLineWidth(parseFloat(urlParams.get('lineWidth')) || 1.0, false, plot);
     }
     if (urlParams.has('workers')) {
       try {
@@ -773,7 +782,7 @@ function fillBg(ctx) {
   ctx.fillRect(0,0,canvas.width, canvas.height);
 }
 
-function setDScaleVars(dCtx) {
+function setDScaleVarsNoScale(dCtx) {
   var canvas = dCtx.canvas;
   if (canvas.width != canvas.offsetWidth || canvas.height != canvas.offsetHeight) {
     canvas.width = canvas.offsetWidth;
@@ -782,15 +791,36 @@ function setDScaleVars(dCtx) {
   }
 }
 
+function setDScaleVars(dCtx) {
+  setDScaleVarsNoScale(dCtx);
+  historyParams.scale = convertMagnificationToScale(historyParams.mag, plotsByName[historyParams.plot].magnificationFactor);
+}
+
+function convertScaleToMagnification(scale, magnificationFactor) {
+  const smallDimensionPixels = infNum(BigInt(Math.min(dCanvas.width, dCanvas.height)), 0n);
+  // magnificationFactor * scale / windowPixels 
+  // 24 significant digits is always enough for magnification, right?
+  return infNumDiv(infNumMul(scale, magnificationFactor), smallDimensionPixels, Math.min(precision, 24));
+}
+
+function convertMagnificationToScale(magnification, magnificationFactor) {
+  const smallDimensionPixels = infNum(BigInt(Math.min(dCanvas.width, dCanvas.height)), 0n);
+  // magnifiction * windowPixels / magnificationFactor
+  // 24 significant digits is always enough for scale, right?
+  return infNumDiv(infNumMul(magnification, smallDimensionPixels), magnificationFactor, Math.min(precision, 24));
+}
+
 // this is separate so that we can call it with only a subset of params,
 //   and the rest will be populated with standard values as part of parseUrlParams()
 function replaceHistoryWithParams(params) {
-  var paramsCopy = Object.assign({}, params);
+  var paramsCopy = structuredClone(params);
   if ("significantDigits" in paramsCopy) {
     precision = paramsCopy.significantDigits;
     delete paramsCopy.significantDigits;
   }
-  paramsCopy.scale = infNumExpStringTruncToLen(params.scale, precision);
+  // include magnification in URL, not scale
+  paramsCopy.mag = infNumExpStringTruncToLen(params.mag, precision);
+  delete paramsCopy.scale;
   paramsCopy.centerX = infNumExpStringTruncToLen(params.centerX, precision);
   paramsCopy.centerY = infNumExpStringTruncToLen(params.centerY, precision);
   history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
@@ -802,8 +832,10 @@ var replaceHistory = function() {
 };
 
 var pushToHistory = function() {
-  var paramsCopy = Object.assign({}, historyParams);
-  paramsCopy.scale = infNumExpStringTruncToLen(historyParams.scale, precision);
+  var paramsCopy = structuredClone(historyParams);
+  // include magnification in URL, not scale
+  paramsCopy.mag = infNumExpStringTruncToLen(historyParams.mag, precision);
+  delete paramsCopy.scale;
   paramsCopy.centerX = infNumExpStringTruncToLen(historyParams.centerX, precision);
   paramsCopy.centerY = infNumExpStringTruncToLen(historyParams.centerY, precision);
   // no need to replaceState() here -- we'll replaceState() on param
@@ -1166,13 +1198,14 @@ function resetWindowCalcContext() {
   }
   fillBg(dContext);
 
+  const plot = plotsByName[historyParams.plot];
   const params = historyParams;
   windowCalc.plotName = params.plot;
   windowCalc.stage = "";
 
   // set the plot-specific global precision to use first
-  if ("adjustPrecision" in plotsByName[params.plot].privContext) {
-    let settings = plotsByName[params.plot].privContext.adjustPrecision(historyParams.scale);
+  if ("adjustPrecision" in plot.privContext) {
+    let settings = plot.privContext.adjustPrecision(historyParams.scale);
     precision = settings.precision;
     windowCalc.algorithm = settings.algorithm;
   } else {
@@ -1182,6 +1215,7 @@ function resetWindowCalcContext() {
   // attempt to resolve slowdown experienced when repeatedly panning/zooming,
   //   where the slowdown is resolved when refreshing the page
   historyParams.scale = infNumTruncateToLen(historyParams.scale, precision);
+  historyParams.mag = convertScaleToMagnification(historyParams.scale, plot.magnificationFactor);
   historyParams.centerX = infNumTruncateToLen(historyParams.centerX, precision);
   historyParams.centerY = infNumTruncateToLen(historyParams.centerY, precision);
 
@@ -2083,6 +2117,7 @@ function drawImageParameters() {
   let entries = [
     [" x (re)", infNumExpString(historyParams.centerX)],
     [" y (im)", infNumExpString(historyParams.centerY)],
+    [" magnif", infNumExpString(historyParams.mag)],
     ["  scale", infNumExpString(historyParams.scale)],
     ["   iter", historyParams.n.toString()],
     ["   grad", historyParams.gradient],
@@ -2915,6 +2950,9 @@ function hideFooter() {
 }
 
 // build a gradient here just so the global one isn't left null
-buildGradient("roygbv");
+buildGradient("rygb");
+// since scale is determined by magnification, we need to set the
+//   canvas size before parsing URL parameters
+setDScaleVarsNoScale(dContext);
 parseUrlParams();
 start();

@@ -919,10 +919,11 @@ const plots = [{
   // these settings are auto-applied when this plot is activated
   "forcedDefaults": {
     "n": 40,
-    "scale": infNum(400n, 0n),
+    "mag": infNum(1n, 0n),
     "centerX": createInfNum("-0.65"),
     "centerY": infNum(0n, 0n)
   },
+  "magnificationFactor": infNum(3n, 0n),
   "privContext": {
     "usesImaginaryCoordinates": true,
     "adjustPrecision": function(scale) {
@@ -1041,10 +1042,11 @@ const plots = [{
   // these settings are auto-applied when this plot is activated
   "forcedDefaults": {
     "n": 60000,
-    "scale": createInfNum("1.2"),
+    "mag": infNum(1n, 0n),
     "centerX": createInfNum("-240"),
     "centerY": createInfNum("288")
   },
+  "magnificationFactor": infNum(850n, 0n),
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
     "direction": 0,
@@ -1103,10 +1105,11 @@ const plots = [{
   // these settings are auto-applied when this plot is activated
   "forcedDefaults": {
     "n": 60000,
-    "scale": createInfNum("0.85"),
+    "mag": infNum(1n, 0n),
     "centerX": infNum(0n, 0n),
-    "centerY": infNum(0n, 0n)
+    "centerY": infNum(415n, 0n)
   },
+  "magnificationFactor": infNum(1600n, 0n),
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
     "direction": 0,
@@ -1160,10 +1163,11 @@ const plots = [{
   // these settings are auto-applied when this plot is activated
   "forcedDefaults": {
     "n": 5000,
-    "scale": createInfNum("6.5"),
+    "mag": infNum(1n, 0n),
     "centerX": infNum(0n, 0n),
     "centerY": infNum(0n, 0n)
   },
+  "magnificationFactor": infNum(175n, 0n),
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
     "direction": 0,
@@ -1224,10 +1228,11 @@ const plots = [{
   // these settings are auto-applied when this plot is activated
   "forcedDefaults": {
     "n": 5000,
-    "scale": createInfNum("2.3"),
+    "mag": infNum(1n, 0n),
     "centerX": infNum(0n, 0n),
     "centerY": infNum(0n, 0n)
   },
+  "magnificationFactor": infNum(500n, 0n),
   "privContext": {
     // degrees clockwise, 0 is right (3 o'clock)
     "direction": 0,
@@ -1316,10 +1321,11 @@ const plots = [{
   // these settings are auto-applied when this plot is activated
   "forcedDefaults": {
     "n": 5000,
-    "scale": createInfNum("0.08"),
+    "mag": infNum(1n, 0n),
     "centerX": infNum(0n, 0n),
     "centerY": infNum(0n, 0n)
   },
+  "magnificationFactor": infNum(12000n, 0n),
   "privContext": {
   }
 },{
@@ -1403,10 +1409,11 @@ const plots = [{
   // these settings are auto-applied when this plot is activated
   "forcedDefaults": {
     "n": 2016,
-    "scale": infNum(15n, 0n),
+    "mag": infNum(1n, 0n),
     "centerX": infNum(0n, 0n),
     "centerY": infNum(0n, 0n)
   },
+  "magnificationFactor": infNum(60n, 0n),
   "privContext": {
     // by "x-y" coordinates, store chessboard square numbers, starting with center square at "0-0"
     "boardPoints": {},

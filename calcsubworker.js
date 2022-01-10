@@ -117,6 +117,17 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
   let blaPixelsCount = 0;
   let blaIterationsSkipped = 0;
   let blaSkips = 0;
+  // special case for when entire chunk is cached
+  if (cachedIndices.length === 1 && cachedIndices[0] === -1) {
+    // for this special case, don't allocate the entire results array
+    chunk["results"] = [];
+    chunk["plotId"] = plotId;
+    chunk["blaPixelsCount"] = blaPixelsCount;
+    chunk["blaIterationsSkipped"] = blaIterationsSkipped;
+    chunk["blaSkips"] = blaSkips;
+    postMessage({t: "completed-chunk", v:chunk});
+    return;
+  }
   // pre-allocate array so we don't have to use array.push()
   const results = new Array(chunk.chunkLen);
   // if entire chunk is cached, we don't have to do anything

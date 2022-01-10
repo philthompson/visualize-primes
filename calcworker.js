@@ -26,6 +26,8 @@ for (let i = 0; i < plots.length; i++) {
   plotsByName[plots[i].name] = plots[i];
 }
 
+const allCachedIndicesArray = [-1];
+
 // create subworkers
 // for each pass:
 //   - calculate chunks
@@ -360,10 +362,12 @@ var assignChunkToWorker = function(worker) {
     cacheScan = windowCalc.cacheScannedChunks.get(chunkId);
   }
 
+  // if the entire chunk is cached, don't bother sending all
+  //   point indices to the worker -- send one -1 index
   let subWorkerMsg = {
     "plotId": windowCalc.plotId,
     "chunk": nextChunk,
-    "cachedIndices": Array.from(cacheScan.keys()).sort((a, b) => a-b)
+    "cachedIndices": cacheScan.size === nextChunk.chunkLen ? allCachedIndicesArray : Array.from(cacheScan.keys()).sort((a, b) => a-b)
   };
 
   worker.postMessage({
@@ -425,6 +429,12 @@ function scanCacheForChunk(chunk) {
 
 // this assumes all chunks move along the y axis, only
 function cacheComputedPointsInChunk(chunk) {
+  // when all points are cached, the subworker doesn't bother
+  //   allocating the entire array (and there's nothing to
+  //   add to the cache)
+  if (chunk.results.length === 0) {
+    return 0;
+  }
   let count = 0;
   const pxStr = infNumFastStr(chunk.chunkPos.x);
 
@@ -573,6 +583,11 @@ function settleChunkWithCacheAndPublish(msg) {
   const chunkId = buildChunkId(msg.data.chunkPos);
   let cacheScan = windowCalc.cacheScannedChunks.get(chunkId);
   if (cacheScan !== undefined) {
+    // for the case when all chunk indices are cached, the subworker
+    //   doesn't pre-allocate the entire array
+    if (msg.data.results.length === 0) {
+      msg.data.results = new Array(msg.data.chunkLen);
+    }
     // the key values in the "cachedByIndex" object are the same
     //   index position along the chunk that the subworker uses,
     //   so we just insert the cached values directly into the

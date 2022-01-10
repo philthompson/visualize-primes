@@ -1934,6 +1934,11 @@ function drawColorPoints(windowPoints, pixelSize) {
 }
 
 function recolor() {
+  if (replaceStateTimeout != null) {
+    window.clearTimeout(replaceStateTimeout);
+  }
+  // ensure this gradient is inserted into the URL bar
+  replaceStateTimeout = window.setTimeout(replaceHistory, 250);
   resetGradientInput();
   const width = dCanvas.width;
   const height = dCanvas.height;

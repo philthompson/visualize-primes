@@ -1204,7 +1204,7 @@ function resetWindowCalcContext() {
   if (windowCalc.timeout != null) {
     window.clearTimeout(windowCalc.timeout);
   }
-  fillBg(dContext);
+  //fillBg(dContext);
 
   const plot = plotsByName[historyParams.plot];
   const params = historyParams;
@@ -1233,7 +1233,8 @@ function resetWindowCalcContext() {
   }
 
   windowCalc.lineWidth = 128; // placeholder value
-  windowCalc.pixelsImage = dContext.createImageData(dContext.canvas.width, dContext.canvas.height);
+  //windowCalc.pixelsImage = dContext.createImageData(dContext.canvas.width, dContext.canvas.height);
+  windowCalc.pixelsImage = dContext.getImageData(0, 0, dContext.canvas.width, dContext.canvas.height);
   windowCalc.xPixelChunks = [];
   windowCalc.pixelCache = new Array(dCanvas.width);
   for (let i = 0; i < windowCalc.pixelCache.length; i++) {
@@ -2077,6 +2078,7 @@ function repaintOnly() {
 }
 
 function drawPreviewImage() {
+  fillBg(dContext);
   if (previewImage !== null) {
     dContext.putImageData(previewImage, previewImageOffsetX, previewImageOffsetY);
   }
@@ -2710,14 +2712,19 @@ var mouseDownHandler = function(e) {
     return;
   }
   if (shiftPressed) {
-    let pixX = createInfNum(Math.round(e.pageX - (dCanvas.width / 2)).toString());
-    let pixY = createInfNum(Math.round((dCanvas.height - e.pageY) - (dCanvas.height / 2)).toString());
+    let pixXFloat = Math.round(e.pageX - (dCanvas.width / 2));
+    let pixYFloat = Math.round((dCanvas.height - e.pageY) - (dCanvas.height / 2));
+    let pixX = infNum(BigInt(pixXFloat), 0n);
+    let pixY = infNum(BigInt(pixYFloat), 0n);
     // make sure we move in an exact multiple of the pixel size, so
     //   that we can re-use previously-cached points
     let posX = infNumAdd(infNumMul(pixX, windowCalc.eachPixUnits), historyParams.centerX);
     let posY = infNumAdd(infNumMul(pixY, windowCalc.eachPixUnits), historyParams.centerY);
     historyParams.centerX = posX;
     historyParams.centerY = posY;
+    previewImageOffsetX -= pixXFloat;
+    previewImageOffsetY += pixYFloat;
+    drawPreviewImage();
     redraw();
     return;
   }

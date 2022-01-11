@@ -2178,11 +2178,11 @@ function drawMousePosNotice(x, y) {
 function drawImageParameters() {
   const canvas = dCanvas;
   const ctx = dContext;
+  const lineValLengthLimit = 26;
   const noticeHeight = Math.max(16, canvas.height * 0.01);
   const textHeight = Math.round(noticeHeight * 0.6);
-  const noticeWidth = Math.max(200, textHeight * 18);
+  const noticeWidth = Math.max(200, textHeight * lineValLengthLimit * 0.9);
   const lines = [];
-  const lineValLengthLimit = 20;
   let entries = [
     [" x (re)", infNumExpString(historyParams.centerX)],
     [" y (im)", infNumExpString(historyParams.centerY)],

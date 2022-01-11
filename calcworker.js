@@ -190,7 +190,12 @@ function runCalc(msg) {
       windowCalc.saCoefficients = null;
       windowCalc.referenceBlaTables = null;
 
-      let referenceOrbit = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, newReferencePx, newReferencePy);
+      let refOrbitCalcContext = null;
+      while (refOrbitCalcContext === null || !refOrbitCalcContext.done) {
+        refOrbitCalcContext = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, newReferencePx, newReferencePy, refOrbitCalcContext);
+        sendStatusMessage(refOrbitCalcContext.status);
+      }
+      let referenceOrbit = refOrbitCalcContext.orbit;
 
       // move around a little to try other points that may orbit for longer
       //   (this is slow and doesn't seem to be the actual problem, and is

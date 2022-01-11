@@ -300,7 +300,7 @@ const plots = [{
     }
   },
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeReferenceOrbit": function(n, precis, algorithm, x, y) {
+  "computeReferenceOrbitOneShot": function(n, precis, algorithm, x, y) {
 
     const outputMath = algorithm.includes("arbprecis") ?
       infNumMath
@@ -363,6 +363,81 @@ const plots = [{
       console.log("ERROR CAUGHT when computing reference orbit at point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
       console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
       return orbit;
+    }
+  },
+  "computeReferenceOrbit": function(n, precis, algorithm, x, y, fnContext) {
+
+    const outputMath = algorithm.includes("arbprecis") ?
+      infNumMath
+      :
+      (algorithm.includes("floatexp") ?
+        floatExpMath
+        :
+        floatMath
+      );
+    const outputIsFloatExp = outputMath.name == "floatexp";
+
+    const maxIter = n;
+    const two = infNum(2n, 0n);
+    const four = infNum(4n, 0n);
+    const sixteen = infNum(16n, 0n);
+    // try using slightly larger bailout (4) for ref orbit
+    //   than for perturb orbit (which uses smallest possible
+    //   bailout of 2)
+    const bailoutSquared = sixteen;
+
+    // fnContext allows the loop to be done piecemeal
+    if (fnContext === null) {
+      fnContext = {
+        // the coords used for iteration
+        ix: infNum(0n, 0n),
+        iy: infNum(0n, 0n),
+        iter: 0,
+        orbit: [],
+        status: "",
+        done: false
+      };
+    }
+    var ixSq = infNum(0n, 0n);
+    var iySq = infNum(0n, 0n);
+    var ixTemp = infNum(0n, 0n);
+    var statusIterCounter = 0;
+    try {
+      while (fnContext.iter < maxIter) {
+        ixSq = infNumMul(fnContext.ix, fnContext.ix);
+        iySq = infNumMul(fnContext.iy, fnContext.iy);
+        if (infNumGt(infNumAdd(ixSq, iySq), bailoutSquared)) {
+          break;
+        }
+        fnContext.orbit.push({
+          x: outputMath.createFromInfNum(fnContext.ix),
+          y: outputMath.createFromInfNum(fnContext.iy),
+          // if needed, include floatexp x and y as well, for SA coefficients calc
+          xfxp: outputIsFloatExp ? null : floatExpMath.createFromInfNum(fnContext.ix),
+          yfxp: outputIsFloatExp ? null : floatExpMath.createFromInfNum(fnContext.iy)
+        });
+        ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
+        fnContext.iy = infNumAdd(y, infNumMul(two, infNumMul(fnContext.ix, fnContext.iy)));
+        fnContext.ix = copyInfNum(ixTemp);
+        fnContext.ix = infNumTruncateToLen(fnContext.ix, precis);
+        fnContext.iy = infNumTruncateToLen(fnContext.iy, precis);
+        fnContext.iter++;
+        statusIterCounter++;
+        if (statusIterCounter >= 5000) {
+          statusIterCounter = 0;
+          fnContext.status = "computed " + (Math.round(fnContext.iter * 10000.0 / maxIter)/100.0) + "% of reference orbit";
+          console.log(fnContext.status);
+          return fnContext;
+        }
+      }
+
+      fnContext.done = true;
+      return fnContext;
+    } catch (e) {
+      console.log("ERROR CAUGHT when computing reference orbit at point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
+      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+      fnContext.done = true;
+      return fnContext;
     }
   },
   "computeSaCoefficients": function(precision, algorithm, referenceX, referenceY, referenceOrbit, windowEdges) {

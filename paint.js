@@ -2662,7 +2662,7 @@ window.addEventListener("keydown", function(e) {
     }
     workersSelect.value = workersCount;
     changeWorkersCount();
-  } else if (e.key == "." || e.keyCode == 190) {
+  } else if (e.key == "Escape" || e.keyCode == 27) {
     if (!useWorkers) {
       windowCalc.stage = windowCalcStages.stop;
     }

@@ -636,7 +636,7 @@ const plots = [{
       }
 
       statusIterCounter++;
-      if (statusIterCounter >= 10000) {
+      if (statusIterCounter >= 5000) {
         fnContext.status = "can skip " + (Math.round(i * 10000.0 / referenceOrbit.length)/100.0) + "% of reference orbit";
         console.log("all test points are valid for skipping [" + (i).toLocaleString() + "] iterations");
         // resume this loop later, which means WE NEED TO INCREMENT

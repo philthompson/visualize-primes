@@ -1108,8 +1108,10 @@ function redraw() {
       windowCalc.worker.terminate();
       windowCalc.worker = null;
     }
+    annotateClickPosition = true;
     drawPoints(historyParams);
   } else if (plot.calcFrom == "window") {
+    annotateClickPosition = false;
     calculateAndDrawWindow();
   }
 }

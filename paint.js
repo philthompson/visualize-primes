@@ -585,12 +585,12 @@ function parseUrlParams() {
     }
     // scale takes precedence over "mag"nification
     if (urlParams.has("scale")) {
-      params.scale = createInfNum(urlParams.get("scale").replaceAll(",", ""));
+      params.scale = parseScaleString(urlParams.get("scale"));
       // since scale is present in URL, do not use scale to determine initial
       //   magnification
       params.mag = convertScaleToMagnification(params.scale, plot.magnificationFactor);
     } else if (urlParams.has("mag")) {
-      params.mag = createInfNum(urlParams.get("mag").replaceAll(",", ""));
+      params.mag = parseScaleString(urlParams.get("mag"));
       params.scale = convertMagnificationToScale(params.mag, plot.magnificationFactor);
     }
     // the very first URLs had "offsetX" and "offsetY" which were a percentage
@@ -1403,16 +1403,32 @@ function applyGoToCenterValues() {
   redraw();
 }
 
+// parse scale and magnification strings:
+// - they are always positive, so throw away minus signs
+// - throw away plus signs, spaces, and commas
+// - if ^ is present, treat both sides as int (BigInt) and raise left side to right side
+function parseScaleString(str) {
+  let cleaned = replaceAllEachChar(str, ", -+", "");
+  if (cleaned.length === 0) {
+    throw "Value cannot be empty";
+  }
+  let powerSplit = cleaned.split("^");
+  if (powerSplit.length > 1) {
+    return infNum(BigInt(powerSplit[0].split(".")[0]) ** BigInt(powerSplit[1].split(".")[0]), 0n);
+  } else {
+    return createInfNum(powerSplit[0]);
+  }
+}
+
 function setMagInputToMatchScale() {
   if (inputGotoScale.value == "Invalid magnification value") {
     return;
   }
   try {
-    let cleaned = inputGotoScale.value.replaceAll(" ","");
-    if (cleaned.length === 0) {
+    if (inputGotoScale.value.length === 0) {
       return;
     }
-    let scale = createInfNum(cleaned);
+    let scale = parseScaleString(inputGotoScale.value);
     let mag = convertScaleToMagnification(scale, plotsByName[windowCalc.plotName].magnificationFactor);
     inputGotoMag.value = infNumExpString(mag);
   } catch (e) {
@@ -1425,11 +1441,10 @@ function setScaleInputToMatchMag() {
     return;
   }
   try {
-    let cleaned = inputGotoMag.value.replaceAll(" ","");
-    if (cleaned.length === 0) {
+    if (inputGotoMag.value.length === 0) {
       return;
     }
-    let mag = createInfNum(cleaned);
+    let mag = parseScaleString(inputGotoMag.value);
     let scale = convertMagnificationToScale(mag, plotsByName[windowCalc.plotName].magnificationFactor);
     inputGotoScale.value = infNumExpString(scale);
   } catch (e) {

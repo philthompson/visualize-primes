@@ -112,6 +112,7 @@ const inputGotoBotRightY = document.getElementById("go-to-br-y");
 const inputGotoCenterX = document.getElementById("go-to-c-x");
 const inputGotoCenterY = document.getElementById("go-to-c-y");
 const inputGotoScale = document.getElementById("go-to-scale");
+const inputGotoMag = document.getElementById("go-to-mag");
 const btnGotoBoundsGo = document.getElementById("go-to-b-go");
 const btnGotoBoundsReset = document.getElementById("go-to-b-reset");
 const btnGotoCenterGo = document.getElementById("go-to-c-go");
@@ -1307,6 +1308,7 @@ function resetGoToCenterValues() {
   inputGotoCenterX.value = infNumExpString(historyParams.centerX);
   inputGotoCenterY.value = infNumExpString(historyParams.centerY) + (imaginaryCoordinates ? "i" : "");
   inputGotoScale.value = infNumExpString(historyParams.scale);
+  inputGotoMag.value = infNumExpString(historyParams.mag);
 }
 
 function resetNIterationsValue() {
@@ -1400,6 +1402,49 @@ function applyGoToCenterValues() {
   }
   redraw();
 }
+
+function setMagInputToMatchScale() {
+  if (inputGotoScale.value == "Invalid magnification value") {
+    return;
+  }
+  try {
+    let cleaned = inputGotoScale.value.replaceAll(" ","");
+    if (cleaned.length === 0) {
+      return;
+    }
+    let scale = createInfNum(cleaned);
+    let mag = convertScaleToMagnification(scale, plotsByName[windowCalc.plotName].magnificationFactor);
+    inputGotoMag.value = infNumExpString(mag);
+  } catch (e) {
+    inputGotoMag.value = "Invalid scale value";
+  }
+}
+
+function setScaleInputToMatchMag() {
+  if (inputGotoScale.value == "Invalid scale value") {
+    return;
+  }
+  try {
+    let cleaned = inputGotoMag.value.replaceAll(" ","");
+    if (cleaned.length === 0) {
+      return;
+    }
+    let mag = createInfNum(cleaned);
+    let scale = convertMagnificationToScale(mag, plotsByName[windowCalc.plotName].magnificationFactor);
+    inputGotoScale.value = infNumExpString(scale);
+  } catch (e) {
+    inputGotoScale.value = "Invalid magnification value";
+  }
+}
+
+inputGotoScale.addEventListener("change", setMagInputToMatchScale);
+inputGotoScale.addEventListener("input", setMagInputToMatchScale);
+inputGotoScale.addEventListener("propertychange", setMagInputToMatchScale);
+inputGotoScale.addEventListener("paste", setMagInputToMatchScale);
+inputGotoMag.addEventListener("change", setScaleInputToMatchMag);
+inputGotoMag.addEventListener("input", setScaleInputToMatchMag);
+inputGotoMag.addEventListener("propertychange", setScaleInputToMatchMag);
+inputGotoMag.addEventListener("paste", setScaleInputToMatchMag);
 
 function applyNIterationsValue() {
   const newN = parseInt(inputNIterations.value.replaceAll(",", ""));

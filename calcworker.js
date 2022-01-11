@@ -38,6 +38,7 @@ const allCachedIndicesArray = [-1];
 //   - when pass is complete, repeat if there's another pass
 
 const windowCalc = {
+  "timeout": null,
   "plot": null,
   "pointCalcFunction": null,
   "eachPixUnits": null,
@@ -76,6 +77,23 @@ const windowCalc = {
   "passBlaPixels": null,
   "passBlaIterationsSkipped": null,
   "passBlaSkips": null,
+  "setupStage": null,
+  "setupStageState": null,
+  "setupStageIsStarted": null,
+  "setupStageIsFinished": null
+};
+
+// long-running setup tasks are split in chunks, and we use the state
+//   to, after a setTimeout() callback, resume the current task or
+//   move to and begin the next task
+const setupStages = {
+  checkRefOrbit: 0,
+  calcRefOrbit: 1,
+  checkBlaCoeff: 2,
+  calcBlaCoeff: 3,
+  checkSaCoeff: 4,
+  calcSaCoeff: 5,
+  done: 6
 };
 
 self.onmessage = function(e) {
@@ -147,144 +165,269 @@ function runCalc(msg) {
     windowCalc.referenceBlaTables = null;
     windowCalc.saCoefficients = null;
 
+    // since the basic algorithm has no setup tasks, we just start here
+    calculatePass();
+
   // if we are using perturbation theory, we'll now calculate the
   //   reference point and its full orbit (which will be used for
   //   all chunks in all passes)
   } else {
-    sendStatusMessage("Calculating reference orbit");
+    if (windowCalc.timeout != null) {
+      clearTimeout(windowCalc.timeout);
+    }
+    windowCalc.timeout = setTimeout(kickoffSetupTasks, 250);
+  }
+};
 
-    // start with middle of window for reference point (doesn't have to
-    //   exactly align with a pixel)
-    let newReferencePx = infNumAdd(windowCalc.edges.left, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)), 0n)));
-    let newReferencePy = infNumAdd(windowCalc.edges.bottom, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)), 0n)));
+function setupCheckReferenceOrbit() {
+  sendStatusMessage("Finding reference point");
 
-    let refPointHasMoved = false;
-    if (windowCalc.referencePx === null || windowCalc.referencePy === null) {
+  // start with middle of window for reference point (doesn't have to
+  //   exactly align with a pixel)
+  let newReferencePx = infNumAdd(windowCalc.edges.left, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)), 0n)));
+  let newReferencePy = infNumAdd(windowCalc.edges.bottom, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)), 0n)));
+
+  let refPointHasMoved = false;
+  if (windowCalc.referencePx === null || windowCalc.referencePy === null) {
+    refPointHasMoved = true;
+  } else {
+    // check difference between this and previous x position
+    let xDiff = infNumSub(windowCalc.referencePx, newReferencePx);
+    let yDiff = infNumSub(windowCalc.referencePy, newReferencePy);
+    let squaredDiff = infNumAdd(infNumMul(xDiff, xDiff), infNumMul(yDiff, yDiff));
+
+    // 5% of pixel width move (radius) is allowable
+    let maxAllowablePixelsMove = Math.ceil(windowCalc.canvasWidth * 0.05);
+    let maxAllowableMove = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(maxAllowablePixelsMove), 0n));
+    // square this as well
+    maxAllowableMove = infNumMul(maxAllowableMove, maxAllowableMove);
+
+    if (infNumGt(squaredDiff, maxAllowableMove)) {
       refPointHasMoved = true;
+      console.log("the previous ref orbit is NOT within [" + maxAllowablePixelsMove + "] pixels, so we need a new ref orbit");
     } else {
-      // check difference between this and previous x position
-      let xDiff = infNumSub(windowCalc.referencePx, newReferencePx);
-      let yDiff = infNumSub(windowCalc.referencePy, newReferencePy);
-      let squaredDiff = infNumAdd(infNumMul(xDiff, xDiff), infNumMul(yDiff, yDiff));
-
-      // 5% of pixel width move (radius) is allowable
-      let maxAllowablePixelsMove = Math.ceil(windowCalc.canvasWidth * 0.05);
-      let maxAllowableMove = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(maxAllowablePixelsMove), 0n));
-      // square this as well
-      maxAllowableMove = infNumMul(maxAllowableMove, maxAllowableMove);
-
-      if (infNumGt(squaredDiff, maxAllowableMove)) {
-        refPointHasMoved = true;
-        console.log("the previous ref orbit is NOT within [" + maxAllowablePixelsMove + "] pixels, so we need a new ref orbit");
-      } else {
-        console.log("the previous ref orbit is within [" + maxAllowablePixelsMove + "] pixels, so it's still valid");
-      }
-    }
-
-    if (windowCalc.referenceOrbitN === null || windowCalc.referenceOrbitN < windowCalc.n ||
-        windowCalc.referenceOrbitPrecision === null || windowCalc.referenceOrbitPrecision / windowCalc.precision < 0.98 ||
-        windowCalc.referenceOrbit === null || refPointHasMoved) {
-
-      // since SA and BLA computed coefficients/terms are dependent on
-      //   the ref orbit, wipe those when we calculate a new ref orbit
-      windowCalc.saCoefficients = null;
-      windowCalc.referenceBlaTables = null;
-
-      let refOrbitCalcContext = null;
-      while (refOrbitCalcContext === null || !refOrbitCalcContext.done) {
-        refOrbitCalcContext = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, newReferencePx, newReferencePy, refOrbitCalcContext);
-        sendStatusMessage(refOrbitCalcContext.status);
-      }
-      let referenceOrbit = refOrbitCalcContext.orbit;
-
-      // move around a little to try other points that may orbit for longer
-      //   (this is slow and doesn't seem to be the actual problem, and is
-      //   probably not necessary at all)
-      // TODO: use percentage of window size to try points evenly spaced in
-      //         the window
-      console.log("calculated new middle reference orbit, with [" + referenceOrbit.length + "] iterations, for point:");
-      console.log("referencePx: " + infNumToString(newReferencePx));
-      console.log("referencePy: " + infNumToString(newReferencePy));
-
-      const findLongerReferenceOrbit = false;
-      if (findLongerReferenceOrbit) {
-        for (let xPixMove = -5; xPixMove < 6; xPixMove++) {
-          for (let yPixMove = -5; yPixMove < 6; yPixMove++) {
-            let testPx = infNumAdd(windowCalc.edges.left, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)+(xPixMove*10)), 0n)));
-            let testPy = infNumAdd(windowCalc.edges.bottom, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)+(yPixMove*10)), 0n)));
-            let testOrbit = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, testPx, testPy);
-            if (testOrbit.length > referenceOrbit.length) {
-              newReferencePx = testPx;
-              newReferencePy = testPy;
-              referenceOrbit =  testOrbit;
-              console.log("calculated better reference orbit, with [" + referenceOrbit.length + "] iterations, for point:");
-              console.log("referencePx: " + infNumToString(newReferencePx));
-              console.log("referencePy: " + infNumToString(newReferencePy));
-            }
-          }
-        }
-      }
-
-      windowCalc.referencePx = newReferencePx;
-      windowCalc.referencePy = newReferencePy;
-      windowCalc.referenceOrbit = referenceOrbit;
-      windowCalc.referenceOrbitN = windowCalc.n;
-      windowCalc.referenceOrbitPrecision = windowCalc.precision;
-
-    } else {
-      console.log("re-using previously-calculated reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
-      console.log("referencePx: " + infNumToString(windowCalc.referencePx));
-      console.log("referencePy: " + infNumToString(windowCalc.referencePy));
-    }
-
-    // if we are using bivariate linear approximation, and we haven't already
-    //   calculated them based on the ref orbit, calculate the coefficients
-    if (windowCalc.algorithm.includes("bla-")) {
-      if (windowCalc.referenceBlaTables === null ||
-          // not sure how changing N (max iterations) affects BLA coefficients,
-          //   so just require a full re-compute for now if it has changed
-          windowCalc.n !== windowCalc.referenceBlaN) {
-        sendStatusMessage("Calculating BLA coefficient tables");
-        windowCalc.referenceBlaN = windowCalc.n;
-        windowCalc.referenceBlaTables = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, windowCalc.referenceOrbit);
-      } else {
-        console.log("re-using previously-calculated BLA coefficient tables");
-      }
-    }
-
-    if (windowCalc.algorithm.includes("sapx")) {
-      // regardless of whether we re-use the reference orbit, we have to re-calculate
-      //   series approximation coefficients if any window edge has moved (it's probably
-      //   true that if the edges have only slightly moved, the test points in the
-      //   window would only be slightly different, and may still be valid, but that
-      //   would require some testing)
-      if (windowCalc.saCoefficients === null || windowCalc.saCoefficientsEdges === null ||
-          // not sure how changing N (max iterations) affects SA coefficients,
-          //   so just require a full re-compute for now if it has changed
-          windowCalc.n !== windowCalc.saCoefficientsN ||
-          !infNumEq(windowCalc.edges.left, windowCalc.saCoefficientsEdges.left) ||
-          !infNumEq(windowCalc.edges.right, windowCalc.saCoefficientsEdges.right) ||
-          !infNumEq(windowCalc.edges.top, windowCalc.saCoefficientsEdges.top) ||
-          !infNumEq(windowCalc.edges.bottom, windowCalc.saCoefficientsEdges.bottom)) {
-        sendStatusMessage("Calculating and testing SA coefficients");
-        windowCalc.saCoefficientsN = windowCalc.n;
-        windowCalc.saCoefficientsEdges = structuredClone(windowCalc.edges);
-        windowCalc.saCoefficients = plotsByName[windowCalc.plot].computeSaCoefficients(windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, windowCalc.edges);
-      } else {
-        console.log("re-using previously-calculated SA coefficients");
-      }
-    } else {
-      // no need to wipe these... in the future, if SA can be easily toggled on/off by
-      //   the user, we'd want to re-use these if the window hasn't moved since when
-      //   these were calculated
-      //windowCalc.saCoefficients = null;
+      console.log("the previous ref orbit is within [" + maxAllowablePixelsMove + "] pixels, so it's still valid");
     }
   }
 
-  calculatePass();
-};
+  if (windowCalc.referenceOrbitN === null || windowCalc.referenceOrbitN < windowCalc.n ||
+      windowCalc.referenceOrbitPrecision === null || windowCalc.referenceOrbitPrecision / windowCalc.precision < 0.98 ||
+      windowCalc.referenceOrbit === null || refPointHasMoved) {
+    windowCalc.referencePx = newReferencePx;
+    windowCalc.referencePy = newReferencePy;
+    // wipe this to signal to next stage that the reference orbit
+    //   needs to be calculated
+    windowCalc.referenceOrbit = null;
+    // since SA and BLA computed coefficients/terms are dependent on
+    //   the ref orbit, wipe those when we calculate a new ref orbit
+    windowCalc.saCoefficients = null;
+    windowCalc.referenceBlaTables = null;
+  } else {
+    console.log("re-using previously-calculated reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
+    console.log("referencePx: " + infNumToString(windowCalc.referencePx));
+    console.log("referencePy: " + infNumToString(windowCalc.referencePy));
+    // no need to calculate a new reference orbit
+    return false;
+  }
+  // we need to calculate a new reference orbit
+  return true;
+}
+
+function setupReferenceOrbit(state) {
+  if (state === null || !state.done) {
+    state = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, state);
+    sendStatusMessage(state.status);
+  }
+  if (state.done) {
+    windowCalc.referenceOrbit = state.orbit;
+    windowCalc.referenceOrbitN = windowCalc.n;
+    windowCalc.referenceOrbitPrecision = windowCalc.precision;
+    console.log("calculated new middle reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
+    console.log("referencePx: " + infNumToString(windowCalc.referencePx));
+    console.log("referencePy: " + infNumToString(windowCalc.referencePy));
+  }
+  return state;
+}
+
+function setupCheckBlaCoefficients() {
+  // if we are using bivariate linear approximation, and we haven't already
+  //   calculated them based on the ref orbit, calculate the coefficients
+  if (windowCalc.algorithm.includes("bla-")) {
+    if (windowCalc.referenceBlaTables === null ||
+        // not sure how changing N (max iterations) affects BLA coefficients,
+        //   so just require a full re-compute for now if it has changed
+        windowCalc.n !== windowCalc.referenceBlaN) {
+      return true;
+    } else {
+      console.log("re-using previously-calculated BLA coefficient tables");
+    }
+  }
+  // no need to calculate BLA coefficients
+  return false;
+}
+
+function setupBlaCoefficients(state) {
+  if (state === null || !state.done) {
+    if (state === null) {
+      windowCalc.referenceBlaTables === null;
+      sendStatusMessage("Calculating BLA coefficient tables");
+    }
+    state = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, windowCalc.referenceOrbit, state);
+    sendStatusMessage(state.status);
+  }
+  if (state.done) {
+    windowCalc.referenceBlaN = windowCalc.n;
+    windowCalc.referenceBlaTables = state.blaTables;
+  }
+  return state;
+}
+
+function setupCheckSaCoefficients() {
+  if (windowCalc.algorithm.includes("sapx")) {
+    // regardless of whether we re-use the reference orbit, we have to re-calculate
+    //   series approximation coefficients if any window edge has moved (it's probably
+    //   true that if the edges have only slightly moved, the test points in the
+    //   window would only be slightly different, and may still be valid, but that
+    //   would require some testing)
+    if (windowCalc.saCoefficients === null || windowCalc.saCoefficientsEdges === null ||
+        // not sure how changing N (max iterations) affects SA coefficients,
+        //   so just require a full re-compute for now if it has changed
+        windowCalc.n !== windowCalc.saCoefficientsN ||
+        !infNumEq(windowCalc.edges.left, windowCalc.saCoefficientsEdges.left) ||
+        !infNumEq(windowCalc.edges.right, windowCalc.saCoefficientsEdges.right) ||
+        !infNumEq(windowCalc.edges.top, windowCalc.saCoefficientsEdges.top) ||
+        !infNumEq(windowCalc.edges.bottom, windowCalc.saCoefficientsEdges.bottom)) {
+      return true;
+    } else {
+      console.log("re-using previously-calculated SA coefficients");
+    }
+  } else {
+    // no need to wipe these... in the future, if SA can be easily toggled on/off by
+    //   the user, we'd want to re-use these if the window hasn't moved since when
+    //   these were calculated
+    //windowCalc.saCoefficients = null;
+  }
+  // no need to calculate SA coefficients
+  return false;
+}
+
+function setupSaCoefficients(state) {
+  if (state === null || !state.done) {
+    if (state === null) {
+      windowCalc.saCoefficients === null;
+      sendStatusMessage("Calculating and testing SA coefficients");
+    }
+    state = plotsByName[windowCalc.plot].computeSaCoefficients(windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, windowCalc.edges, state);
+    sendStatusMessage(state.status);
+  }
+  if (state.done) {
+    windowCalc.saCoefficientsN = windowCalc.n;
+    windowCalc.saCoefficientsEdges = structuredClone(windowCalc.edges);
+    windowCalc.saCoefficients = state.saCoefficients;
+  }
+  return state;
+}
+
+function kickoffSetupTasks() {
+  if (windowCalc.timeout != null) {
+    clearTimeout(windowCalc.timeout);
+  }
+  windowCalc.setupStage = 0;
+  windowCalc.timeout = setInterval(runSetupTasks, 5);
+}
+
+function runSetupTasks() {
+  if (windowCalc.stopped || windowCalc.setupStage >= setupStages.done) {
+    if (windowCalc.timeout != null) {
+      clearTimeout(windowCalc.timeout);
+    }
+    if (!windowCalc.stopped) {
+      calculatePass();
+    }
+    return;
+
+  // =============================================================
+  } else if (windowCalc.setupStage === setupStages.checkRefOrbit) {
+    if (!setupCheckReferenceOrbit()) {
+      // increment an extra time here to skip the next stage, since
+      //   we don't need to run it
+      windowCalc.setupStage++;
+    }
+    windowCalc.setupStageIsFinished = true;
+
+  // =============================================================
+  } else if (windowCalc.setupStage === setupStages.calcRefOrbit) {
+    if (!windowCalc.setupStageIsStarted) {
+      windowCalc.setupStageState = null;
+      windowCalc.setupStageIsStarted = true;
+    }
+    if (!windowCalc.setupStageIsFinished) {
+      windowCalc.setupStageState = setupReferenceOrbit(windowCalc.setupStageState);
+    }
+    if (windowCalc.setupStageState.done) {
+      windowCalc.setupStageIsFinished = true;
+    }
+
+  // ==============================================================    
+  } else if (windowCalc.setupStage === setupStages.checkBlaCoeff) {
+    if (!setupCheckBlaCoefficients()) {
+      // increment an extra time here to skip the next stage, since
+      //   we don't need to run it
+      windowCalc.setupStage++;
+    }
+    windowCalc.setupStageIsFinished = true;
+
+  // =============================================================
+  } else if (windowCalc.setupStage === setupStages.calcBlaCoeff) {
+    if (!windowCalc.setupStageIsStarted) {
+      windowCalc.setupStageState = null;
+      windowCalc.setupStageIsStarted = true;
+    }
+    if (!windowCalc.setupStageIsFinished) {
+      windowCalc.setupStageState = setupBlaCoefficients(windowCalc.setupStageState);
+    }
+    if (windowCalc.setupStageState.done) {
+      windowCalc.setupStageIsFinished = true;
+    }
+
+  // =============================================================
+  } else if (windowCalc.setupStage === setupStages.checkSaCoeff) {
+    if (!setupCheckSaCoefficients()) {
+      // increment an extra time here to skip the next stage, since
+      //   we don't need to run it
+      windowCalc.setupStage++;
+    }
+    windowCalc.setupStageIsFinished = true;
+
+  // ============================================================
+  } else if (windowCalc.setupStage === setupStages.calcSaCoeff) {
+    if (!windowCalc.setupStageIsStarted) {
+      windowCalc.setupStageState = null;
+      windowCalc.setupStageIsStarted = true;
+    }
+    if (!windowCalc.setupStageIsFinished) {
+      windowCalc.setupStageState = setupSaCoefficients(windowCalc.setupStageState);
+    }
+    if (windowCalc.setupStageState.done) {
+      windowCalc.setupStageIsFinished = true;
+    }
+
+  } else {
+    console.log("unexpected calcworker setup stage [" + windowCalc.setupStage + "]... stopping setup");
+    windowCalc.setupStage = setupStages.done;
+  }
+  // move to the next stage if this stage has been marked as finished
+  if (windowCalc.setupStageIsFinished) {
+    windowCalc.setupStageIsStarted = false;
+    windowCalc.setupStageIsFinished = false;
+    windowCalc.setupStage++;
+  }
+}
 
 function stopAndRemoveAllWorkers() {
+  if (windowCalc.timeout != null) {
+    clearTimeout(windowCalc.timeout);
+  }
   if (windowCalc.workers === null) {
     return;
   }

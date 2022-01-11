@@ -200,7 +200,12 @@ function calculateReferenceOrbit() {
   //   exactly align with a pixel)
   windowCalc.referencePx = infNumAdd(windowCalc.leftEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(dCanvas.width/2)), 0n)));
   windowCalc.referencePy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(dCanvas.height/2)), 0n)));
-  windowCalc.referenceOrbit = plotsByName[historyParams.plot].computeReferenceOrbit(windowCalc.n, precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy);
+  let refOrbitCalcContext = null;
+  while (refOrbitCalcContext === null || !refOrbitCalcContext.done) {
+    refOrbitCalcContext = plotsByName[historyParams.plot].computeReferenceOrbit(windowCalc.n, precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, refOrbitCalcContext);
+    drawStatusNotice(refOrbitCalcContext.status);
+  }
+  windowCalc.referenceOrbit = refOrbitCalcContext.orbit;
 
   console.log("calculated middle reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
   console.log("referencePx: " + infNumToString(windowCalc.referencePx));

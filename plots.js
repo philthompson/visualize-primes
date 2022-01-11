@@ -300,71 +300,6 @@ const plots = [{
     }
   },
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeReferenceOrbitOneShot": function(n, precis, algorithm, x, y) {
-
-    const outputMath = algorithm.includes("arbprecis") ?
-      infNumMath
-      :
-      (algorithm.includes("floatexp") ?
-        floatExpMath
-        :
-        floatMath
-      );
-    const outputIsFloatExp = outputMath.name == "floatexp";
-
-    let orbit = [];
-
-    const maxIter = n;
-    const two = infNum(2n, 0n);
-    const four = infNum(4n, 0n);
-    const sixteen = infNum(16n, 0n);
-    // try using slightly larger bailout (4) for ref orbit
-    //   than for perturb orbit (which uses smallest possible
-    //   bailout of 2)
-    const bailoutSquared = sixteen;
-
-    // the coords used for iteration
-    var ix = infNum(0n, 0n);
-    var iy = infNum(0n, 0n);
-    var ixSq = infNum(0n, 0n);
-    var iySq = infNum(0n, 0n);
-    var ixTemp = infNum(0n, 0n);
-    var iter = 0;
-    var statusIterCounter = 0;
-    try {
-      while (iter < maxIter) {
-        ixSq = infNumMul(ix, ix);
-        iySq = infNumMul(iy, iy);
-        if (infNumGt(infNumAdd(ixSq, iySq), bailoutSquared)) {
-          break;
-        }
-        orbit.push({
-          x: outputMath.createFromInfNum(ix),
-          y: outputMath.createFromInfNum(iy),
-          // if needed, include floatexp x and y as well, for SA coefficients calc
-          xfxp: outputIsFloatExp ? null : floatExpMath.createFromInfNum(ix),
-          yfxp: outputIsFloatExp ? null : floatExpMath.createFromInfNum(iy)
-        });
-        ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
-        iy = infNumAdd(y, infNumMul(two, infNumMul(ix, iy)));
-        ix = copyInfNum(ixTemp);
-        ix = infNumTruncateToLen(ix, precis);
-        iy = infNumTruncateToLen(iy, precis);
-        iter++;
-        statusIterCounter++;
-        if (statusIterCounter >= 5000) {
-          statusIterCounter = 0;
-          console.log("computed " + (Math.round(iter * 10000.0 / maxIter)/100.0) + "% of reference orbit");
-        }
-      }
-
-      return orbit;
-    } catch (e) {
-      console.log("ERROR CAUGHT when computing reference orbit at point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
-      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
-      return orbit;
-    }
-  },
   "computeReferenceOrbit": function(n, precis, algorithm, x, y, fnContext) {
 
     const outputMath = algorithm.includes("arbprecis") ?
@@ -440,7 +375,7 @@ const plots = [{
       return fnContext;
     }
   },
-  "computeSaCoefficients": function(precision, algorithm, referenceX, referenceY, referenceOrbit, windowEdges) {
+  "computeSaCoefficients": function(precision, algorithm, referenceX, referenceY, referenceOrbit, windowEdges, fnContext) {
     // always use FloatExp for SA coefficients
     const math = floatExpMath;
 
@@ -454,75 +389,90 @@ const plots = [{
       );
     const algoMathIsFloatExp = algoMath.name == "floatexp";
 
-    let nTerms = 0;
-    // parse out number of series approximation terms from the algorithm name
-    const algoSplit = algorithm.split("-");
-    for (let i = 0; i < algoSplit.length; i++) {
-      if (algoSplit[i].startsWith("sapx")) {
-        nTerms = parseInt(algoSplit[i].substring(4));
-        break;
+    // fnContext allows the loop to be done piecemeal
+    if (fnContext === null) {
+      let nTerms = 0;
+      // parse out number of series approximation terms from the algorithm name
+      const algoSplit = algorithm.split("-");
+      for (let i = 0; i < algoSplit.length; i++) {
+        if (algoSplit[i].startsWith("sapx")) {
+          nTerms = parseInt(algoSplit[i].substring(4));
+          break;
+        }
       }
-    }
-    if (nTerms > 128) {
-      nTerms = 128;
+      if (nTerms > 128) {
+        nTerms = 128;
+      }
+
+      // calculate test points
+      let testPoints = [];
+      // divisions per dimension
+      // 1 -> test 4 corners only
+      // 2 -> test 4 corners, 4 edge middles, and image center
+      // 3 -> test 4 points along top edge, 4 points across at 1/3 down from top,
+      //           4 points across at 2/3 down from top, and 4 points along bottom edge
+      // 4 -> test 5 points along top edge ...
+      const dimDiv = 3;
+      let px = windowEdges.left;
+      let py = windowEdges.top;
+      let xStep = infNumDiv(infNumSub(windowEdges.right, windowEdges.left), infNum(BigInt(dimDiv), 0n), precision);
+      let yStep = infNumDiv(infNumSub(windowEdges.top, windowEdges.bottom), infNum(BigInt(dimDiv), 0n), precision);
+      // note <= in loop conditions here -- we want to span edge to edge
+      //   inclusive of both edges
+      for (let i = 0; i <= dimDiv; i++) {
+        for (let j = 0; j <= dimDiv; j++) {
+          testPoints.push({
+            x: copyInfNum(px),
+            y: copyInfNum(py)
+          });
+          py = infNumAdd(py, yStep);
+        }
+        px = infNumAdd(px, xStep);
+      }
+
+      // initialize terms to 0, at 0th iteration ...
+      let terms = new Array(nTerms).fill({x:math.zero, y:math.zero});
+      // ... except for 'A' term, which is initialized to 1
+      terms[0] = {x:math.one, y:math.zero};
+
+      fnContext = {
+        nTerms: nTerms,
+        // for coefficients to be valid at an iteration, they
+        //   need to be getting much smaller (one example is,
+        ///  when read from left to right, from the Nth term
+        //   to the N+1th term)
+        // this is spelled out in a more exact fashion here:
+        // https://www.fractalforums.com/index.php?topic=18482.msg74200#msg74200
+        // this is the "several orders of magnitude" the smallest term in
+        //   the first group must be than the largest term in the second group
+        //
+        // since the values being compared are squared, we must
+        //   square this also
+        termShrinkCutoff: math.createFromNumber(1000*1000),
+        testPoints: testPoints,
+
+        terms: terms,
+
+        // start this negative, so we can tell when all iterations are valid
+        itersToSkip: -1,
+
+        refOrbitIter: 0,
+
+        saCoefficients: {itersToSkip:0, coefficients:[]},
+
+        status: "",
+        done: false
+      };
     }
 
-    if (nTerms <= 0) {
+    if (fnContext.nTerms <= 0) {
       console.log("series approximation has 0 or fewer terms in the algorithm name [" + algorithm + "], so NOT doing SA");
-      return {itersToSkip:0, coefficients:[]};
+      fnContext.done = true;
+      return fnContext;
     }
-
-    // for coefficients to be valid at an iteration, they
-    //   need to be getting much smaller (one example is,
-    ///  when read from left to right, from the Nth term
-    //   to the N+1th term)
-    // this is spelled out in a more exact fashion here:
-    // https://www.fractalforums.com/index.php?topic=18482.msg74200#msg74200
-    // this is the "several orders of magnitude" the smallest term in
-    //   the first group must be than the largest term in the second group
-    //
-    // since the values being compared are squared, we must
-    //   square this also
-    const termShrinkCutoff = math.createFromNumber(1000*1000);
-
-    // calculate test points
-    const testPoints = [];
-    // divisions per dimension
-    // 1 -> test 4 corners only
-    // 2 -> test 4 corners, 4 edge middles, and image center
-    // 3 -> test 4 points along top edge, 4 points across at 1/3 down from top,
-    //           4 points across at 2/3 down from top, and 4 points along bottom edge
-    // 4 -> test 5 points along top edge ...
-    const dimDiv = 3;
-    let px = windowEdges.left;
-    let py = windowEdges.top;
-    let xStep = infNumDiv(infNumSub(windowEdges.right, windowEdges.left), infNum(BigInt(dimDiv), 0n), precision);
-    let yStep = infNumDiv(infNumSub(windowEdges.top, windowEdges.bottom), infNum(BigInt(dimDiv), 0n), precision);
-    // note <= in loop conditions here -- we want to span edge to edge
-    //   inclusive of both edges
-    for (let i = 0; i <= dimDiv; i++) {
-      for (let j = 0; j <= dimDiv; j++) {
-        testPoints.push({
-          x: copyInfNum(px),
-          y: copyInfNum(py)
-        });
-        py = infNumAdd(py, yStep);
-      }
-      px = infNumAdd(px, xStep);
-    }
-
-    // ... do these need to be calculated with arbitrary precision?
 
     let twoRefIter = null;
-
-    // initialize terms to 0, at 0th iteration ...
-    const terms = new Array(nTerms).fill({x:math.zero, y:math.zero});
-    // ... except for 'A' term, which is initialized to 1
-    terms[0] = {x:math.one, y:math.zero};
-
-    const nextTerms = new Array(nTerms);
-    // start this negative, so we can tell when all iterations are valid
-    let itersToSkip = -1;
+    const nextTerms = new Array(fnContext.nTerms);
 
     // from sft_maths.pdf (original K. I. Martin perturbation theory and series approximation document)
     // An+1 = 2XnAn + 1
@@ -537,7 +487,9 @@ const plots = [{
 
     // iterate through ref orbit, stopping once SA is no longer valid for any
     //   single test point
-    for (let i = 0; i < referenceOrbit.length; i++) {
+    let i = fnContext.refOrbitIter;
+    let statusIterCounter = 0;
+    for (; i < referenceOrbit.length; i++) {
 
       // this only works if the reference orbit is floatexp... have to use pre-converted
       //   values if using "...-float" or "...-arbprecis" algo
@@ -547,33 +499,33 @@ const plots = [{
         math.complexRealMul({x:referenceOrbit[i].xfxp, y:referenceOrbit[i].yfxp}, math.two)
 
       // compute next iteration of all terms
-      for (let k = 0; k < nTerms; k++) {
+      for (let k = 0; k < fnContext.nTerms; k++) {
 
         // special case for 0th term (A)
         if (k === 0) {
-          nextTerms[k] = math.complexRealAdd(math.complexMul(twoRefIter, terms[k]), math.one);
+          nextTerms[k] = math.complexRealAdd(math.complexMul(twoRefIter, fnContext.terms[k]), math.one);
 
         } else if (k % 2 === 0) {
-          nextTerms[k] = math.complexMul(twoRefIter, terms[k]);
+          nextTerms[k] = math.complexMul(twoRefIter, fnContext.terms[k]);
           // notice continue condition is "up<dn" here
           for (let up = 0, dn = k-1; up<dn; up++, dn--) {
             nextTerms[k] = math.complexAdd(nextTerms[k],
-              math.complexRealMul(math.complexMul(terms[up], terms[dn]), math.two)
+              math.complexRealMul(math.complexMul(fnContext.terms[up], fnContext.terms[dn]), math.two)
             );
           }
 
         // odd (B=1, D=3) terms end in squared term
         } else {
-          nextTerms[k] = math.complexMul(twoRefIter, terms[k]);
+          nextTerms[k] = math.complexMul(twoRefIter, fnContext.terms[k]);
           // notice continue condition is "up<=dn" here
           for (let up = 0, dn = k-1; up<=dn; up++, dn--) {
-            if (up===dn) {
+            if (up === dn) {
               nextTerms[k] = math.complexAdd(nextTerms[k],
-                math.complexMul(terms[up], terms[dn]) // since up=dn here, we are squaring that coefficient
+                math.complexMul(fnContext.terms[up], fnContext.terms[dn]) // since up=dn here, we are squaring that coefficient
               );
             } else {
               nextTerms[k] = math.complexAdd(nextTerms[k],
-                math.complexRealMul(math.complexMul(terms[up], terms[dn]), math.two)
+                math.complexRealMul(math.complexMul(fnContext.terms[up], fnContext.terms[dn]), math.two)
               );
             }
           }
@@ -582,17 +534,17 @@ const plots = [{
 
       let validTestPoints = 0;
       // check for iters to skip for all calculated test points
-      for (let p = 0; p < testPoints.length; p++) {
+      for (let p = 0; p < fnContext.testPoints.length; p++) {
 
         let deltaC = {
-          x: math.createFromInfNum(infNumSub(testPoints[p].x, referenceX)),
-          y: math.createFromInfNum(infNumSub(testPoints[p].y, referenceY))
+          x: math.createFromInfNum(infNumSub(fnContext.testPoints[p].x, referenceX)),
+          y: math.createFromInfNum(infNumSub(fnContext.testPoints[p].y, referenceY))
         };
 
         let coefTermsAreValid = false;
         // check validity of iteration coefficients
         // splitting terms into two groups, so start from one
-        for (let j = 1; j < nTerms; j++) {
+        for (let j = 1; j < fnContext.nTerms; j++) {
           let deltaCpower = structuredClone(deltaC);
           let firstSmallest = null;
           let secondLargest = null;
@@ -610,7 +562,7 @@ const plots = [{
             deltaCpower = math.complexMul(deltaCpower, deltaC);
           }
           // find largest term in 2nd group for test point
-          for (let k = j; k < nTerms; k++) {
+          for (let k = j; k < fnContext.nTerms; k++) {
             // no need to actually take square root of sum of squares
             //   to do the size comparison
             let wholeTerm = math.complexAbsSquared(math.complexMul(deltaCpower, nextTerms[k]));
@@ -634,7 +586,7 @@ const plots = [{
           }
           let ratio = math.div(firstSmallest, secondLargest);
           //if (secondLargest.v === 0n || infNumGt(infNumDiv(firstSmallest, secondLargest, 8), termShrinkCutoff)) {
-          if (math.gt(ratio, termShrinkCutoff)) {
+          if (math.gt(ratio, fnContext.termShrinkCutoff)) {
             coefTermsAreValid = true;
             // once we have a valid point at which to create two comparison groups,
             //   we don't need to test any other groupings
@@ -649,6 +601,7 @@ const plots = [{
         if (coefTermsAreValid) {
           validTestPoints++;
         } else {
+          console.log("piecemeal test point [" + p + "] is not valid at iteraition [" + i + "]");
           // if the coefficients at this iteration were not valid for any single test point
           //   we don't need to keep trying the other points
           break;
@@ -658,30 +611,34 @@ const plots = [{
       // if the coefficients at this iteration were not valid for any single test point
       //   we will return the previous iteration (since that was the last one where
       //   coefficients were valid for ALL test points)
-      if (validTestPoints < testPoints.length) {
+      if (validTestPoints < fnContext.testPoints.length) {
         // at i=0, if none are valid, we'll return 0 (we can skip 0 iterations)
         // at i=1, if none are valid, we'll return 1 (we can skip 1 iteration)
         // ...
-        itersToSkip = i;
+        fnContext.itersToSkip = i;
+        fnContext.done = true;
+        console.log("piecemeal stopping with [" + i + "] valid iterations");
         // break before copying nextTerms into terms (since the previous
         //   terms are the last valid terms)
         break;
       }
 
-      if (i % 10000 === 0) {
-        console.log("all test points are valid for skipping [" + (i).toLocaleString() + "] iterations");
-      }
-
       // if the coefficients are valid for all test points, we can skip i+1 iterations,
       //   so continue on and test the next iteration
-      for (let j = 0; j < terms.length; j++) {
+      for (let j = 0; j < fnContext.nTerms; j++) {
         // out of desperation, seeing if cloning this is needed
-        //terms[j] = nextTerms[j];
-        terms[j] = structuredClone(nextTerms[j]);
-        //terms[j] = {
-        //  x: structuredClone(nextTerms[j].x),
-        //  y: structuredClone(nextTerms[j].y)
-        //};
+        fnContext.terms[j] = nextTerms[j];
+        //fnContext.terms[j] = structuredClone(nextTerms[j]);
+      }
+
+      statusIterCounter++;
+      if (statusIterCounter >= 10000) {
+        fnContext.status = "can skip " + (Math.round(i * 10000.0 / referenceOrbit.length)/100.0) + "% of reference orbit";
+        console.log("all test points are valid for skipping [" + (i).toLocaleString() + "] iterations");
+        // resume this loop later, which means WE NEED TO INCREMENT
+        //   i here
+        fnContext.refOrbitIter = i+1;
+        return fnContext;
       }
     }
 
@@ -697,16 +654,17 @@ const plots = [{
     //  }
     //}
 
-    if (itersToSkip < 0) {
-      console.log("skipping ALL [" + referenceOrbit.length + "] iterations of the reference orbit with [" + terms.length + "]-term SA... hmm...");
-      return {itersToSkip:referenceOrbit.length, coefficients:terms};
+    fnContext.done = true;
+    if (fnContext.itersToSkip < 0) {
+      console.log("able to skip ALL [" + referenceOrbit.length + "] iterations of the reference orbit with [" + fnContext.nTerms + "]-term SA... hmm...");
+      fnContext.saCoefficients = {itersToSkip:referenceOrbit.length, coefficients:fnContext.terms};
     } else {
-      console.log("skipping [" + itersToSkip + "] iterations with [" + terms.length + "]-term SA");
-      return {itersToSkip:itersToSkip, coefficients:terms};
+      console.log("able to skip [" + fnContext.itersToSkip + "] iterations with [" + fnContext.nTerms + "]-term SA");
+      fnContext.saCoefficients = {itersToSkip:fnContext.itersToSkip, coefficients:fnContext.terms};
     }
-
+    return fnContext;
   },
-  "computeBlaTables": function(algorithm, referenceOrbit) {
+  "computeBlaTables": function(algorithm, referenceOrbit, fnContext) {
 
     const math = algorithm.includes("arbprecis") ?
       infNumMath
@@ -717,55 +675,85 @@ const plots = [{
         floatMath
       );
 
-    // since we are using JavaScript float, which is a double-precision
-    //   float, we will use 2^-53 for epsilon here (based on discussion
-    //   here: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806)
-    // actually using 3^-53 for more accuracy
-    // since we only use it when halved, just halve it right away here
-    const epsilon = math.createFromNumber(2 ** -53);
-    const epsilonSquared = math.mul(epsilon, epsilon);
+    if (fnContext === null) {
+      // since we are using JavaScript float, which is a double-precision
+      //   float, we will use 2^-53 for epsilon here (based on discussion
+      //   here: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806)
+      // actually using 3^-53 for more accuracy
+      // since we only use it when halved, just halve it right away here
+      const epsilon = math.createFromNumber(2 ** -53);
+      const epsilonSquared = math.mul(epsilon, epsilon);
+
+      fnContext = {
+        epsilonSquared: epsilonSquared,
+
+        blaTables: {
+          coefTable: new Map(),
+          epsilonRefAbsTable: new Map()
+        },
+
+        a: {x:math.one, y:math.zero},
+        b: {x:math.zero, y:math.zero},
+
+        blaCoeffIter: 0,
+        epsRefOrbitIter: 0,
+
+        status: "",
+        done: false
+      };
+    }
 
     // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
 
-    let blaTable = new Map();
-
     // compute coefficients for each possible number of iterations to skip, from 1 to n
-    let a = {x:math.one, y:math.zero};
-    let b = {x:math.zero, y:math.zero};
+    let a = fnContext.a;
+    let b = fnContext.b;
     let refDoubled = null;
     let statusIterCounter = 0;
     let maxIter = referenceOrbit.length - 2;
-    for (let l = 1; l < maxIter; l++) {
+    let l = fnContext.blaCoeffIter;
+    for (; l < maxIter; l++) {
       refDoubled = math.complexRealMul(referenceOrbit[l], math.two);
       a = math.complexMul(refDoubled, a);
       b = math.complexAdd(math.complexMul(refDoubled, b), {x:math.one, y:math.zero});
-      blaTable.set(l, {
+      fnContext.blaTables.coefTable.set(l, {
         a:    a,
         aAbs: math.complexAbs(a),
         b:    b,
         bAbs: math.complexAbs(b)
       });
       statusIterCounter++;
-      if (statusIterCounter >= 5000) {
-        statusIterCounter = 0;
-        console.log("computed " + (Math.round(l * 10000.0 / maxIter)/100.0) + "% of BLA coefficients");
+      if (statusIterCounter >= 10000) {
+        // resume this loop later, which means WE NEED TO INCREMENT
+        //   i here
+        fnContext.blaCoeffIter = l+1;
+        fnContext.status = "computed " + (Math.round(l * 10000.0 / maxIter)/100.0) + "% of BLA coefficients";
+        console.log(fnContext.status);
+        return fnContext;
       }
     }
+    fnContext.blaCoeffIter = l;
 
-    let epsilonRefAbsTable = new Map();
     statusIterCounter = 0;
     maxIter = referenceOrbit.length;
-    for (let i = 0; i < maxIter; i++) {
+    let i = fnContext.epsRefOrbitIter;
+    for (; i < maxIter; i++) {
       //epsilonRefAbsTable.set(i, math.mul(epsilonSquared, math.complexAbs(referenceOrbit[i])));
-      epsilonRefAbsTable.set(i, math.complexAbs(referenceOrbit[i]));
+      fnContext.blaTables.epsilonRefAbsTable.set(i, math.complexAbs(referenceOrbit[i]));
       statusIterCounter++;
-      if (statusIterCounter >= 5000) {
-        statusIterCounter = 0;
-        console.log("computed " + (Math.round(i * 10000.0 / maxIter)/100.0) + "% of BLA epsilon criteria");
+      if (statusIterCounter >= 10000) {
+        // resume this loop later, which means WE NEED TO INCREMENT
+        //   i here
+        fnContext.epsRefOrbitIter = i+1;
+        fnContext.status = "computed " + (Math.round(i * 10000.0 / maxIter)/100.0) + "% of BLA epsilon criteria";
+        console.log(fnContext.status);
+        return fnContext;
       }
     }
+    fnContext.epsRefOrbitIter = i;
+    fnContext.done = true;
 
-    return {coefTable: blaTable, epsilonRefAbsTable: epsilonRefAbsTable};
+    return fnContext;
 
   },
   // x, y, referenceX, and referenceY must be infNum objects of a coordinate in the abstract plane being computed upon

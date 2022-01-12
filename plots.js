@@ -391,18 +391,18 @@ const plots = [{
 
     // fnContext allows the loop to be done piecemeal
     if (fnContext === null) {
-      let nTerms = 0;
-      // parse out number of series approximation terms from the algorithm name
-      const algoSplit = algorithm.split("-");
-      for (let i = 0; i < algoSplit.length; i++) {
-        if (algoSplit[i].startsWith("sapx")) {
-          nTerms = parseInt(algoSplit[i].substring(4));
-          break;
-        }
-      }
-      if (nTerms > 128) {
-        nTerms = 128;
-      }
+      // parse out number of series approximation terms, and number of test
+      //   point divisions, from the algorithm name using format:
+      //   "sapx<terms>[.<test-point-divisions>]"
+      let nTerms = 3;
+      let dimDiv = 3;
+      try {
+        let sapx = algorithm.split("-").find(e => e.startsWith("sapx")).substring(4).split(".");
+        // use BigInt() here because it throws exception for non-integer strings
+        nTerms = Math.max(3, Math.min(128, parseInt(BigInt(sapx[0]).toString())));
+        // 1 division (4 test points) - 7 divisions (64 test points)
+        dimDiv = Math.max(1, Math.min(7, parseInt(BigInt(sapx[1]).toString())));
+      } catch {}
 
       // calculate test points
       let testPoints = [];
@@ -412,7 +412,6 @@ const plots = [{
       // 3 -> test 4 points along top edge, 4 points across at 1/3 down from top,
       //           4 points across at 2/3 down from top, and 4 points along bottom edge
       // 4 -> test 5 points along top edge ...
-      const dimDiv = 3;
       let py = windowEdges.top;
       let xStep = infNumDiv(infNumSub(windowEdges.right, windowEdges.left), infNum(BigInt(dimDiv), 0n), precision);
       let yStep = infNumDiv(infNumSub(windowEdges.top, windowEdges.bottom), infNum(BigInt(dimDiv), 0n), precision);
@@ -605,7 +604,7 @@ const plots = [{
         if (coefTermsAreValid) {
           validTestPoints++;
         } else {
-          console.log("piecemeal test point [" + p + "] is not valid at iteraition [" + i + "]");
+          console.log("SA test point [" + p + "] is not valid at iteraition [" + i + "]");
           // if the coefficients at this iteration were not valid for any single test point
           //   we don't need to keep trying the other points
           break;
@@ -621,7 +620,7 @@ const plots = [{
         // ...
         fnContext.itersToSkip = i;
         fnContext.done = true;
-        console.log("piecemeal stopping with [" + i + "] valid iterations");
+        console.log("SA stopping with [" + i + "] valid iterations");
         // break before copying nextTerms into terms (since the previous
         //   terms are the last valid terms)
         break;
@@ -1071,7 +1070,7 @@ const plots = [{
         {algorithm: "perturb-floatexp",                  name: "perturbation theory, floatexp"},
         {algorithm: "perturb-sapx4-floatexp",            name: "perturb. w/series approx., floating point"},
         {algorithm: "perturb-sapx8-floatexp",            name: "perturb. w/series approx., floatexp"},
-        {algorithm: "perturb-sapx16-floatexp-precis128", name: "custom"}
+        {algorithm: "perturb-sapx6.4-floatexp-precis64", name: "custom"}
       ];
     },
     "minScale": createInfNum("20")

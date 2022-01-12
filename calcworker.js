@@ -74,6 +74,7 @@ const windowCalc = {
   "saCoefficients": null,
   "saCoefficientsN": null,
   "saCoefficientsEdges": null,
+  "saCoefficientsParams": null,
   "passBlaPixels": null,
   "passBlaIterationsSkipped": null,
   "passBlaSkips": null,
@@ -284,6 +285,7 @@ function setupBlaCoefficients(state) {
 
 function setupCheckSaCoefficients() {
   if (windowCalc.algorithm.includes("sapx")) {
+    let sapxParams = windowCalc.algorithm.split("-").find(e => e.startsWith("sapx"));
     // regardless of whether we re-use the reference orbit, we have to re-calculate
     //   series approximation coefficients if any window edge has moved (it's probably
     //   true that if the edges have only slightly moved, the test points in the
@@ -293,6 +295,7 @@ function setupCheckSaCoefficients() {
         // not sure how changing N (max iterations) affects SA coefficients,
         //   so just require a full re-compute for now if it has changed
         windowCalc.n !== windowCalc.saCoefficientsN ||
+        windowCalc.saCoefficientsParams === null || windowCalc.saCoefficientsParams != sapxParams ||
         !infNumEq(windowCalc.edges.left, windowCalc.saCoefficientsEdges.left) ||
         !infNumEq(windowCalc.edges.right, windowCalc.saCoefficientsEdges.right) ||
         !infNumEq(windowCalc.edges.top, windowCalc.saCoefficientsEdges.top) ||
@@ -324,6 +327,7 @@ function setupSaCoefficients(state) {
     windowCalc.saCoefficientsN = windowCalc.n;
     windowCalc.saCoefficientsEdges = structuredClone(windowCalc.edges);
     windowCalc.saCoefficients = state.saCoefficients;
+    windowCalc.saCoefficientsParams = windowCalc.algorithm.split("-").find(e => e.startsWith("sapx"));
   }
   return state;
 }

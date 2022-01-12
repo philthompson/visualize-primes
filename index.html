@@ -365,15 +365,18 @@
             <button id="grad-reset">Reset to Current Gradient</button>
           </div>
         </details>
-        <label for="workers-select">workers </label>
-        <select style="font-size:1.2rem;" id="workers-select"></select>
-        <details class="help-text">
-          <summary>?</summary>
-            Increase workers to increase computation speed, depending on your computer/device.<br/><br/>
-            Increasing the number of workers will cause your computer/device to consume more power/battery, but the computation will be completed faster.<br/><br/>
-            Increasing the number of workers beyond a certain point will have no effect depending on the number of cores/threads your computer or browser can devote to this page.
+        <details id="workers-controls">
+          <summary>workers options</summary>
+          <label for="workers-select">workers </label>
+          <select style="font-size:1.2rem;" id="workers-select"></select>
+          <details class="help-text">
+            <summary>?</summary>
+              Increase workers to increase computation speed, depending on your computer/device.<br/><br/>
+              Increasing the number of workers will cause your computer/device to consume more power/battery, but the computation will be completed faster.<br/><br/>
+              Increasing the number of workers beyond a certain point will have no effect depending on the number of cores/threads your computer or browser can devote to this page.
+          </details>
+          <p id="workers-warning"></p>
         </details>
-        <p id="workers-warning"></p>
         <details>
           <summary>window options</summary>
           <details class="help-text">

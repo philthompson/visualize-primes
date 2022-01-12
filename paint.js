@@ -127,6 +127,7 @@ const gradCanvas = document.getElementById('gradient-canvas');
 const gradCanvasRow = document.getElementById("gradient-canvas-tr");
 const gradCtx = gradCanvas.getContext('2d');
 const workersSelect = document.getElementById("workers-select");
+const detailsWorkersControls = document.getElementById("workers-controls");
 const gradientSelect = document.getElementById("gradient-select");
 const gradControlsDetails = document.getElementById("gradient-controls-details");
 const gradError = document.getElementById("gradient-error");
@@ -710,9 +711,11 @@ function start() {
   if (params.plot.startsWith("Mandelbrot")) {
     blogLinkMain.style.display = "none";
     blogLinkMandel.style.display = "";
+    detailsWorkersControls.style.display = "";
   } else {
     blogLinkMain.style.display = "";
     blogLinkMandel.style.display = "none";
+    detailsWorkersControls.style.display = "none";
   }
 
   setDScaleVars(dContext);

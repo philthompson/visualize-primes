@@ -1405,17 +1405,17 @@ function applyGoToCenterValues() {
 }
 
 // parse scale and magnification strings:
-// - they are always positive, so throw away minus signs
 // - throw away plus signs, spaces, and commas
 // - if ^ is present, treat both sides as int (BigInt) and raise left side to right side
+// - accept only positive exponents, so throw away minus signs in exponent
 function parseScaleString(str) {
-  let cleaned = replaceAllEachChar(str, ", -+", "");
+  let cleaned = replaceAllEachChar(str, ", +", "");
   if (cleaned.length === 0) {
     throw "Value cannot be empty";
   }
   let powerSplit = cleaned.split("^");
   if (powerSplit.length > 1) {
-    return infNum(BigInt(powerSplit[0].split(".")[0]) ** BigInt(powerSplit[1].split(".")[0]), 0n);
+    return infNum(BigInt(powerSplit[0].split(".")[0]) ** BigInt(powerSplit[1].replaceAll("-","").split(".")[0]), 0n);
   } else {
     return createInfNum(powerSplit[0]);
   }

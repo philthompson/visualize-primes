@@ -1,6 +1,11 @@
 /**
- * this is based by floatexp by Claude Heiland-Allen, from:
+ * some parts of this file (as commented below) are based on floatexp.h
+ *   by Claude Heiland-Allen, from:
  *   https://code.mathr.co.uk/mandelbrot-perturbator/blob/5349b42b919caa56e6acbcb8c3ee7fba8c5bb8d2:/c/lib/floatexp.h
+ *   which may made available under the GPL3+ license (http://www.gnu.org/licenses/gpl.html)
+ *
+ * at the time of writing the floatexp.h file, in particular though other
+ *   files in the same directory do, does NOT contain a GPL3+ notice
  */
 
 var doUnitTests = false;
@@ -192,6 +197,7 @@ function floatExpEq(a, b) {
   }
 }
 
+// ported from floatexp.h
 function floatExpGt(a, b) {
   if (a.v > 0) {
     if (b.v < 0) {
@@ -216,10 +222,12 @@ function floatExpGt(a, b) {
   }
 }
 
+// ported from floatexp.h
 function floatExpGe(a, b) {
   return floatExpEq(a, b) || floatExpGt(a, b);
 }
 
+// ported from floatexp.h
 function floatExpLt(a, b) {
   if (a.v > 0) {
     if (b.v < 0) {
@@ -244,6 +252,7 @@ function floatExpLt(a, b) {
   }
 }
 
+// ported from floatexp.h
 function floatExpLe(a, b) {
   return floatExpEq(a, b) || floatExpLt(a, b);
 }

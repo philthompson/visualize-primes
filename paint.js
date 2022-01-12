@@ -214,7 +214,7 @@ function calculateReferenceOrbit() {
   let refOrbitCalcContext = null;
   while (refOrbitCalcContext === null || !refOrbitCalcContext.done) {
     refOrbitCalcContext = plotsByName[historyParams.plot].computeReferenceOrbit(windowCalc.n, precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, refOrbitCalcContext);
-    drawStatusNotice(refOrbitCalcContext.status);
+    drawStatusNotice(dContext, refOrbitCalcContext.status);
   }
   windowCalc.referenceOrbit = refOrbitCalcContext.orbit;
 
@@ -247,16 +247,7 @@ function computeBoundPointsChunk(xChunk) {
   const yNorm = normInfNum(yStep, windowCalc.topEdge);
   const yStepNorm = yNorm[0];
   const topNorm = yNorm[1];
-  const computeAlgo =
-    windowCalc.algorithm.startsWith("perturb") ?
-      (
-        windowCalc.algorithm.includes("floatexp") ?
-          1 // 1 -- perturb-floatexp
-          :
-          2 // 2 -- perturb-float
-      )
-      :
-      3; // 3 -- basic-float or basic-arbprecis
+  const computeWithPerturb = !windowCalc.algorithm.includes("basic");
   for (let i = 0; i < xChunk.length; i++) {
     x = xChunk[i];
     xInfNum = infNum(BigInt(xChunk[i]), 0n);
@@ -276,14 +267,18 @@ function computeBoundPointsChunk(xChunk) {
       } else {
         // if not calculating with straightforward algorithm, we will use
         //   the perturbation theory algorithm
-        let pointColor = null;
-        if (computeAlgo === 1) {
-          pointColor = plot.computeBoundPointColorPerturbFloatExp(windowCalc.n, precision, px, py, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit);
-        } else if (computeAlgo === 2) {
-          pointColor = plot.computeBoundPointColorPerturbFloat(windowCalc.n, precision, px, py, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit);
-        } else {
-          pointColor = plot.computeBoundPointColor(windowCalc.n, precision, windowCalc.algorithm, px, py);
-        }
+        let pointColor = computeWithPerturb ?
+          plot.computeBoundPointColorPerturbOrBla(windowCalc.n, precision, px, py, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, null, null).colorpct
+          :
+          plot.computeBoundPointColor(windowCalc.n, precision, windowCalc.algorithm, px, py);
+        //let pointColor = null;
+        //if (computeAlgo === 1) {
+        //  pointColor = plot.computeBoundPointColorPerturbFloatExp(windowCalc.n, precision, px, py, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit);
+        //} else if (computeAlgo === 2) {
+        //  pointColor = plot.computeBoundPointColorPerturbFloat(windowCalc.n, precision, px, py, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit);
+        //} else {
+        //  pointColor = plot.computeBoundPointColor(windowCalc.n, precision, windowCalc.algorithm, px, py);
+        //}
 
         // x and y are integer (actual pixel) values, with no decimal component
         const point = getColorPoint(x, y, pointColor);

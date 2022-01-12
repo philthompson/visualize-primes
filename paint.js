@@ -357,22 +357,20 @@ const presets = [{
   "v": 4,
   "n": 20000,
   "lineWidth": 1,
-  "significantDigits": 18,
-  "mag": createInfNum("2.23509933774e10"),
+  "mag": createInfNum("2.8e10"),
   "centerX": createInfNum("-0.74364392705773112"),
   "centerY": createInfNum("0.131825980877688413"),
-  "gradient": "bBgwo-B~20.20.20-repeat3",
+  "gradient": "bBgwo-B~20.20.20-repeat9-shift2",
   "bgColor": "b"
 },{
   "plot": "Mandelbrot-set",
   "v": 4,
   "n": 400,
   "lineWidth": 1,
-  "significantDigits": 12,
-  "mag": createInfNum("4.07284768209e3"),
-  "centerX": createInfNum("0.273210669156851807493494"),
-  "centerY": createInfNum("-0.00588612373984032474800031"),
-  "gradient": "rbgyo",
+  "mag": createInfNum("4.07284768207e3"),
+  "centerX": createInfNum("2.73260706888e-1"),
+  "centerY": createInfNum("-5.89495392784e-3"),
+  "gradient": "roygbv-repeat3",
   "bgColor": "b"
 },{
   "plot": "Primes-1-Step-90-turn",

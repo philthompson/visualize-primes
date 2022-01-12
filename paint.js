@@ -32,6 +32,8 @@ const forceWorkerReload = window.location.toString().includes(forceWorkerReloadU
 var precision = 24;
 var builtGradient = null;
 
+var activePlotAlgorithms = null;
+
 // since user machines and user needs are different, the number of
 //   workers is not a URL param
 var workersCount = 1;
@@ -63,6 +65,7 @@ function warnAboutWorkers() {
 const windowCalc = {
   timeout: null,
   plotName: "",
+  algorithm: "auto",
   stage: "",
   lineWidth: 0,
   xPixelChunks: [],
@@ -132,6 +135,11 @@ const gradientSelect = document.getElementById("gradient-select");
 const gradControlsDetails = document.getElementById("gradient-controls-details");
 const gradError = document.getElementById("gradient-error");
 const autoResizeCb = document.getElementById("auto-resize-cb");
+const inputAlgoAlgo = document.getElementById("algo-algo");
+const algoSelect = document.getElementById("algo-select");
+const btnAlgoGo = document.getElementById("algo-go");
+const btnAlgoReset = document.getElementById("algo-reset");
+const detailsAlgoControls = document.getElementById("algo-controls");
 
 const blogLinkMain = document.getElementById("blog-link");
 const blogLinkMandel = document.getElementById("blog-link-mandel");
@@ -553,6 +561,7 @@ function parseUrlParams() {
   // default params are mandelbrot defaults
   var params = {
     "plot": "Mandelbrot-set",
+    "algorithm": "auto",
     "v": 4,
     "lineWidth": 1,
     "n": 60,
@@ -640,6 +649,9 @@ function parseUrlParams() {
         }
       } catch (e) {}
     }
+    if (urlParams.has("algo")) {
+      params.algorithm = urlParams.get("algo");
+    }
   }
   try {
     buildGradient(params.gradient);
@@ -690,6 +702,44 @@ gradientSelect.addEventListener("change", function(e) {
   updateGradientPreview();
 });
 
+function setupAlgorithmSelectControl(algorithms) {
+  const htmlOptions = [];
+  let foundSelected = false;
+  for (let i = 0; i < algorithms.length; i++) {
+    let selected = false;
+    if (algorithms[i].algorithm == historyParams.algorithm) {
+      selected = true;
+      foundSelected = true;
+    } else if (!foundSelected && i === algorithms.length - 1) {
+      selected = true;
+    }
+    htmlOptions.push("<option " + (selected ? "selected" : "") + " value=\"" + algorithms[i].algorithm + "\">" + algorithms[i].name + "</option>");
+  }
+  algoSelect.innerHTML = htmlOptions.join("");
+}
+
+algoSelect.addEventListener("change", function(e) {
+  if (algoSelect.value == "") {
+    return;
+  }
+  inputAlgoAlgo.value = algoSelect.value;
+});
+
+var resetAlgorithmInput = function() {
+  inputAlgoAlgo.value = historyParams.algorithm;
+};
+
+btnAlgoGo.addEventListener("click", function() {
+  try {
+    historyParams.algorithm = inputAlgoAlgo.value;
+    // save the user's last entered algorithm into the "custom" algorithm
+    activePlotAlgorithms[activePlotAlgorithms.length-1].algorithm = historyParams.algorithm;
+    setupAlgorithmSelectControl(activePlotAlgorithms);
+    redraw();
+  } catch (e) {}
+});
+btnAlgoReset.addEventListener("click", resetAlgorithmInput);
+
 function start() {
   stopWorkers();
   if (windowCalc.timeout != null) {
@@ -723,6 +773,16 @@ function start() {
   // run the selected plot
   const plot = plotsByName[params.plot];
   document.title = "Very Plotter - " + plot.pageTitle;
+
+  if ("listAlgorithms" in plot.privContext) {
+    // copy the algorithms so that the user's custom one can
+    //   be saved into the "custom" slot
+    activePlotAlgorithms = plot.privContext.listAlgorithms();
+    setupAlgorithmSelectControl(activePlotAlgorithms);
+    detailsAlgoControls.style.display = "";
+  } else {
+    detailsAlgoControls.style.display = "none";
+  }
 
   if (plot.calcFrom == "sequence") {
     // if viewing a sequence plot, ensure there's no window
@@ -827,6 +887,11 @@ function replaceHistoryWithParams(params) {
     precision = paramsCopy.significantDigits;
     delete paramsCopy.significantDigits;
   }
+  // set "algo" in URL from algorithm, if not auto
+  if ("algorithm" in paramsCopy && paramsCopy.algorithm != "auto") {
+    paramsCopy["algo"] = paramsCopy.algorithm;
+  }
+  delete paramsCopy.algorithm;
   // include magnification in URL, not scale
   paramsCopy.mag = infNumExpStringTruncToLen(params.mag, precision);
   delete paramsCopy.scale;
@@ -1214,14 +1279,29 @@ function resetWindowCalcContext() {
   windowCalc.plotName = params.plot;
   windowCalc.stage = "";
 
-  // set the plot-specific global precision to use first
+  let settings = {
+    precision: 12,
+    algorithm: "basic-float"
+  };
+
   if ("adjustPrecision" in plot.privContext) {
-    let settings = plot.privContext.adjustPrecision(historyParams.scale);
-    precision = settings.precision;
-    windowCalc.algorithm = settings.algorithm;
-  } else {
-    windowCalc.algorithm = "basic-float";
+    settings = plot.privContext.adjustPrecision(historyParams.scale);
   }
+
+  // set the plot-specific global precision to use first
+  if (historyParams.algorithm != "auto") {
+    let algoPrecis = undefined;
+    try {
+      algoPrecis = parseInt(historyParams.algorithm.split("-").find(e => e.startsWith("precis")).substring(6));
+    } catch (e) {}
+    if (algoPrecis !== undefined) {
+      settings.precision = algoPrecis;
+    }
+    settings.algorithm = historyParams.algorithm;
+  }
+  precision = settings.precision;
+  windowCalc.algorithm = settings.algorithm;
+  console.log("user-adjusted mandelbrot settings:", {precision:precision, algorithm:windowCalc.algorithm});
 
   // attempt to resolve slowdown experienced when repeatedly panning/zooming,
   //   where the slowdown is resolved when refreshing the page
@@ -1292,6 +1372,7 @@ function resetWindowCalcContext() {
   resetGoToCenterValues();
   resetNIterationsValue();
   resetGradientInput();
+  resetAlgorithmInput();
 }
 
 function resetGoToBoundsValues() {

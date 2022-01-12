@@ -1059,8 +1059,20 @@ const plots = [{
       } else {
         ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.01);
       }
-      console.log("mandelbrot settings for scale:", ret);
+      console.log("default mandelbrot settings for scale:", ret);
       return ret;
+    },
+    "listAlgorithms": function() {
+      return [
+        {algorithm: "auto",                              name: "automatic"},
+        {algorithm: "basic-float",                       name: "basic escape time, floating point"},
+        {algorithm: "basic-floatexp",                    name: "basic escape time, floatexp"},
+        {algorithm: "perturb-float",                     name: "perturbation theory, floating point"},
+        {algorithm: "perturb-floatexp",                  name: "perturbation theory, floatexp"},
+        {algorithm: "perturb-sapx4-floatexp",            name: "perturb. w/series approx., floating point"},
+        {algorithm: "perturb-sapx8-floatexp",            name: "perturb. w/series approx., floatexp"},
+        {algorithm: "perturb-sapx16-floatexp-precis128", name: "custom"}
+      ];
     },
     "minScale": createInfNum("20")
   }

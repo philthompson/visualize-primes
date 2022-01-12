@@ -389,6 +389,21 @@
             </table>
           </div>
         </details>
+        <details id="algo-controls">
+          <summary>algorithm options</summary>
+          <details class="help-text">
+            <summary>?</summary>
+            The "auto" option picks the algorithm depending on the scale.  Users that are familiar with Mandelbrot set calculation algorithms may be able to select a better-performing algorithm at specific locations.
+          </details>
+          <div>
+            <table>
+              <tr><td>algorithm:</td><td><input size="16" id="algo-algo"/></td></tr>
+              <tr><td>options:</td><td><select style="font-size:0.9rem;" id="algo-select"></select></td></tr>
+            </table>
+            <button id="algo-go">Go</button>
+            <button id="algo-reset">Reset to Current Algorithm</button>
+          </div>
+        </details>
     </div>
     <div id="help-menu">
         <span style="position: fixed; left: 1.2rem; top: 1.2rem;" id="help-menu-close">×</span>

@@ -776,6 +776,9 @@ function settleChunkWithCacheAndPublish(msg) {
     "passPoints": windowCalc.passTotalPoints,
     "passCachedPoints": windowCalc.passCachedPoints
   };
+  if (windowCalc.saCoefficients !== null) {
+    status["saItersSkipped"] = windowCalc.saCoefficients.itersToSkip;
+  }
   msg.data["calcStatus"] = status;
   // convert InfNum objects to strings
   msg.data.chunkPos.x = infNumExpString(msg.data.chunkPos.x);

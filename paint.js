@@ -93,6 +93,7 @@ const windowCalc = {
   avgRuntimeMs: -1,
   worker: null,
   workersCountRange: "-",
+  saItersSkipped: null,
   plotId: 0,
   pixelsImage: null,
   referencePx: null,
@@ -1334,6 +1335,7 @@ function resetWindowCalcContext() {
   windowCalc.runtimeMs = -1;
   windowCalc.avgRuntimeMs = -1;
   windowCalc.workersCountRange = "-";
+  windowCalc.saItersSkipped = null;
   windowCalc.plotId++; // int wrapping around is fine
 
   const two = infNum(2n, 0n);
@@ -1608,6 +1610,9 @@ var calcWorkerOnmessage = function(e) {
     redrawMousePosNotice();
   }
   windowCalc.workersCountRange = e.data.calcStatus.workersCount;
+  if ("saItersSkipped" in e.data.calcStatus) {
+    windowCalc.saItersSkipped = e.data.calcStatus.saItersSkipped;
+  }
   const percentComplete = Math.round(e.data.calcStatus.chunksComplete * 100.0 / e.data.calcStatus.chunks);
   if (percentComplete < 100) {
     drawCalculatingNotice(dContext, e.data.calcStatus.pixelWidth, percentComplete, e.data.calcStatus.workersNow);
@@ -2279,6 +2284,9 @@ function drawImageParameters() {
   ];
   entries.push(["   algo", windowCalc.algorithm]);
   entries.push([" precis", precision.toString()]);
+  if (windowCalc.saItersSkipped !== null) {
+    entries.push(["sa skip", windowCalc.saItersSkipped.toString()]);
+  }
   if (windowCalc.runtimeMs > 0) {
     entries.push([" run ms", windowCalc.runtimeMs.toString()]);
   }

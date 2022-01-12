@@ -871,6 +871,32 @@ function convertScaleToMagnification(scale, magnificationFactor) {
   return infNumDiv(infNumMul(scale, magnificationFactor), smallDimensionPixels, Math.min(precision, 24));
 }
 
+// if the given magnification is very close to the scale, leave it alone
+//   otherwise, convert the scale to the correct magnification
+// because scale is ultimately how the image is rendered, when the user
+//   provides a magnification (like 2.8e11) we convert that mag to the scale
+// when rendering an image, we always convert the scale back to a mag to
+//   ensure a mag can be displayed in the URL for sharing
+// with rounding/truncation problems, a user might enter "2.8e11" for the mag,
+//   then after being converted to scale and converted back to mag, we might
+//   end up with "2.7999999e11" for mag
+// to avoid this, if the magnification is already very close to the scale,
+//   don't perform that second conversion back to mag -- since scale is what's
+//   actually used to render the image, if there is some rounding error between
+//   mag and scale it doesn't actually matter, and this way, we keep any user-
+//   entered magnification value as-is
+function convertScaleToMagnificationIfNeeded(scale, mag, magnificationFactor) {
+  const converted = convertScaleToMagnification(scale, magnificationFactor);
+  let needToConvert = true;
+  if (mag !== null && "v" in mag && "e" in mag) {
+    // 24 significant digits is always enough for magnification, right?
+    let divPrecis = Math.min(precision, 24);
+    let ratio = infNumGt(converted, mag) ? infNumDiv(converted, mag, divPrecis) : infNumDiv(mag, converted, divPrecis);
+    needToConvert = infNumGt(ratio, createInfNum("1.0001"));
+  }
+  return needToConvert ? converted : mag;
+}
+
 function convertMagnificationToScale(magnification, magnificationFactor) {
   const smallDimensionPixels = infNum(BigInt(Math.min(dCanvas.width, dCanvas.height)), 0n);
   // magnifiction * windowPixels / magnificationFactor
@@ -1305,7 +1331,7 @@ function resetWindowCalcContext() {
   // attempt to resolve slowdown experienced when repeatedly panning/zooming,
   //   where the slowdown is resolved when refreshing the page
   historyParams.scale = infNumTruncateToLen(historyParams.scale, precision);
-  historyParams.mag = convertScaleToMagnification(historyParams.scale, plot.magnificationFactor);
+  historyParams.mag = convertScaleToMagnificationIfNeeded(historyParams.scale, historyParams.mag, plot.magnificationFactor);
   historyParams.centerX = infNumTruncateToLen(historyParams.centerX, precision);
   historyParams.centerY = infNumTruncateToLen(historyParams.centerY, precision);
 

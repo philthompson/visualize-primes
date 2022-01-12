@@ -53,6 +53,7 @@ const windowCalc = {
   "canvasHeight": null,
   "xPixelChunks": null,
   "pointsCache": null,
+  "pointsCacheAlgorithm": null,
   "cacheScannedChunks": null,
   "cacheScannedChunksCursor": null,
   "passTotalPoints": null,
@@ -139,9 +140,12 @@ function runCalc(msg) {
   windowCalc.chunksComplete = 0;
   windowCalc.canvasWidth = msg.canvasWidth;
   windowCalc.canvasHeight = msg.canvasHeight;
-  if (windowCalc.pointsCache === null) {
+  if (windowCalc.pointsCache === null ||
+      (windowCalc.pointsCacheAlgorithm !== null &&
+        windowCalc.pointsCacheAlgorithm != windowCalc.algorithm)) {
     windowCalc.pointsCache = new Map();
   }
+  windowCalc.pointsCacheAlgorithm = windowCalc.algorithm;
   windowCalc.totalChunks = null;
   windowCalc.workersCount = msg.workers;
   windowCalc.workers = [];

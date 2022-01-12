@@ -992,7 +992,7 @@ const plots = [{
   "magnificationFactor": infNum(3n, 0n),
   "privContext": {
     "usesImaginaryCoordinates": true,
-    "adjustPrecision": function(scale) {
+    "adjustPrecision": function(scale, usingWorkers) {
       const precisScale = infNumTruncateToLen(scale, 8); // we probably only need 1 or 2 significant digits for this...
       // this window plot can define its own "algorithm", which it can use
       //   later, when the pixels are being calculated?
@@ -1057,6 +1057,16 @@ const plots = [{
         ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.1);
       } else {
         ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.01);
+      }
+      // for non-worker mode, use only perturb or basic (no SA, no BLA)
+      if (!usingWorkers) {
+        if (infNumGe(precisScale, createInfNum("1e304"))) {
+          ret.algorithm = "perturb-floatexp";
+        } else if (infNumGe(precisScale, createInfNum("3e13"))) {
+          ret.algorithm = "perturb-float";
+        } else {
+          ret.algorithm = "basic-float";
+        }
       }
       console.log("default mandelbrot settings for scale:", ret);
       return ret;

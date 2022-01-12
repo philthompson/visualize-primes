@@ -45,7 +45,10 @@ const maxWorkers = 32;
 var useWorkers = true;
 if (!window.Worker) {
   useWorkers = false;
+}
+if (useWorkers) {
   warnAboutWorkers();
+  document.getElementById("workers-warning").style.display = "none";
 }
 
 const appVersion = (function(scriptElement) {
@@ -56,8 +59,10 @@ const appVersion = (function(scriptElement) {
 })(document.currentScript);
 
 function warnAboutWorkers() {
-  document.getElementById("workers-warning").innerHTML = "<b><u>Workers do not function in your browser!</u></b><br/><br/>" +
-    "Very Plotter works much better with web workers and subworkers.<br/><br/>" +
+  document.getElementById("workers-warning").innerHTML =
+    "<b><u>Workers do not function in your browser!</u></b><br/><br/>" +
+    "Very Plotter works much better, and can use more advanced algorithms to allow " +
+    "deeper zooming, with web workers and subworkers.<br/><br/>" +
     "Subworkers currently do not function in Safari and some mobile browsers, for example.<br/><br/>" +
     "The recommended browsers are desktop Firefox, Chrome, or Edge, or similar.";
 }
@@ -756,10 +761,14 @@ function start() {
     blogLinkMain.style.display = "none";
     blogLinkMandel.style.display = "";
     detailsWorkersControls.style.display = "";
+    if (!useWorkers) {
+      document.getElementById("workers-warning").style.display = "";
+    }
   } else {
     blogLinkMain.style.display = "";
     blogLinkMandel.style.display = "none";
     detailsWorkersControls.style.display = "none";
+    document.getElementById("workers-warning").style.display = "none";
   }
 
   setDScaleVars(dContext);
@@ -1305,7 +1314,7 @@ function resetWindowCalcContext() {
   };
 
   if ("adjustPrecision" in plot.privContext) {
-    settings = plot.privContext.adjustPrecision(historyParams.scale);
+    settings = plot.privContext.adjustPrecision(historyParams.scale, useWorkers);
   }
 
   // set the plot-specific global precision to use first

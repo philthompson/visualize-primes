@@ -912,10 +912,6 @@ function convertMagnificationToScale(magnification, magnificationFactor) {
 //   and the rest will be populated with standard values as part of parseUrlParams()
 function replaceHistoryWithParams(params) {
   var paramsCopy = structuredClone(params);
-  if ("significantDigits" in paramsCopy) {
-    precision = paramsCopy.significantDigits;
-    delete paramsCopy.significantDigits;
-  }
   // set "algo" in URL from algorithm, if not auto
   if ("algorithm" in paramsCopy && paramsCopy.algorithm != "auto") {
     paramsCopy["algo"] = paramsCopy.algorithm;
@@ -1309,7 +1305,7 @@ function resetWindowCalcContext() {
   windowCalc.stage = "";
 
   let settings = {
-    precision: 12,
+    precision: 12, // significant digits
     algorithm: "basic-float"
   };
 
@@ -1321,7 +1317,7 @@ function resetWindowCalcContext() {
   if (historyParams.algorithm != "auto") {
     let algoPrecis = undefined;
     try {
-      algoPrecis = parseInt(historyParams.algorithm.split("-").find(e => e.startsWith("precis")).substring(6));
+      algoPrecis = parseInt(historyParams.algorithm.split("-").find(e => e.startsWith("sigdig")).substring(6));
     } catch (e) {}
     if (algoPrecis !== undefined) {
       settings.precision = algoPrecis;
@@ -2311,7 +2307,7 @@ function drawImageParameters() {
     ["workers", windowCalc.workersCountRange]
   ];
   entries.push(["   algo", windowCalc.algorithm]);
-  entries.push([" precis", precision.toString()]);
+  entries.push(["sig dig", precision.toString()]);
   if (windowCalc.saItersSkipped !== null) {
     entries.push(["sa skip", windowCalc.saItersSkipped.toString()]);
   }

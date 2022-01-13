@@ -1080,7 +1080,7 @@ const plots = [{
         {algorithm: "perturb-floatexp",                  name: "perturbation theory, floatexp"},
         {algorithm: "perturb-sapx4-float",               name: "perturb. w/series approx., floating point"},
         {algorithm: "perturb-sapx8-floatexp",            name: "perturb. w/series approx., floatexp"},
-        {algorithm: "perturb-sapx6.4-floatexp-precis64", name: "custom"}
+        {algorithm: "perturb-sapx6.4-floatexp-sigdig64", name: "custom"}
       ];
     },
     "minScale": createInfNum("20")

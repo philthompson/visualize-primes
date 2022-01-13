@@ -156,6 +156,10 @@ const inputFields =
   Array.from(document.getElementsByTagName("input")).concat(
   Array.from(document.getElementsByTagName("textarea")));
 
+function isCurrentPlotAWindowPlot() {
+  return plotsByName[historyParams.plot].calcFrom == "window";
+}
+
 // -||- THIS BELOW SECTION can be removed once all common browsers -||-
 // -vv-   (including Safari) support web workers and subworkers    -vv-
 
@@ -1866,12 +1870,16 @@ btnGradGo.addEventListener("click", function() {
     buildGradient(inputGradGrad.value);
     historyParams.gradient = inputGradGrad.value;
     hideGradientError();
-    // save the user's last entered gradient into the "custom" gradient
-    sequencePlotGradients[sequencePlotGradients.length-1].gradient = historyParams.gradient;
-    windowPlotGradients[windowPlotGradients.length-1].gradient = historyParams.gradient;
-    const gradients = plotsByName[historyParams.plot].calcFrom == "sequence" ? sequencePlotGradients : windowPlotGradients;
-    setupGradientSelectControl(gradients);
-    recolor();
+    if (isCurrentPlotAWindowPlot()) {
+      // save the user's last entered gradient into the "custom" gradient
+      windowPlotGradients[windowPlotGradients.length-1].gradient = historyParams.gradient;
+      setupGradientSelectControl(windowPlotGradients);
+      recolor();
+    } else {
+      sequencePlotGradients[sequencePlotGradients.length-1].gradient = historyParams.gradient;
+      setupGradientSelectControl(sequencePlotGradients);
+      redraw();
+    }
   } catch (e) {
     displayGradientError(e);
   }

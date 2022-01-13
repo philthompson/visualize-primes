@@ -499,7 +499,7 @@ const plots = [{
       twoRefIter = algoMathIsFloatExp ?
         math.complexRealMul(referenceOrbit[i], math.two)
         :
-        math.complexRealMul({x:referenceOrbit[i].xfxp, y:referenceOrbit[i].yfxp}, math.two)
+        math.complexRealMul({x:referenceOrbit[i].xfxp, y:referenceOrbit[i].yfxp}, math.two);
 
       // compute next iteration of all terms
       for (let k = 0; k < fnContext.nTerms; k++) {

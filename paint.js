@@ -103,8 +103,7 @@ const windowCalc = {
   pixelsImage: null,
   referencePx: null,
   referencePy: null,
-  referenceOrbit: null,
-  algorithm: null
+  referenceOrbit: null
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];

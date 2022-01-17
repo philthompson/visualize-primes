@@ -667,7 +667,7 @@ const plots = [{
     }
     return fnContext;
   },
-  "computeBlaTables": function(algorithm, referenceOrbit, fnContext) {
+  "computeBlaTablesBad": function(algorithm, referenceOrbit, fnContext) {
 
     const math = algorithm.includes("arbprecis") ?
       infNumMath
@@ -759,6 +759,485 @@ const plots = [{
     return fnContext;
 
   },
+  "computeBlaTablesOne": function(algorithm, referenceOrbit, fnContext) {
+    // we'll call this BLA attempt "one"
+    // this is to check stopping criteria: |AlΔzm+BlΔc|<ϵ|2Zn|
+    //  from Zhuoran's post: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+    // to avoid having to take square roots, i will square the |values| on both
+    //   sides of the inequality, but NOT square the epsilon value
+    // (we may have to square epsilon, but we'll try that next if needed)
+
+    const math = algorithm.includes("arbprecis") ?
+      infNumMath
+      :
+      (algorithm.includes("floatexp") ?
+        floatExpMath
+        :
+        floatMath
+      );
+
+    if (fnContext === null) {
+      fnContext = {
+        // try 1 for algo one: all pixels had too many BLA skips
+        //epsilon: math.createFromNumber(2 ** -53),
+        // try 2 for algo one: all pixels had too many BLA skips
+        //epsilon: math.mul(math.createFromNumber(2 ** -53), math.createFromNumber(2 ** -53)),
+        // try 3 for algo one: all pixels had too many BLA skips
+        //epsilon: math.createFromNumber(4 ** -53),
+        // try 4 for algo one: all pixels had too many BLA skips
+        //epsilon: math.createFromNumber(10 ** -1),
+        // try 5 for algo one: all pixels had too many BLA skips
+        //epsilon: math.createFromNumber(10 ** -53),
+        // try 6 for algo one: all pixels had too many BLA skips
+        //epsilon: math.createFromNumber(10 ** -83),
+        // try 7 for algo one:  all pixels had too many BLA skips
+        //epsilon: math.createFromNumber(10 ** -150),
+        // try 8 for algo one: all pixels had too many BLA skips, but only half as many (14,000) per skip now
+        //epsilon: math.createFromNumber(10 ** -250),
+        // try 9 for algo one: (no pixels had BLA skips) can't represent this as float, so epsilon was zero...
+        //epsilon: math.createFromNumber(10 ** -350),
+        // try 10 for algo one: all pixels had too many BLA skips, but only 610 per skip now
+        //epsilon: math.createFromNumber(10 ** -303),
+        // try 11 for algo one: all pixels had too many BLA skips, but only 610 per skip now
+        //epsilon: math.createFromNumber(10 ** -304),
+        // try 12 for algo one: all pixels had too many BLA skips, but only 610 per skip now
+        //epsilon: math.createFromNumber(10 ** -305),
+        // try 13 for algo one: smallest possible float? only 1 per skip but still getting screen that's a solid color
+        //epsilon: math.createFromNumber(10 ** -323),
+        // try 14 for algo one with floatexp no pixels had BLA skips (negative infinity or something)
+        //epsilon: math.mul(math.createFromNumber(10 ** -323), math.createFromNumber(10 ** -323)),
+        // try 15 for algo one with floatexp: too many BLA skips
+        //epsilon: math.createFromInfNum(infNum(1n, -423n)),
+        // try 16 for algo one with floatexp: too many BLA skips, but fewer
+        //epsilon: math.createFromInfNum(infNum(1n, -522n)),
+        // try 17 for algo one with floatexp: no pixels had BLA skips
+        //epsilon: math.createFromInfNum(infNum(1n, -722n)),
+        // try 18 for algo one with floatexp: still too many BLA skips
+        //epsilon: math.createFromInfNum(infNum(1n, -622n)),
+        // try 19 for algo one with floatexp: fewer skips at a time, still too many?
+        //epsilon: math.createFromInfNum(infNum(1n, -672n)),
+        // try 20 for algo one with floatexp: even fewer skips at a time, still too many?
+        //epsilon: math.createFromInfNum(infNum(1n, -692n)),
+        // try 21 for algo one with floatexp: even fewer skips at a time, still too many?
+        epsilon: math.createFromInfNum(infNum(1n, -702n)),
+
+        // MAYBE, with this "one" version of stopping criteria, we actually do need 10^-323*10^-323...
+        //  which may not even work with floatexp
+
+        blaTables: {
+          coefTable: new Map(),
+          epsilonRefAbsTable: new Map()
+        },
+
+        a: {x:math.one, y:math.zero},
+        b: {x:math.zero, y:math.zero},
+
+        blaCoeffIter: 0,
+        epsRefOrbitIter: 0,
+
+        status: "",
+        done: false
+      };
+      console.log("using epsilon: " + math.toExpString(fnContext.epsilon));
+    }
+
+    // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+
+    // compute coefficients for each possible number of iterations to skip, from 1 to n
+    let a = fnContext.a;
+    let b = fnContext.b;
+    let refDoubled = null;
+    let statusIterCounter = 0;
+    let maxIter = referenceOrbit.length - 2;
+    let l = fnContext.blaCoeffIter;
+    for (; l < maxIter; l++) {
+      refDoubled = math.complexRealMul(referenceOrbit[l], math.two);
+      a = math.complexMul(refDoubled, a);
+      b = math.complexAdd(math.complexMul(refDoubled, b), {x:math.one, y:math.zero});
+      fnContext.blaTables.coefTable.set(l, {
+        a:    a,
+        b:    b
+      });
+      statusIterCounter++;
+      if (statusIterCounter >= 10000) {
+        // resume this loop later, which means WE NEED TO INCREMENT
+        //   i here
+        fnContext.blaCoeffIter = l+1;
+        fnContext.status = "computed " + (Math.round(l * 10000.0 / maxIter)/100.0) + "% of BLA coefficients";
+        console.log(fnContext.status);
+        return fnContext;
+      }
+    }
+    fnContext.blaCoeffIter = l;
+    fnContext.a = a;
+    fnContext.b = b;
+
+    statusIterCounter = 0;
+    maxIter = referenceOrbit.length;
+    let i = fnContext.epsRefOrbitIter;
+    for (; i < maxIter; i++) {
+      fnContext.blaTables.epsilonRefAbsTable.set(i,
+        math.mul(math.complexAbsSquared(math.complexRealMul(referenceOrbit[i], math.two)), fnContext.epsilon));
+      statusIterCounter++;
+      if (statusIterCounter >= 10000) {
+        // resume this loop later, which means WE NEED TO INCREMENT
+        //   i here
+        fnContext.epsRefOrbitIter = i+1;
+        fnContext.status = "computed " + (Math.round(i * 10000.0 / maxIter)/100.0) + "% of BLA epsilon criteria";
+        console.log(fnContext.status);
+        return fnContext;
+      }
+    }
+    fnContext.epsRefOrbitIter = i;
+    fnContext.done = true;
+
+    return fnContext;
+
+  },
+  "computeBlaTablesTwo": function(algorithm, referenceOrbit, fnContext) {
+    // we'll call this BLA attempt "two"
+    // this is to check stopping criteria: |AlΔzm+BlΔc|<ϵ|2Zm|
+    //   note, changing right-hand side of inequality to mth Z, not nth
+    //  from Zhuoran's post: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+    // to avoid having to take square roots, i will square the |values| on both
+    //   sides of the inequality, but NOT square the epsilon value
+    // (we may have to square epsilon, but we'll try that next if needed)
+
+    const math = algorithm.includes("arbprecis") ?
+      infNumMath
+      :
+      (algorithm.includes("floatexp") ?
+        floatExpMath
+        :
+        floatMath
+      );
+
+    if (fnContext === null) {
+      fnContext = {
+        // try 1 for algo one with floatexp:
+        epsilon: math.createFromInfNum(infNum(1n, -702n)),
+
+        // MAYBE, with this "one" version of stopping criteria, we actually do need 10^-323*10^-323...
+        //  which may not even work with floatexp
+
+        blaTables: {
+          coefTable: new Map(),
+          epsilonRefAbsTable: new Map()
+        },
+
+        a: {x:math.one, y:math.zero},
+        b: {x:math.zero, y:math.zero},
+
+        blaCoeffIter: 0,
+        epsRefOrbitIter: 0,
+
+        status: "",
+        done: false
+      };
+      console.log("using epsilon: " + math.toExpString(fnContext.epsilon));
+    }
+
+    // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+
+    // compute coefficients for each possible number of iterations to skip, from 1 to n
+    let a = fnContext.a;
+    let b = fnContext.b;
+    let refDoubled = null;
+    let statusIterCounter = 0;
+    let maxIter = referenceOrbit.length - 2;
+    let l = fnContext.blaCoeffIter;
+    for (; l < maxIter; l++) {
+      refDoubled = math.complexRealMul(referenceOrbit[l], math.two);
+      a = math.complexMul(refDoubled, a);
+      b = math.complexAdd(math.complexMul(refDoubled, b), {x:math.one, y:math.zero});
+      fnContext.blaTables.coefTable.set(l, {
+        a:    a,
+        b:    b
+      });
+      statusIterCounter++;
+      if (statusIterCounter >= 10000) {
+        // resume this loop later, which means WE NEED TO INCREMENT
+        //   i here
+        fnContext.blaCoeffIter = l+1;
+        fnContext.status = "computed " + (Math.round(l * 10000.0 / maxIter)/100.0) + "% of BLA coefficients";
+        console.log(fnContext.status);
+        return fnContext;
+      }
+    }
+    fnContext.blaCoeffIter = l;
+    fnContext.a = a;
+    fnContext.b = b;
+
+    statusIterCounter = 0;
+    maxIter = referenceOrbit.length;
+    let i = fnContext.epsRefOrbitIter;
+    for (; i < maxIter; i++) {
+      fnContext.blaTables.epsilonRefAbsTable.set(i,
+        math.mul(math.complexAbsSquared(math.complexRealMul(referenceOrbit[i], math.two)), fnContext.epsilon));
+      statusIterCounter++;
+      if (statusIterCounter >= 10000) {
+        // resume this loop later, which means WE NEED TO INCREMENT
+        //   i here
+        fnContext.epsRefOrbitIter = i+1;
+        fnContext.status = "computed " + (Math.round(i * 10000.0 / maxIter)/100.0) + "% of BLA epsilon criteria";
+        console.log(fnContext.status);
+        return fnContext;
+      }
+    }
+    fnContext.epsRefOrbitIter = i;
+    fnContext.done = true;
+
+    return fnContext;
+
+  },
+  "computeBlaTablesThree": function(algorithm, referenceOrbit, fnContext) {
+    // we'll call this BLA attempt "three"
+    // this is to check stopping criteria: |AlΔzm+BlΔc|<ϵ|2Zn|
+    //  from Zhuoran's post: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+    // this attempt will take square roots for the |values| on both
+    //   sides of the inequality
+
+    const math = algorithm.includes("arbprecis") ?
+      infNumMath
+      :
+      (algorithm.includes("floatexp") ?
+        floatExpMath
+        :
+        floatMath
+      );
+
+    if (fnContext === null) {
+      fnContext = {
+        // try 1 for algo one with floatexp: no BLA skips
+        epsilon: math.createFromInfNum(infNum(1n, -702n)),
+        // try 2 for algo one with floatexp: too many BLA skips
+        epsilon: math.createFromInfNum(infNum(1n, -323n)),
+
+        // MAYBE, with this "one" version of stopping criteria, we actually do need 10^-323*10^-323...
+        //  which may not even work with floatexp
+
+        blaTables: {
+          coefTable: new Map(),
+          epsilonRefAbsTable: new Map()
+        },
+
+        a: {x:math.one, y:math.zero},
+        b: {x:math.zero, y:math.zero},
+
+        blaCoeffIter: 0,
+        epsRefOrbitIter: 0,
+
+        status: "",
+        done: false
+      };
+      console.log("using epsilon: " + math.toExpString(fnContext.epsilon));
+    }
+
+    // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+
+    // compute coefficients for each possible number of iterations to skip, from 1 to n
+    let a = fnContext.a;
+    let b = fnContext.b;
+    let refDoubled = null;
+    let statusIterCounter = 0;
+    let maxIter = referenceOrbit.length - 2;
+    let l = fnContext.blaCoeffIter;
+    for (; l < maxIter; l++) {
+      refDoubled = math.complexRealMul(referenceOrbit[l], math.two);
+      a = math.complexMul(refDoubled, a);
+      b = math.complexAdd(math.complexMul(refDoubled, b), {x:math.one, y:math.zero});
+      fnContext.blaTables.coefTable.set(l, {
+        a:    a,
+        b:    b
+      });
+      statusIterCounter++;
+      if (statusIterCounter >= 10000) {
+        // resume this loop later, which means WE NEED TO INCREMENT
+        //   i here
+        fnContext.blaCoeffIter = l+1;
+        fnContext.status = "computed " + (Math.round(l * 10000.0 / maxIter)/100.0) + "% of BLA coefficients";
+        console.log(fnContext.status);
+        return fnContext;
+      }
+    }
+    fnContext.blaCoeffIter = l;
+    fnContext.a = a;
+    fnContext.b = b;
+
+    statusIterCounter = 0;
+    maxIter = referenceOrbit.length;
+    let i = fnContext.epsRefOrbitIter;
+    for (; i < maxIter; i++) {
+      fnContext.blaTables.epsilonRefAbsTable.set(i,
+        math.mul(math.complexAbs(math.complexRealMul(referenceOrbit[i], math.two)), fnContext.epsilon));
+      statusIterCounter++;
+      if (statusIterCounter >= 10000) {
+        // resume this loop later, which means WE NEED TO INCREMENT
+        //   i here
+        fnContext.epsRefOrbitIter = i+1;
+        fnContext.status = "computed " + (Math.round(i * 10000.0 / maxIter)/100.0) + "% of BLA epsilon criteria";
+        console.log(fnContext.status);
+        return fnContext;
+      }
+    }
+    fnContext.epsRefOrbitIter = i;
+    fnContext.done = true;
+
+    return fnContext;
+
+  },
+  "computeBlaTables": function(algorithm, referenceOrbit, fnContext) {
+    // we'll call this BLA attempt "four"
+    // this is to check stopping criteria: |AlΔzm+BlΔc|<ϵ|2Zn|
+    //  from Zhuoran's post: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+    // this attempt will take square roots for the |values| on both
+    //   sides of the inequality, but unlike attempt "three" we will
+    //   increment both n and l when calculating coefficients
+
+    const math = algorithm.includes("arbprecis") ?
+      infNumMath
+      :
+      (algorithm.includes("floatexp") ?
+        floatExpMath
+        :
+        floatMath
+      );
+
+    if (fnContext === null) {
+      fnContext = {
+        // try 1 for algo four with floatexp: too many skips, all one solid color
+        //epsilon: math.createFromNumber(2**-53),
+        // try 2 for algo four with floatexp: large circular artifacts and other distortions
+        //epsilon: math.createFromInfNum(infNum(1n, -323n)),
+        // try 3 for algo four with floatexp: fewer skips, too few? large circular artifact?
+        //epsilon: math.createFromInfNum(infNum(1n, -324n)),
+        // try 4 for algo four with floatexp: smaller large circular artifact?
+        //epsilon: math.createFromInfNum(infNum(1n, -322n)),
+        // try 5 for algo four with floatexp: only 1,800 iters skipped per pixel, almost no artifact?
+        //epsilon: math.createFromInfNum(infNum(1n, -321n)),
+        // try 6 for algo four with floatexp: 18,000 iters skipped per pixel, all one solid color
+        //epsilon: math.createFromInfNum(infNum(1n, -320n)),
+        // try 7 for algo four with floatexp: 13,000 iters skipped per pixel, all one solid color
+        //epsilon: math.createFromInfNum(infNum(1n, -324n)),
+        // try 8 for algo four with floatexp: behaves like try 5, ONLY when l goes up to 256
+        //epsilon: math.createFromInfNum(infNum(1n, -321n)),
+        // try 9 for algo four with floatexp: appears to create a large donut artifact around center of image
+        //epsilon: math.createFromInfNum(infNum(1n, -323n)),
+        // try 10 for algo four with floatexp: smaller artifacts but image is "zoomed out", and image is rotated 30 deg (problem elsewhere)
+        epsilon: math.createFromInfNum(infNum(1n, -326n)),
+
+        // MAYBE, with this "one" version of stopping criteria, we actually do need 10^-323*10^-323...
+        //  which may not even work with floatexp
+
+        blaTables: {
+          coefTable: new Map(),
+          epsilonRefAbsTable: new Map()
+        },
+
+        //a: {x:math.one, y:math.zero},
+        //b: {x:math.zero, y:math.zero},
+
+        blaCoeffIterM: 0,
+
+        //blaCoeffIter: 0,
+        epsRefOrbitIter: 0,
+
+        status: "",
+        done: false
+      };
+      console.log("using epsilon: " + math.toExpString(fnContext.epsilon));
+    }
+
+    // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+    // not much point in skipping only 1 iteration, so we'll
+    //   stop at n = m + l =
+    let maxIter = referenceOrbit.length - 3;
+    let m = fnContext.blaCoeffIterM;
+    let statusIterCounter = 0;
+    // compute coefficients for each possible starting mth iteration
+    for (; m < maxIter; m++) {
+
+      fnContext.blaTables.coefTable.set(m, new Map());
+
+      // compute coefficients for each possible number of iterations to skip l, from 1 to n
+      //let a = {x:math.one, y:math.zero};
+      //let b = {x:math.zero, y:math.zero};
+      //let refDoubled = null;
+      //let l = 1;
+      //for (; l < maxIter - m - 2 /*&& l < 257*/; l++) {
+      //  refDoubled = math.complexRealMul(referenceOrbit[m+l], math.two);
+      //  a = math.complexMul(refDoubled, a);
+      //  b = math.complexAdd(math.complexMul(refDoubled, b), {x:math.one, y:math.zero});
+      //  if (l == 2 || l == 4 || l == 8 || l == 16 || l == 32 || l == 64 ||
+      //      l == 128 || l == 256 || l == 512 || l == 1024 || l % 2048 == 0) {
+      //    fnContext.blaTables.coefTable.get(m).set(l, {
+      //      a: structuredClone(a),
+      //      b: structuredClone(b)
+      //    });
+      //  }
+      //}
+
+      let a = {x:math.one, y:math.zero};
+      let b = {x:math.zero, y:math.zero};
+      let refDoubled = null;
+      let l = 1;
+      // try only skipping up to 512 iters from each m
+      for (; l < maxIter - m - 2 && l < 513; l++) {
+        refDoubled = math.complexRealMul(referenceOrbit[m+l], math.two);
+        if (l == 1) {
+          a = refDoubled;
+          b = {x:math.one, y:math.zero};
+        } else {
+          a = math.complexMul(refDoubled, a);
+          b = math.complexAdd(math.complexMul(refDoubled, b), {x:math.one, y:math.zero});
+        }
+        if (l == 2 || l == 4 || l == 8 || l == 16 || l == 32 || l == 64 ||
+            l == 128 || l == 256 || l == 512 || l == 1024 || l % 2048 == 0) {
+          fnContext.blaTables.coefTable.get(m).set(l, {
+            a: structuredClone(a),
+            b: structuredClone(b)
+          });
+        }
+      }
+
+      statusIterCounter++;
+      if (statusIterCounter >= 1000) {
+        // resume this loop later, which means WE NEED TO INCREMENT
+        //   m here
+        fnContext.blaCoeffIterM = m+1;
+        let doneIters = (maxIter*m)-(((m-1)/2)*(m-1))+((m-1)/2);
+        let totalIters = ((maxIter/2)*maxIter)+(maxIter/2);
+        fnContext.status = "computed " + (Math.round(doneIters * 10000.0 / totalIters)/100.0) + "% of BLA coefficients (m [" + m + "] of [" + maxIter + "])";
+        console.log(fnContext.status);
+        return fnContext;
+      }
+    }
+    fnContext.blaCoeffIterM = m;
+    //fnContext.a = a;
+    //fnContext.b = b;
+
+    statusIterCounter = 0;
+    maxIter = referenceOrbit.length;
+    let i = fnContext.epsRefOrbitIter;
+    for (; i < maxIter; i++) {
+      fnContext.blaTables.epsilonRefAbsTable.set(i,
+        math.mul(math.complexAbs(math.complexRealMul(referenceOrbit[i], math.two)), fnContext.epsilon));
+      statusIterCounter++;
+      if (statusIterCounter >= 10000) {
+        // resume this loop later, which means WE NEED TO INCREMENT
+        //   i here
+        fnContext.epsRefOrbitIter = i+1;
+        fnContext.status = "computed " + (Math.round(i * 10000.0 / maxIter)/100.0) + "% of BLA epsilon criteria";
+        console.log(fnContext.status);
+        return fnContext;
+      }
+    }
+    fnContext.epsRefOrbitIter = i;
+    fnContext.done = true;
+
+    return fnContext;
+
+  },
   // x, y, referenceX, and referenceY must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColorPerturbOrBla": function(n, precis, x, y, algorithm, referenceX, referenceY, referenceOrbit, blaTables, saCoefficients) {
 
@@ -775,6 +1254,13 @@ const plots = [{
     //   "bla-float"    : BLA+perturb, and for
     //   "perturb-float": perturb only
     const useBla = algorithm.includes("bla-");
+    // for testing different BLA stopping criteria, we'll set one
+    //   of them to true here
+    const useBlaZero = false; // this is the last attempt before i gave up, previously
+    const useBlaOne = false; // attempt using nth Z (big Z)
+    const useBlaTwo = false; // atempt using mth Z (big Z)
+    const useBlaThree = false; // attempt like one, but using square root hypotenuse
+    const useBlaFour = useBla; // fixed coefficients to be calculated for each m of Zm
     // this function can also use series approximation:
     //   "bla-sapx6-float"      : BLA+perturb, with 6-term series approximation
     //   "bla-sapx17-float"     : BLA+perturb, with 17-term series approximation
@@ -860,6 +1346,49 @@ const plots = [{
     try {
       while (iter < maxIter) {
 
+//        // trying performing BLA only when ref iter is 0 (just after re-basing)
+//        if (useBlaFour && referenceIter == 0) {
+//          let goodL = null;
+//          if (referenceIter / maxReferenceIter < 0.95) {
+//
+//            let blaL = null;
+//            let epsilonRefAbs = null;
+//            let coefTable =  blaTables.coefTable.get(referenceIter);
+//            for (const entry of coefTable) {
+//              epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter+entry[0]);
+//              if (math.lt(
+//                  math.complexAbs(math.complexAdd(
+//                    math.complexMul(entry[1].a, deltaZ),
+//                    math.complexMul(entry[1].b, deltaC))),
+//                  epsilonRefAbs)) {
+//                goodL = entry[0];
+//              } else {
+//                break;
+//              }
+//            }
+//          }
+//
+//          // if no iters were skippable, use regular perturbation for the next iteration
+//          // otherwise
+//          // if some iters are skippable, apply BLA function here to skip iterations
+//          // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+//          // BLA+perturb algorithm: https://fractalforums.org/index.php?topic=4360.msg31574#msg31574
+//          if (goodL !== null) {
+//            //console.log("skipping " + goodL + " iters at pixel", {x:x, y:y});
+//            //skippedIters += goodL;
+//            deltaZ = math.complexAdd(
+//              math.complexMul(blaTables.coefTable.get(referenceIter).get(goodL).a, deltaZ),
+//              math.complexMul(blaTables.coefTable.get(referenceIter).get(goodL).b, deltaC)
+//            );
+//            iter += goodL;
+//            referenceIter += goodL;
+//            blaItersSkipped += goodL;
+//            blaSkips++;
+//          //} else {
+//          //  console.log("NOT skipping any iters at pixel", {x:x, y:y});
+//          }
+//        }
+
         deltaZ = math.complexAdd(
           math.complexAdd(
             math.complexMul(math.complexRealMul(referenceOrbit[referenceIter], math.two), deltaZ),
@@ -880,7 +1409,7 @@ const plots = [{
         if (math.lt(zAbs, deltaZAbs) || referenceIter == maxReferenceIter) {
           deltaZ = z;
           referenceIter = 0;
-        } else if (useBla) {
+        } else if (useBlaZero) {
           const epsilon = math.createFromNumber(16 ** -243);
           let goodL = null;
           if (referenceIter / maxReferenceIter < 0.95) {
@@ -957,6 +1486,168 @@ const plots = [{
             deltaZ = math.complexAdd(
               math.complexMul(blaTables.coefTable.get(goodL).a, deltaZ),
               math.complexMul(blaTables.coefTable.get(goodL).b, deltaC)
+            );
+            iter += goodL;
+            referenceIter += goodL;
+            blaItersSkipped += goodL;
+            blaSkips++;
+          //} else {
+          //  console.log("NOT skipping any iters at pixel", {x:x, y:y});
+          }
+        } else if (useBlaOne) {
+          let goodL = null;
+          if (referenceIter / maxReferenceIter < 0.95) {
+
+            let blaL = null;
+            let epsilonRefAbs = null;
+            for (let lCheck = 1; lCheck < maxReferenceIter - referenceIter - 15; lCheck++) {
+              blaL = blaTables.coefTable.get(lCheck);
+              epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter+lCheck);
+              // this is to check stopping criteria: |AlΔzm+BlΔc|<ϵ|2Zn|
+              if (math.lt(
+                  math.complexAbsSquared(math.complexAdd(
+                    math.complexMul(blaL.a, deltaZ),
+                    math.complexMul(blaL.b, deltaC))),
+                  epsilonRefAbs)) {
+                goodL = lCheck;
+              } else {
+                break;
+              }
+            }
+          }
+
+          // if no iters were skippable, use regular perturbation for the next iteration
+          // otherwise
+          // if some iters are skippable, apply BLA function here to skip iterations
+          // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+          // BLA+perturb algorithm: https://fractalforums.org/index.php?topic=4360.msg31574#msg31574
+          if (goodL !== null) {
+            //console.log("skipping " + goodL + " iters at pixel", {x:x, y:y});
+            //skippedIters += goodL;
+            deltaZ = math.complexAdd(
+              math.complexMul(blaTables.coefTable.get(goodL).a, deltaZ),
+              math.complexMul(blaTables.coefTable.get(goodL).b, deltaC)
+            );
+            iter += goodL;
+            referenceIter += goodL;
+            blaItersSkipped += goodL;
+            blaSkips++;
+          //} else {
+          //  console.log("NOT skipping any iters at pixel", {x:x, y:y});
+          }
+        } else if (useBlaTwo) {
+          let goodL = null;
+          if (referenceIter / maxReferenceIter < 0.95) {
+
+            let blaL = null;
+            let epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter);
+            for (let lCheck = 1; lCheck < maxReferenceIter - referenceIter - 15; lCheck++) {
+              blaL = blaTables.coefTable.get(lCheck);
+              // this is to check stopping criteria: |AlΔzm+BlΔc|<ϵ|2Zm|
+              if (math.lt(
+                  math.complexAbsSquared(math.complexAdd(
+                    math.complexMul(blaL.a, deltaZ),
+                    math.complexMul(blaL.b, deltaC))),
+                  epsilonRefAbs)) {
+                goodL = lCheck;
+              } else {
+                break;
+              }
+            }
+          }
+
+          // if no iters were skippable, use regular perturbation for the next iteration
+          // otherwise
+          // if some iters are skippable, apply BLA function here to skip iterations
+          // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+          // BLA+perturb algorithm: https://fractalforums.org/index.php?topic=4360.msg31574#msg31574
+          if (goodL !== null) {
+            //console.log("skipping " + goodL + " iters at pixel", {x:x, y:y});
+            //skippedIters += goodL;
+            deltaZ = math.complexAdd(
+              math.complexMul(blaTables.coefTable.get(goodL).a, deltaZ),
+              math.complexMul(blaTables.coefTable.get(goodL).b, deltaC)
+            );
+            iter += goodL;
+            referenceIter += goodL;
+            blaItersSkipped += goodL;
+            blaSkips++;
+          //} else {
+          //  console.log("NOT skipping any iters at pixel", {x:x, y:y});
+          }
+        } else if (useBlaThree) {
+          let goodL = null;
+          if (referenceIter / maxReferenceIter < 0.95) {
+
+            let blaL = null;
+            let epsilonRefAbs = null;
+            for (let lCheck = 1; lCheck < maxReferenceIter - referenceIter - 15; lCheck++) {
+              epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter+lCheck);
+              blaL = blaTables.coefTable.get(lCheck);
+              // this is to check stopping criteria: |AlΔzm+BlΔc|<ϵ|2Zn|
+              if (math.lt(
+                  math.complexAbs(math.complexAdd(
+                    math.complexMul(blaL.a, deltaZ),
+                    math.complexMul(blaL.b, deltaC))),
+                  epsilonRefAbs)) {
+                goodL = lCheck;
+              } else {
+                break;
+              }
+            }
+          }
+
+          // if no iters were skippable, use regular perturbation for the next iteration
+          // otherwise
+          // if some iters are skippable, apply BLA function here to skip iterations
+          // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+          // BLA+perturb algorithm: https://fractalforums.org/index.php?topic=4360.msg31574#msg31574
+          if (goodL !== null) {
+            //console.log("skipping " + goodL + " iters at pixel", {x:x, y:y});
+            //skippedIters += goodL;
+            deltaZ = math.complexAdd(
+              math.complexMul(blaTables.coefTable.get(goodL).a, deltaZ),
+              math.complexMul(blaTables.coefTable.get(goodL).b, deltaC)
+            );
+            iter += goodL;
+            referenceIter += goodL;
+            blaItersSkipped += goodL;
+            blaSkips++;
+          //} else {
+          //  console.log("NOT skipping any iters at pixel", {x:x, y:y});
+          }
+        } else if (useBlaFour) {
+          let goodL = null;
+          if (referenceIter / maxReferenceIter < 0.95) {
+
+            let blaL = null;
+            let epsilonRefAbs = null;
+            let coefTable =  blaTables.coefTable.get(referenceIter);
+            for (const entry of coefTable) {
+              epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter+entry[0]);
+              if (math.lt(
+                  math.complexAbs(math.complexAdd(
+                    math.complexMul(entry[1].a, deltaZ),
+                    math.complexMul(entry[1].b, deltaC))),
+                  epsilonRefAbs)) {
+                goodL = entry[0];
+              } else {
+                break;
+              }
+            }
+          }
+
+          // if no iters were skippable, use regular perturbation for the next iteration
+          // otherwise
+          // if some iters are skippable, apply BLA function here to skip iterations
+          // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+          // BLA+perturb algorithm: https://fractalforums.org/index.php?topic=4360.msg31574#msg31574
+          if (goodL !== null) {
+            //console.log("skipping " + goodL + " iters at pixel", {x:x, y:y});
+            //skippedIters += goodL;
+            deltaZ = math.complexAdd(
+              math.complexMul(blaTables.coefTable.get(referenceIter).get(goodL).a, deltaZ),
+              math.complexMul(blaTables.coefTable.get(referenceIter).get(goodL).b, deltaC)
             );
             iter += goodL;
             referenceIter += goodL;

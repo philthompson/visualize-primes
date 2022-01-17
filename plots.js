@@ -300,7 +300,7 @@ const plots = [{
     }
   },
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeReferenceOrbit": function(n, precis, algorithm, x, y, fnContext) {
+  "computeReferenceOrbit": function(n, precis, algorithm, x, y, period, fnContext) {
 
     const outputMath = algorithm.includes("arbprecis") ?
       infNumMath
@@ -312,7 +312,7 @@ const plots = [{
       );
     const outputIsFloatExp = outputMath.name == "floatexp";
 
-    const maxIter = n;
+    const maxIter = period !== null && period > 0 ? period : n;
     const two = infNum(2n, 0n);
     const four = infNum(4n, 0n);
     const sixteen = infNum(16n, 0n);
@@ -374,6 +374,110 @@ const plots = [{
       fnContext.done = true;
       return fnContext;
     }
+  },
+  "computeReferencePeriod": function(n, precis, algorithm, x, y, boxDelta, fnContext) {
+    // - find the 4 points in a square surrounding the given x,y location
+    // - iterate the 4 points until one escapes, or, exactly 1 edge of
+    //     that square crosses the positive x (real) axis
+    // - the number of iterations until this occurs is the period
+    // - after that number of iterations, i believe, any point inside
+    //     the square will be at its "smallest" (lowest distance from the origin)
+    //
+    // This method is explained here: http://www.mrob.com/pub/muency/period.html
+    //
+
+    const outputMath = algorithm.includes("arbprecis") ?
+      infNumMath
+      :
+      (algorithm.includes("floatexp") ?
+        floatExpMath
+        :
+        floatMath
+      );
+    const outputIsFloatExp = outputMath.name == "floatexp";
+
+    const maxIter = n;
+    const two = infNum(2n, 0n);
+    const four = infNum(4n, 0n);
+    const sixteen = infNum(16n, 0n);
+    // try using slightly larger bailout (4) for ref orbit
+    //   than for perturb orbit (which uses smallest possible
+    //   bailout of 2)
+    const bailoutSquared = four;
+
+    // fnContext allows the loop to be done piecemeal
+    if (fnContext === null) {
+      fnContext = {
+
+        // the coords used for iteration, clockwise from top right
+        //   corner of the square
+        x: [infNumAdd(x, boxDelta), infNumAdd(x, boxDelta), infNumSub(x, boxDelta), infNumSub(x, boxDelta)],
+        y: [infNumAdd(y, boxDelta), infNumSub(y, boxDelta), infNumSub(y, boxDelta), infNumAdd(y, boxDelta)],
+        ix: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)],
+        iy: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)],
+        iter: 0,
+        period: -1,
+        status: "",
+        done: false
+      };
+    }
+    var ixSq = infNum(0n, 0n);
+    var iySq = infNum(0n, 0n);
+    var ixTemp = infNum(0n, 0n);
+    var statusIterCounter = 0;
+    try {
+      while (fnContext.iter < maxIter) {
+        for (let i = 0; i < 4; i++) {
+          ixSq = infNumMul(fnContext.ix[i], fnContext.ix[i]);
+          iySq = infNumMul(fnContext.iy[i], fnContext.iy[i]);
+          if (infNumGt(infNumAdd(ixSq, iySq), bailoutSquared)) {
+            // if any point escapes, we can't find the period
+            fnContext.done = true;
+            fnContext.period = -1;
+            return fnContext;
+          }
+          ixTemp = infNumAdd(fnContext.x[i], infNumSub(ixSq, iySq));
+          fnContext.iy[i] = infNumAdd(fnContext.y[i], infNumMul(two, infNumMul(fnContext.ix[i], fnContext.iy[i])));
+          fnContext.ix[i] = copyInfNum(ixTemp);
+          fnContext.ix[i] = infNumTruncateToLen(fnContext.ix[i], precis);
+          fnContext.iy[i] = infNumTruncateToLen(fnContext.iy[i], precis);
+        }
+        fnContext.iter++;
+        // check that exactly 1 edge of the box crosses the positive x (real) axis
+        let edgesMeetingCriterion = 0;
+        for (let a = 0; a < 4; a++) {
+          let b = a == 3 ? 0 : a + 1;
+          // infNumGt() is slow, but we don't need to use it because
+          //   we can just check the sign on the "v"alue of the InfNum
+          if (fnContext.ix[a].v > 0n && fnContext.ix[b].v > 0n &&
+              (
+                fnContext.iy[a].v > 0n && fnContext.iy[b].v < 0n ||
+                fnContext.iy[a].v < 0n && fnContext.iy[b].v > 0n
+              )) {
+            edgesMeetingCriterion++;
+          }
+        }
+        if (edgesMeetingCriterion == 1) {
+          fnContext.done = true;
+          fnContext.period = fnContext.iter;
+          return fnContext;
+        }
+        statusIterCounter++;
+        if (statusIterCounter >= 1000) {
+          statusIterCounter = 0;
+          fnContext.status = "computed " + (Math.round(fnContext.iter * 10000.0 / maxIter)/100.0) + "% of period orbit";
+          console.log(fnContext.status);
+          return fnContext;
+        }
+      }
+
+    } catch (e) {
+      console.log("ERROR CAUGHT when computing reference period at point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
+      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+    }
+    fnContext.done = true;
+    fnContext.period = -1;
+    return fnContext;
   },
   "computeSaCoefficients": function(precision, algorithm, referenceX, referenceY, referenceOrbit, windowEdges, fnContext) {
     // always use FloatExp for SA coefficients

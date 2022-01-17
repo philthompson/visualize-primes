@@ -242,8 +242,8 @@ function setupCheckReferenceOrbit() {
 function setupReferenceOrbit(state) {
   if (state === null || !state.done) {
 
-    // temporary, try to find period
-    const findPeriod = true;
+    // temporary, try to find period (turned off for now)
+    const findPeriod = false;
     if (!findPeriod) {
       windowCalc.referencePeriod = -1;
     } else if (state === null) {

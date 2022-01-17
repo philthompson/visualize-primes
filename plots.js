@@ -1206,6 +1206,63 @@ const plots = [{
     "minScale": createInfNum("20")
   }
 },{
+  "name": "3n-plus-one",
+  "pageTitle": "3n+1",
+  "calcFrom": "window",
+  "desc": "Iterate each pixel with the simple algorithm:<br/>" +
+    "If integer x<sub>n</sub> is odd: x<sub>n+1</sub> = 3x<sub>n</sub> + 1<br/> " +
+    "If integer x<sub>n</sub> is even: x<sub>n+1</sub> = x<sub>n</sub> / 2<br/>" +
+    "Repeat these steps until the number x<sub>n</sub> reaches 1, or, we reach the maximum number of iterations.<br/>" +
+    "<br/>" +
+    "Every (x,y) position on the plot represents an initial number x<sub>0</sub> = x<sup>y</sup>.  " +
+    "After raising x to the y power, we round the resulting value to an ineger, which allows the iteration " +
+    "to occur when the (x,y) positions are non-integers (which is nearly always the case).<br/>" +
+    "<br/>" +
+    "If that initial x<sub>0</sub> is negative or zero, we color the pixel the background color.  Otherwise, " +
+    "we color the pixel according to the number of iterations until it reaches 1.  If it does not reach " +
+    "1 before the maximum number of iterations, we color the pixel the background color.",
+  // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
+  "computeBoundPointColor": function(n, precis, algorithm, x, y) {
+    const maxIter = n;
+
+    let xFloat = parseFloat(infNumExpStringTruncToLen(x, 17));
+    let yFloat = parseFloat(infNumExpStringTruncToLen(y, 17));
+    let val = Math.round(xFloat ** yFloat);
+    if (val <= 0) {
+      return windowCalcBackgroundColor;
+    }
+    let iter = 0;
+    while (iter < maxIter) {
+      iter++;
+      if (val % 2 == 0) {
+        val = val / 2;
+      } else {
+        val = val * 3 + 1;
+      }
+      if (val == 1) {
+        break;
+      }
+    }
+
+    if (iter == maxIter) {
+      return windowCalcBackgroundColor;
+    } else {
+      return iter / maxIter;
+    }
+
+  },
+  "forcedDefaults": {
+    "n": 2000,
+    "mag": infNum(12n, -3n),
+    "centerX": infNum(50n, 0n),
+    "centerY": infNum(50n, 0n)
+  },
+  "magnificationFactor": infNum(3n, 0n),
+  "privContext": {
+    "usesImaginaryCoordinates": false,
+    "minScale": createInfNum("0.000000001")
+  }
+},{
   "name": "Primes-1-Step-90-turn",
   "pageTitle": "Primes",
   "calcFrom": "sequence",

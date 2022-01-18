@@ -27,6 +27,7 @@ for (let i = 0; i < plots.length; i++) {
 }
 
 const allCachedIndicesArray = [-1];
+const startPassNumber = 0;
 
 // create subworkers
 // for each pass:
@@ -46,6 +47,7 @@ const windowCalc = {
   "n": null,
   "precision": null,
   "algorithm": null,
+  "passNumber": null,
   "lineWidth": null,
   "finalWidth": null,
   "chunksComplete": null,
@@ -83,7 +85,8 @@ const windowCalc = {
   "setupStage": null,
   "setupStageState": null,
   "setupStageIsStarted": null,
-  "setupStageIsFinished": null
+  "setupStageIsFinished": null,
+  "caching" : null
 };
 
 // long-running setup tasks are split in chunks, and we use the state
@@ -135,6 +138,7 @@ function runCalc(msg) {
   windowCalc.n = msg.n;
   windowCalc.precision = msg.precision;
   windowCalc.algorithm = msg.algorithm;
+  windowCalc.passNumber = startPassNumber - 1;
   // the main thread does its own 64-wide pixels synchronously,
   //   so the worker threads should start at 32-wide (set to 64
   //   here so that after dividing by two initially we are at 32)
@@ -143,7 +147,9 @@ function runCalc(msg) {
   windowCalc.chunksComplete = 0;
   windowCalc.canvasWidth = msg.canvasWidth;
   windowCalc.canvasHeight = msg.canvasHeight;
-  if (windowCalc.pointsCache === null ||
+  // include "nocache" in algorithm name to turn off caching
+  windowCalc.caching = !windowCalc.algorithm.includes("nocache");
+  if (windowCalc.pointsCache === null || !windowCalc.caching ||
       (windowCalc.pointsCacheAlgorithm !== null &&
         windowCalc.pointsCacheAlgorithm != windowCalc.algorithm)) {
     windowCalc.pointsCache = new Map();
@@ -533,6 +539,22 @@ var assignChunkToWorker = function(worker) {
     return;
   }
 
+  if (!windowCalc.caching) {
+    let nextChunk = windowCalc.xPixelChunks.shift();
+    let subWorkerMsg = {
+      "plotId": windowCalc.plotId,
+      "chunk": nextChunk,
+      "cachedIndices": []
+    };
+
+    worker.postMessage({
+      t: "compute-chunk",
+      v: subWorkerMsg
+    });
+
+    return;
+  }
+
   // take the first chunk in the array, and decrement the cursor
   let nextChunk = windowCalc.xPixelChunks.shift();
   windowCalc.cacheScannedChunksCursor--;
@@ -616,6 +638,9 @@ function cacheComputedPointsInChunk(chunk) {
   //   add to the cache)
   if (chunk.results.length === 0) {
     return 0;
+  }
+  if (!windowCalc.caching) {
+    return chunk.results.length;
   }
   let count = 0;
   const pxStr = infNumFastStr(chunk.chunkPos.x);
@@ -762,6 +787,7 @@ function settleChunkWithCacheAndPublish(msg) {
   windowCalc.passTotalPoints += computedPoints;
 
   // insert any cached values into the subworker's results array
+if (windowCalc.caching) {
   const chunkId = buildChunkId(msg.data.chunkPos);
   let cacheScan = windowCalc.cacheScannedChunks.get(chunkId);
   if (cacheScan !== undefined) {
@@ -783,6 +809,7 @@ function settleChunkWithCacheAndPublish(msg) {
   const newlySeenCachedPoints = windowCalc.passCachedPoints - prevCachedCount;
   windowCalc.passTotalPoints += newlySeenCachedPoints;
   //console.log("chunk cached points [" + newlySeenCachedPoints + "]");
+}
 
   if ("blaPixelsCount" in msg.data) {
     windowCalc.passBlaPixels += msg.data.blaPixelsCount;
@@ -829,6 +856,7 @@ function shuffleArray(array) {
 // call the plot's computeBoundPoints function in chunks, to better
 //   allow interuptions for long-running calculations
 var calculateWindowPassChunks = function() {
+  windowCalc.passNumber++;
   windowCalc.passBlaPixels = 0;
   windowCalc.passBlaIterationsSkipped = 0;
   windowCalc.passBlaSkips = 0;
@@ -856,6 +884,12 @@ var calculateWindowPassChunks = function() {
 
   const pixelSize = windowCalc.lineWidth;
 
+  // when NOT caching:
+  // for the first pass, we don't skip any previously-calculated
+  //   pixels.  otherwise, we skip every other pixel in every
+  //   other (even-numbered 0th, 2nd, 4th, ...) chunk
+  const skipPrevPixels = !windowCalc.caching && windowCalc.passNumber > startPassNumber;
+
   // chunk computation does not block the UI thread anymore, so... 
   // "chunks" are CHANGING completely
   // previously, they were a set of X values
@@ -868,28 +902,49 @@ var calculateWindowPassChunks = function() {
   //   computed, each made up of 4 chunks (2 vertical, 2 horizontal) 
 
   const yPointsPerChunk = Math.ceil(windowCalc.canvasHeight / pixelSize) + 1;
+  const yPointsPerChunkHalf = Math.ceil(yPointsPerChunk / 2);
   
-  var incX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
-  var cursorX = infNumSub(windowCalc.edges.left, incX);
-  for (var x = 0; x < windowCalc.canvasWidth; x+=pixelSize) {
-    cursorX = infNumAdd(cursorX, incX);
+  const incX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
+  const incXTwice = infNumMul(incX, infNum(2n, 0n));
+  let cursorX = copyInfNum(windowCalc.edges.left);
+  let chunkNum = 0;
+  for (let x = 0; x < windowCalc.canvasWidth; x+=pixelSize) {
     let chunk = {
       "plot": windowCalc.plot,
-      "chunkPix": {"x": x, "y": windowCalc.canvasHeight},
-      // since we start at bottom edge, we increment pixels by subtracting Y value 
-      //   (because javascript canvas Y coordinate is backwards)
-      "chunkPixInc": {"x": 0, "y": -1 * pixelSize},
-      "chunkPos": {"x": copyInfNum(cursorX), "y": copyInfNum(windowCalc.edges.bottom)},
-      // within the chunk inself, each position along the chunk is incremented in the
-      //   Y dimension, and since chunk pixels are square, the amount incremented in
-      //   the Y dimension is the same as incX
-      "chunkInc": {"x": infNum(0n, 0n), "y": copyInfNum(incX)},
-      "chunkLen": yPointsPerChunk,
       "chunkN": windowCalc.n,
       "chunkPrecision": windowCalc.precision,
       "algorithm": windowCalc.algorithm
     };
+    if (skipPrevPixels && chunkNum % 2 == 0) {
+      Object.assign(chunk, {
+        "chunkPix": {"x": x, "y": windowCalc.canvasHeight - pixelSize},
+        // since we start at bottom edge, we increment pixels by subtracting Y value
+        //   (because javascript canvas Y coordinate is backwards)
+        "chunkPixInc": {"x": 0, "y": -2 * pixelSize},
+        "chunkPos": {"x": copyInfNum(cursorX), "y": infNumAdd(windowCalc.edges.bottom, incX)},
+        // within the chunk inself, each position along the chunk is incremented in the
+        //   Y dimension, and since chunk pixels are square, the amount incremented in
+        //   the Y dimension is the same as incX
+        "chunkInc": {"x": infNum(0n, 0n), "y": copyInfNum(incXTwice)},
+        "chunkLen": yPointsPerChunkHalf
+      });
+    } else {
+      Object.assign(chunk, {
+        "chunkPix": {"x": x, "y": windowCalc.canvasHeight},
+        // since we start at bottom edge, we increment pixels by subtracting Y value
+        //   (because javascript canvas Y coordinate is backwards)
+        "chunkPixInc": {"x": 0, "y": -1 * pixelSize},
+        "chunkPos": {"x": copyInfNum(cursorX), "y": copyInfNum(windowCalc.edges.bottom)},
+        // within the chunk inself, each position along the chunk is incremented in the
+        //   Y dimension, and since chunk pixels are square, the amount incremented in
+        //   the Y dimension is the same as incX
+        "chunkInc": {"x": infNum(0n, 0n), "y": copyInfNum(incX)},
+        "chunkLen": yPointsPerChunk
+      });
+    }
     windowCalc.xPixelChunks.push(chunk);
+    cursorX = infNumAdd(cursorX, incX);
+    chunkNum++;
   }
 
   // it's a fun effect to see the image materialize in a random
@@ -910,6 +965,9 @@ function sendStatusMessage(message) {
 }
 
 function cleanUpWindowCache() {
+  if (!windowCalc.caching) {
+    return;
+  }
   // now that the image has been completed, delete any cached
   //   points outside of the window
   let cachedPointsDeleted = 0;

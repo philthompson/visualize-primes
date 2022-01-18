@@ -1690,58 +1690,25 @@ function drawWorkerColorPoints(workerMessage) {
   // e.chunkLen - int - the number of points in the chunk
   // e.results -  [float,int,...] - array of results values, one per point in the chunk
   // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean}
-  let posX = createInfNumFromExpStr(e.chunkPos.x);
-  let posY = createInfNumFromExpStr(e.chunkPos.y);
-  let incX = createInfNumFromExpStr(e.chunkInc.x);
-  let incY = createInfNumFromExpStr(e.chunkInc.y);
-  const pixIncX = e.chunkPixInc.x;
+
   const pixIncY = e.chunkPixInc.y;
   const pixelSize = e.calcStatus.pixelWidth;
-  // assume exactly one of x or y increments is zero
-  let moveX = true;
-  if (infNumEq(infNum(0n, 0n), incX)) {
-    moveX = false;
-  }
-  if (moveX) {
-    let norm = normInfNum(posX, incX);
-    posX = norm[0];
-    incX = norm[1];
-  } else {
-    let norm = normInfNum(posY, incY);
-    posY = norm[0];
-    incY = norm[1];
-  }
-  let pixX = e.chunkPix.x;
+
+  const pixX = e.chunkPix.x;
   let pixY = e.chunkPix.y;
   // pre-allocate array so we don't have to use array.push()
   const results = new Array(e.chunkLen);
-  if (moveX) {
-    for (let i = 0; i < e.chunkLen; i++) {
-      // x and y are integer (actual pixel) values, with no decimal component
-      const point = getColorPoint(pixX, pixY, e.results[i]);
-      // create a wrappedPoint
-      // px -- the pixel "color point"
-      // pt -- the abstract coordinate on the plane
-      results[i] = {"px": point, "pt": {"x":copyInfNum(posX), "y":copyInfNum(posY)}};
-      // since we want to start at the given starting position, increment
-      //   both the position and pixel AFTER creating each result
-      pixX += pixIncX;
-      posX = infNumAddNorm(posX, incX);
-    }
-  } else {
-    posY = infNumSubNorm(posY, incY);
-    for (let i = 0; i < e.chunkLen; i++) {
-      // x and y are integer (actual pixel) values, with no decimal component
-      const point = getColorPoint(pixX, pixY, e.results[i]);
-      // create a wrappedPoint
-      // px -- the pixel "color point"
-      // pt -- the abstract coordinate on the plane
-      results[i] = {"px": point, "pt": {"x":copyInfNum(posX), "y":copyInfNum(posY)}};
-      // since we want to start at the given starting position, increment
-      //   both the position and pixel AFTER creating each result
-      pixY += pixIncY;
-      posY = infNumAddNorm(posY, incY);
-    }
+
+  for (let i = 0; i < e.chunkLen; i++) {
+    // x and y are integer (actual pixel) values, with no decimal component
+    const point = getColorPoint(pixX, pixY, e.results[i]);
+    // create a wrappedPoint
+    // px -- the pixel "color point"
+    // pt -- the abstract coordinate on the plane (not using since we aren't caching)
+    results[i] = {"px": point};
+    // since we want to start at the given starting position, increment
+    //   both the position and pixel AFTER creating each result
+    pixY += pixIncY;
   }
   drawColorPoints(results, pixelSize);
   previewImage = windowCalc.pixelsImage;

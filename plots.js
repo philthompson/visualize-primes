@@ -312,7 +312,8 @@ const plots = [{
       );
     const outputIsFloatExp = outputMath.name == "floatexp";
 
-    const maxIter = period !== null && period > 0 ? period : n;
+    const periodLessThanN = period !== null && period > 0 && period < n;
+    const maxIter = periodLessThanN ? period : n;
     const two = infNum(2n, 0n);
     const four = infNum(4n, 0n);
     const sixteen = infNum(16n, 0n);
@@ -363,6 +364,13 @@ const plots = [{
           fnContext.status = "computed " + (Math.round(fnContext.iter * 10000.0 / maxIter)/100.0) + "% of reference orbit";
           console.log(fnContext.status);
           return fnContext;
+        }
+      }
+      // fill out reference orbit will repeat data
+      if (periodLessThanN && fnContext.iter >= maxIter) {
+        for (let i = 0; i < n - period; i++) {
+          // use mod to keep looping back over the ref orbit iterations
+          fnContext.orbit.push(structuredClone(fnContext.orbit[i % period]));
         }
       }
 

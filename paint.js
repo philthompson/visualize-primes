@@ -1287,6 +1287,13 @@ function resetWindowCalcCache() {
   windowCalc.pointsCache = {};
 }
 
+function resetMandelbrotReferenceOrbit() {
+  console.log("purging mandelbrot reference orbit");
+  if (windowCalc.worker != null) {
+    windowCalc.worker.postMessage({t:"wipe-ref-orbit",v:null});
+  }
+}
+
 function resetWindowCalcContext() {
   // for now, while we don't have caching implemented for workers,
   //   just kill any running worker here (whenever we change any
@@ -1660,6 +1667,7 @@ var calcWorkerOnmessage = function(e) {
         if (windowCalcRepeat > 1) {
           windowCalcRepeat -= 1;
           resetWindowCalcCache();
+          resetMandelbrotReferenceOrbit();
           redraw();
         } else if (windowCalcRepeat === 1) {
           windowCalcRepeat -= 1;

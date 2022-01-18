@@ -111,6 +111,8 @@ self.onmessage = function(e) {
     updateWorkerCount(e.data.v);
   } else if (e.data.t == "wipe-cache") {
     windowCalc.pointsCache = new Map();
+  } else if (e.data.t == "wipe-ref-orbit") {
+    wipeReferenceOrbitStuff();
   } else if (e.data.t == "stop") {
     windowCalc.stopped = true;
     stopAndRemoveAllWorkers();
@@ -185,6 +187,14 @@ function runCalc(msg) {
   }
 };
 
+function wipeReferenceOrbitStuff() {
+  windowCalc.referenceOrbit = null;
+  // since SA and BLA computed coefficients/terms are dependent on
+  //   the ref orbit, wipe those when we calculate a new ref orbit
+  windowCalc.saCoefficients = null;
+  windowCalc.referenceBlaTables = null;
+}
+
 function setupCheckReferenceOrbit() {
   sendStatusMessage("Finding reference point");
 
@@ -223,11 +233,7 @@ function setupCheckReferenceOrbit() {
     windowCalc.referencePy = newReferencePy;
     // wipe this to signal to next stage that the reference orbit
     //   needs to be calculated
-    windowCalc.referenceOrbit = null;
-    // since SA and BLA computed coefficients/terms are dependent on
-    //   the ref orbit, wipe those when we calculate a new ref orbit
-    windowCalc.saCoefficients = null;
-    windowCalc.referenceBlaTables = null;
+    wipeReferenceOrbitStuff();
   } else {
     console.log("re-using previously-calculated reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
     console.log("referencePx: " + infNumToString(windowCalc.referencePx));

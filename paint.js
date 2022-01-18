@@ -67,16 +67,18 @@ function warnAboutWorkers() {
     "The recommended browsers are desktop Firefox, Chrome, or Edge, or similar.";
 }
 
+const startPassNumber = 0;
+
 const windowCalc = {
   timeout: null,
   plotName: "",
   algorithm: "auto",
   stage: "",
+  passNumber: null,
   lineWidth: 0,
   xPixelChunks: [],
   pixelCache: [],
   pointsBounds: "",
-  pointsCache: {},
   passTimeMs: 0,
   totalTimeMs: 0,
   startTimeMs: 0,
@@ -165,6 +167,7 @@ function isCurrentPlotAWindowPlot() {
 // call the plot's computeBoundPoints function in chunks, to better
 //   allow interuptions for long-running calculations
 function calculateWindowPassChunks() {
+  windowCalc.passNumber++;
   windowCalc.chunksComplete = 0;
   const roundedParamLineWidth =  Math.round(historyParams.lineWidth);
   const potentialTempLineWidth = Math.round(windowCalc.lineWidth / 2);
@@ -180,37 +183,63 @@ function calculateWindowPassChunks() {
   //   lineWidth of 0.5 to result in a pixel size of 1
   const pixelSize = Math.round(windowCalc.lineWidth);
 
-  const pixWidth = dContext.canvas.width;
-  // use way fewer chunks for larger pixels, which mostly fixes mouse-dragging issues
-  var numXChunks = 128;
-  if (infNumLt(historyParams.scale, createInfNum("1e304"))) {
-    if (pixelSize == 64) {
-      numXChunks = 1;
-    } else if (pixelSize == 32) {
-      numXChunks = 4;
-    } else if (pixelSize == 16) {
-      numXChunks = 32;
-    } else if (pixelSize == 8 || pixelSize == 4) {
-      numXChunks = 64;
-    }
-  }
-  var pixPerChunk = 1;
-  var realPixelsPerChunk = pixWidth/numXChunks;
-  pixPerChunk = Math.trunc(realPixelsPerChunk / pixelSize) + 1;
+  // for the first pass, we don't skip any previously-calculated
+  //   pixels.  otherwise, we skip every other pixel in every
+  //   other (even-numbered 0th, 2nd, 4th, ...) chunk
+  const skipPrevPixels = windowCalc.passNumber > startPassNumber;
 
-  // split the x-axis, to break the computation down into interruptable chunks
-  var xChunkPix = 0;
-  var xChunk = [];
-  for (var x = 0; x < pixWidth; x+=pixelSize) {
-    xChunkPix++;
-    if (xChunkPix > pixPerChunk) {
-      windowCalc.xPixelChunks.push(xChunk);
-      xChunkPix = 1;
-      xChunk = [];
+  const yPointsPerChunk = Math.ceil(dContext.canvas.height / pixelSize) + 1;
+  const yPointsPerChunkHalf = Math.ceil(yPointsPerChunk / 2);
+
+  const incX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
+  const incXTwice = infNumMul(incX, infNum(2n, 0n));
+  let cursorX = copyInfNum(windowCalc.leftEdge);
+  let chunkNum = 0;
+  for (let x = 0; x < dContext.canvas.width; x+=pixelSize) {
+    let chunk = {};
+    if (skipPrevPixels && chunkNum % 2 == 0) {
+      Object.assign(chunk, {
+        "chunkPix": {"x": x, "y": dContext.canvas.height - pixelSize},
+        // since we start at bottom edge, we increment pixels by subtracting Y value
+        //   (because javascript canvas Y coordinate is backwards)
+        "chunkPixInc": {"x": 0, "y": -2 * pixelSize},
+        "chunkPos": {"x": copyInfNum(cursorX), "y": infNumAdd(windowCalc.bottomEdge, incX)},
+        // within the chunk inself, each position along the chunk is incremented in the
+        //   Y dimension, and since chunk pixels are square, the amount incremented in
+        //   the Y dimension is the same as incX
+        "chunkInc": {"x": infNum(0n, 0n), "y": copyInfNum(incXTwice)},
+        "chunkLen": yPointsPerChunkHalf
+      });
+    } else {
+      Object.assign(chunk, {
+        "chunkPix": {"x": x, "y": dContext.canvas.height},
+        // since we start at bottom edge, we increment pixels by subtracting Y value
+        //   (because javascript canvas Y coordinate is backwards)
+        "chunkPixInc": {"x": 0, "y": -1 * pixelSize},
+        "chunkPos": {"x": copyInfNum(cursorX), "y": copyInfNum(windowCalc.bottomEdge)},
+        // within the chunk inself, each position along the chunk is incremented in the
+        //   Y dimension, and since chunk pixels are square, the amount incremented in
+        //   the Y dimension is the same as incX
+        "chunkInc": {"x": infNum(0n, 0n), "y": copyInfNum(incX)},
+        "chunkLen": yPointsPerChunk
+      });
     }
-    xChunk.push(x);
+    windowCalc.xPixelChunks.push(chunk);
+    cursorX = infNumAdd(cursorX, incX);
+    chunkNum++;
   }
-  windowCalc.xPixelChunks.push(xChunk);
+
+  // it's a fun effect to see the image materialize in a random
+  //   way, as opposed to strictly left-to-right, plus it allows
+  //   the user to get a sense for the final image much sooner,
+  //   allowing the user to decide whether to continue panning or
+  //   zooming
+  // thanks to https://stackoverflow.com/a/12646864/259456
+  for (let i = windowCalc.xPixelChunks.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [windowCalc.xPixelChunks[i], windowCalc.xPixelChunks[j]] = [windowCalc.xPixelChunks[j], windowCalc.xPixelChunks[i]];
+  }
+
   windowCalc.totalChunks = windowCalc.xPixelChunks.length;
 }
 
@@ -221,7 +250,7 @@ function calculateReferenceOrbit() {
   windowCalc.referencePy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(dCanvas.height/2)), 0n)));
   let refOrbitCalcContext = null;
   while (refOrbitCalcContext === null || !refOrbitCalcContext.done) {
-    refOrbitCalcContext = plotsByName[historyParams.plot].computeReferenceOrbit(windowCalc.n, precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, refOrbitCalcContext);
+    refOrbitCalcContext = plotsByName[historyParams.plot].computeReferenceOrbit(windowCalc.n, precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, -1, refOrbitCalcContext);
     drawStatusNotice(dContext, refOrbitCalcContext.status);
   }
   windowCalc.referenceOrbit = refOrbitCalcContext.orbit;
@@ -231,79 +260,59 @@ function calculateReferenceOrbit() {
   console.log("referencePy: " + infNumToString(windowCalc.referencePy));
 }
 
-function computeBoundPointsChunk(xChunk) {
+function computeBoundPointsChunk(chunk) {
   var chunkStartMs = Date.now();
   const plot = plotsByName[historyParams.plot];
-  var resultPoints = [];
 
-  // use lineWidth to determine how large to make the calculated/displayed
-  //   pixels, so round to integer
-  // use Math.round(), not Math.trunc(), because we want the minimum
-  //   lineWidth of 0.5 to result in a pixel size of 1
-  const pixelSizeFloat = Math.round(windowCalc.lineWidth);
-  const pixelSize = createInfNum(pixelSizeFloat.toString());
-  //const params = historyParams;
+  const norm = normInfNum(chunk.chunkPos.y, chunk.chunkInc.y);
+  const px = chunk.chunkPos.x;
+  let py = norm[0];
+  const incY = norm[1];
 
-  // for each pixel shown, find the abstract coordinates represented by its... center?  edge?
-  //const pixWidth = createInfNum(dContext.canvas.width.toString());
-  const pixHeight = createInfNum(dContext.canvas.height.toString());
+  const pixX = chunk.chunkPix.x;
+  let pixY = chunk.chunkPix.y;
+  const pixIncY = chunk.chunkPixInc.y;
 
-  let px = null;
-  let py = null;
-  let x = 0;
-  const yStep = infNumMul(windowCalc.eachPixUnits, pixelSize);
-  const yNorm = normInfNum(yStep, windowCalc.topEdge);
-  const yStepNorm = yNorm[0];
-  const topNorm = yNorm[1];
-  const computeWithPerturb = !windowCalc.algorithm.includes("basic");
-  for (let i = 0; i < xChunk.length; i++) {
-    x = xChunk[i];
-    xInfNum = infNum(BigInt(xChunk[i]), 0n);
+  // pre-allocate array so we don't have to use array.push()
+  const results = new Array(chunk.chunkLen);
 
-    px = infNumAdd(infNumMul(windowCalc.eachPixUnits, xInfNum), windowCalc.leftEdge);
-    pxStr = infNumFastStr(px) + ",";
-    py = topNorm;
-    for (let y = 0; y < dCanvas.height; y += pixelSizeFloat) {
-      const pointPixel = pxStr + infNumFastStr(py);
-      if (pointPixel in windowCalc.pointsCache) {
-        windowCalc.cachedPoints++;
-        // update the pixel on the screen, in case we've panned since
-        //   the point was originally cached
-        windowCalc.pointsCache[pointPixel].px.x = x;
-        windowCalc.pointsCache[pointPixel].px.y = y;
-        resultPoints.push(windowCalc.pointsCache[pointPixel]);
-      } else {
-        // if not calculating with straightforward algorithm, we will use
-        //   the perturbation theory algorithm
-        let pointColor = computeWithPerturb ?
-          plot.computeBoundPointColorPerturbOrBla(windowCalc.n, precision, px, py, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, null, null).colorpct
-          :
-          plot.computeBoundPointColor(windowCalc.n, precision, windowCalc.algorithm, px, py);
-        //let pointColor = null;
-        //if (computeAlgo === 1) {
-        //  pointColor = plot.computeBoundPointColorPerturbFloatExp(windowCalc.n, precision, px, py, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit);
-        //} else if (computeAlgo === 2) {
-        //  pointColor = plot.computeBoundPointColorPerturbFloat(windowCalc.n, precision, px, py, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit);
-        //} else {
-        //  pointColor = plot.computeBoundPointColor(windowCalc.n, precision, windowCalc.algorithm, px, py);
-        //}
+  if (windowCalc.algorithm.includes("basic-")) {
+    const computeFn = plot.computeBoundPointColor;
+    for (let i = 0; i < chunk.chunkLen; i++) {
+      const pointResult = computeFn(windowCalc.n, precision, windowCalc.algorithm, px, py);
+      // create a wrappedPoint
+      // px -- the pixel "color point"
+      // pt -- the abstract coordinate on the plane (not needed since we are not caching)
+      results[i] = {px: getColorPoint(pixX, pixY, pointResult)};
+      // since we want to start at the given starting position, increment
+      //   the position AFTER computing each result
+      py = infNumAddNorm(py, incY);
+      pixY += pixIncY;
+    }
 
-        // x and y are integer (actual pixel) values, with no decimal component
-        const point = getColorPoint(x, y, pointColor);
-        // px -- the pixel "color point"
-        // pt -- the abstract coordinate on the plane
-        let wrappedPoint = {"px": point, "pt": {"x":copyInfNum(px), "y":copyInfNum(py)}};
-        windowCalc.pointsCache[pointPixel] = wrappedPoint;
-        resultPoints.push(wrappedPoint);
-      }
-      py = infNumSubNorm(py, yStepNorm);
+  // if not calculating with basic algorithm, we will use
+  //   the perturbation theory algorithm
+  } else if (windowCalc.algorithm.includes("perturb-")) {
+    const perturbFn = plot.computeBoundPointColorPerturbOrBla;
+
+    for (let i = 0; i < chunk.chunkLen; i++) {
+      const pointResult = perturbFn(windowCalc.n, precision, px, py, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, null, null).colorpct;
+      // create a wrappedPoint
+      // px -- the pixel "color point"
+      // pt -- the abstract coordinate on the plane (not needed since we are not caching)
+      results[i] = {px: getColorPoint(pixX, pixY, pointResult)};
+      // since we want to start at the given starting position, increment
+      //   the position AFTER computing each result
+      py = infNumAddNorm(py, incY);
+      pixY += pixIncY;
     }
   }
+
   windowCalc.passTimeMs += (Date.now() - chunkStartMs);
-  windowCalc.totalPoints += resultPoints.length;
+  windowCalc.totalPoints += results.length;
   windowCalc.chunksComplete++;
   return {
-    "points": resultPoints,
+    "points": results,
   };
 }
 
@@ -331,25 +340,8 @@ function drawCalculatingNoticeOld(ctx) {
 }
 
 function cleanUpWindowCache() {
-  // now that the image has been completed, delete any cached
-  //   points outside of the window
-  let cachedPointsKept = 0;
-  let cachedPointsToDelete = [];
-  for (let name in windowCalc.pointsCache) {
-    if (infNumLt(windowCalc.pointsCache[name].pt.x, windowCalc.leftEdge) ||
-        infNumGt(windowCalc.pointsCache[name].pt.x, windowCalc.rightEdge) ||
-        infNumLt(windowCalc.pointsCache[name].pt.y, windowCalc.bottomEdge) ||
-        infNumGt(windowCalc.pointsCache[name].pt.y, windowCalc.topEdge)) {
-      cachedPointsToDelete.push(name);
-    } else {
-      cachedPointsKept++;
-    }
-  }
-  for (let i = 0; i < cachedPointsToDelete.length; i++) {
-    delete windowCalc.pointsCache[name];
-  }
-  const deletedPct = Math.round(cachedPointsToDelete.length * 10000.0 / (cachedPointsToDelete.length + cachedPointsKept)) / 100.0;
-  console.log("deleted [" + cachedPointsToDelete.length + "] points from the cache (" + deletedPct + "%)");
+  // since we are no longer caching points like we used to,
+  //   this does nothing
 }
 
 // -^^- THIS ABOVE SECTION can be removed once all common browsers -^^-
@@ -1284,7 +1276,6 @@ function resetWindowCalcCache() {
   if (windowCalc.worker != null) {
     windowCalc.worker.postMessage({t:"wipe-cache",v:null});
   }
-  windowCalc.pointsCache = {};
 }
 
 function resetMandelbrotReferenceOrbit() {
@@ -1790,6 +1781,7 @@ function kickoffWindowDrawLoop() {
     startLineWidth /= 2;
   }
   windowCalc.lineWidth = startLineWidth;
+  windowCalc.passNumber = startPassNumber - 1;
   windowCalc.stage = windowCalcStages.drawCalculatingNotice;
   windowCalc.timeout = window.setInterval(windowDrawLoop, 5);
 }
@@ -2009,17 +2001,26 @@ function windowDrawLoop() {
 }
 
 function calculateAndDrawNextChunk() {
-  var nextXChunk = windowCalc.xPixelChunks.shift();
-  const isPassFinished = isPassComputationComplete();
-  
-  if (nextXChunk) {
-    drawColorPoints(computeBoundPointsChunk(nextXChunk).points, Math.round(windowCalc.lineWidth));
-    previewImage = windowCalc.pixelsImage;
-    previewImageOffsetX = 0;
-    previewImageOffsetY = 0;
-    if (!isPassFinished) {
-      drawCalculatingNoticeOld(dContext);
+  // in order to waste less time idle between chunks, do 8 chunks
+  //   at a time (this may have to be adjusted for slower locations,
+  //   like locations at much higher scales or higher max iterations)
+  let isPassFinished = false;
+  for (let i = 0; i < 8 && !isPassFinished; i++) {
+    var nextXChunk = windowCalc.xPixelChunks.shift();
+    isPassFinished = isPassComputationComplete();
+
+    if (nextXChunk) {
+      drawColorPoints(computeBoundPointsChunk(nextXChunk).points, Math.round(windowCalc.lineWidth));
+      previewImage = windowCalc.pixelsImage;
+      previewImageOffsetX = 0;
+      previewImageOffsetY = 0;
     }
+  }
+  // since the UI won't update unless idle, don't bother drawing
+  //   the calculating notice between the above 8 chunks -- just
+  //   do it once after all of them
+  if (!isPassFinished) {
+    drawCalculatingNoticeOld(dContext);
   }
   return isPassFinished;
 }

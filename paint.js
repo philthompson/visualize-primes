@@ -1345,10 +1345,6 @@ function resetWindowCalcContext() {
   //windowCalc.pixelsImage = dContext.createImageData(dContext.canvas.width, dContext.canvas.height);
   windowCalc.pixelsImage = dContext.getImageData(0, 0, dContext.canvas.width, dContext.canvas.height);
   windowCalc.xPixelChunks = [];
-  windowCalc.pixelCache = new Array(dCanvas.width);
-  for (let i = 0; i < windowCalc.pixelCache.length; i++) {
-    windowCalc.pixelCache[i] = new Array(dCanvas.height);
-  }
   windowCalc.pointsBounds = "";
   windowCalc.passTimeMs = 0;
   windowCalc.totalTimeMs = 0;
@@ -1727,15 +1723,14 @@ function calculateAndDrawWindowSync(pixelSize) {
       // px -- the pixel "color point"
       // pt -- the abstract coordinate on the plane
       results[resultCounter] = {
-        "px": getColorPoint(x, y, compute(windowCalc.n, precision, windowCalc.algorithm, px, py)),
-        "pt": {"x":copyInfNum(px), "y":copyInfNum(py)}
+        px: getColorPoint(x, y, compute(windowCalc.n, precision, windowCalc.algorithm, px, py))
       };
       resultCounter++;
       py = infNumSubNorm(py, yStep);
     }
     px = infNumAddNorm(px, xStep);
   }
-  drawColorPoints(results, pixelSize);
+  drawColorPoints(results, pixelSize, false);
 }
 
 function calculateAndDrawWindow() {
@@ -1764,11 +1759,21 @@ function calculateAndDrawWindow() {
   }
 }
 
+function resetPixelCache() {
+  windowCalc.pixelCache = new Array(dCanvas.width);
+  for (let i = 0; i < windowCalc.pixelCache.length; i++) {
+    windowCalc.pixelCache[i] = new Array(dCanvas.height);
+  }
+}
+
 // start the non-worker calculate/draw loop
 function kickoffWindowDrawLoop() {
   if (windowCalc.timeout != null) {
     window.clearTimeout(windowCalc.timeout);
   }
+  // resetting the pixelCache might be slightly slow, so it's been
+  //   moved here
+  resetPixelCache();
   // since the linewidth is divided by 2 on each pass, start with a multiple
   //   of a power of 2.  this way, we end up at the desired pixel size ("line width")
   // since this is the slower non-worker way to draw the image, we'll start
@@ -1797,6 +1802,9 @@ function kickoffWindowWorker() {
   } else {
     windowCalc.worker.postMessage({"t": "stop", "v": 0});
   }
+  // resetting the pixelCache might be slightly slow, so it's been
+  //   moved here
+  resetPixelCache();
   // since the linewidth is divided by 2 on each pass, start with a multiple
   //   of a power of 2.  this way, we end up at the desired pixel size ("line width")
   let startLineWidth = windowCalc.algorithm == "basic-float" ?
@@ -2073,7 +2081,7 @@ function windowAverageTiming() {
   }
 }
 
-function drawColorPoints(windowPoints, pixelSize) {
+function drawColorPoints(windowPoints, pixelSize, saveToCache = true) {
   // change URL bar to reflect current params, only if no params change
   //   for 1/4 second
   if (replaceStateTimeout != null) {
@@ -2124,7 +2132,9 @@ function drawColorPoints(windowPoints, pixelSize) {
         pixelsImage.data[pixelOffsetInImage+1] = pointColor.g;
         pixelsImage.data[pixelOffsetInImage+2] = pointColor.b;
         pixelsImage.data[pixelOffsetInImage+3] = 255; // alpha
-        windowCalc.pixelCache[resX+x][resY+y] = colorPct;
+        if (saveToCache) {
+          windowCalc.pixelCache[resX+x][resY+y] = colorPct;
+        }
       }
     }
   }

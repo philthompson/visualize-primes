@@ -592,11 +592,11 @@ const plots = [{
     //   single test point
     let i = fnContext.refOrbitIter;
     let statusIterCounter = 0;
-    // go to ref orbit length - 2, because IF the entire orbit can
+    // go to ref orbit length - 3, because IF the entire orbit can
     //   be skipped (when max iterations for the image is too low)
     //   we end up trying to access an index of the ref orbit that
     //   doesn't exist after skipping the entire ref orbit
-    for (; i < referenceOrbit.length - 2; i++) {
+    for (; i < referenceOrbit.length - 3; i++) {
 
       // this only works if the reference orbit is floatexp... have to use pre-converted
       //   values if using "...-float" or "...-arbprecis" algo
@@ -763,7 +763,7 @@ const plots = [{
 
     fnContext.done = true;
     if (fnContext.itersToSkip < 0) {
-      console.log("able to skip ALL [" + referenceOrbit.length + "] iterations of the reference orbit with [" + fnContext.nTerms + "]-term SA... hmm... perhaps N is set too low");
+      console.log("able to skip ALL [" + i + "/" + referenceOrbit.length + "] iterations of the reference orbit with [" + fnContext.nTerms + "]-term SA... hmm... perhaps N is set too low");
       fnContext.saCoefficients = {itersToSkip:i, coefficients:fnContext.terms};
     } else {
       console.log("able to skip [" + fnContext.itersToSkip + "] iterations with [" + fnContext.nTerms + "]-term SA");

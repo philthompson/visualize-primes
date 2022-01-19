@@ -15,9 +15,13 @@ const appVersion = urlParams.has("v") ? urlParams.get('v') : "unk";
 
 if (forceWorkerReload) {
   importScripts("infnum.js?v=" + appVersion + "&" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+  importScripts("floatexp.js?v=" + appVersion + "&" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
+  importScripts("mathiface.js?v=" + appVersion + "&" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
   importScripts("plots.js?v=" + appVersion + "&" + forceWorkerReloadUrlParam + "&t=" + (Date.now()));
 } else {
   importScripts("infnum.js?v=" + appVersion);
+  importScripts("floatexp.js?v=" + appVersion);
+  importScripts("mathiface.js?v=" + appVersion);
   importScripts("plots.js?v=" + appVersion);
 }
 

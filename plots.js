@@ -235,8 +235,8 @@ const plots = [{
     if (algorithm == "basic-float") {
       // truncating to 15 decimal digits here is equivalent to truncating
       //   to 16 significant digits, but it's more efficient to do both at once
-      let xFloat = parseFloat(infNumExpStringTruncToLen(x, 15));
-      let yFloat = parseFloat(infNumExpStringTruncToLen(y, 15));
+      let xFloat = typeof x == "number" ? x : parseFloat(infNumExpStringTruncToLen(x, 18));
+      let yFloat = typeof y == "number" ? y : parseFloat(infNumExpStringTruncToLen(y, 18));
       let ix = 0;
       let iy = 0;
       let ixSq = 0;

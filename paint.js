@@ -92,6 +92,7 @@ const windowCalc = {
   topEdge: infNum(0n, 0n),
   rightEdge: infNum(0n, 0n),
   bottomEdge: infNum(0n, 0n),
+  eachPixUnitsFloat: 0.0,
   leftEdgeFloat: 0.0,
   topEdgeFloat: 0.0,
   n: 1,
@@ -1211,7 +1212,7 @@ function redraw() {
 }
 
 function infNumToFloat(n) {
-  return parseFloat(infNumToString(n));
+  return parseFloat(infNumExpStringTruncToLen(n, 18));
 }
 
 function drawPoints(params) {
@@ -1388,6 +1389,7 @@ function resetWindowCalcContext() {
   windowCalc.topEdge = topEdge;
   windowCalc.rightEdge = rightEdge;
   windowCalc.bottomEdge = bottomEdge;
+  windowCalc.eachPixUnitsFloat = infNumToFloat(windowCalc.eachPixUnits);
   windowCalc.leftEdgeFloat = infNumToFloat(leftEdge);
   windowCalc.topEdgeFloat = infNumToFloat(topEdge);
 
@@ -1704,20 +1706,18 @@ function drawWorkerColorPoints(workerMessage) {
 }
 
 // simple, synchronous/blocking function to calculate and draw
-//   the entire image
+//   the entire image, for floating point only
 function calculateAndDrawWindowSync(pixelSize) {
   const compute = plotsByName[windowCalc.plotName].computeBoundPointColor;
-  let step = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
-  let xNorm = normInfNum(windowCalc.leftEdge, step);
-  let px = xNorm[0];
-  let xStep = xNorm[1];
+  let step = windowCalc.eachPixUnitsFloat * pixelSize;
+  let px = windowCalc.leftEdgeFloat;
+  let xStep = step;
   // pre-allocate array so we don't have to use array.push()
   const results = new Array(Math.ceil(dContext.canvas.width/pixelSize) * Math.ceil(dContext.canvas.height/pixelSize));
   let resultCounter = 0;
   for (let x = 0; x < dContext.canvas.width; x+=pixelSize) {
-    let yNorm = normInfNum(windowCalc.topEdge, step);
-    let py = yNorm[0];
-    let yStep = yNorm[1];
+    let py = windowCalc.topEdgeFloat;
+    let yStep = step;
     for (let y = 0; y < dContext.canvas.height; y+=pixelSize) {
       // create a wrappedPoint
       // px -- the pixel "color point"
@@ -1726,9 +1726,9 @@ function calculateAndDrawWindowSync(pixelSize) {
         px: getColorPoint(x, y, compute(windowCalc.n, precision, windowCalc.algorithm, px, py))
       };
       resultCounter++;
-      py = infNumSubNorm(py, yStep);
+      py -= yStep;
     }
-    px = infNumAddNorm(px, xStep);
+    px += xStep;
   }
   drawColorPoints(results, pixelSize, false);
 }

@@ -73,6 +73,7 @@ const windowCalc = {
   timeout: null,
   plotName: "",
   algorithm: "auto",
+  math: null,
   stage: "",
   passNumber: null,
   lineWidth: 0,
@@ -88,10 +89,15 @@ const windowCalc = {
   chunksComplete: 0,
   totalChunks: 0,
   eachPixUnits: infNum(1n, 0n),
+  eachPixUnitsM: null,
   leftEdge: infNum(0n, 0n),
   topEdge: infNum(0n, 0n),
   rightEdge: infNum(0n, 0n),
   bottomEdge: infNum(0n, 0n),
+  leftEdgeM: null,
+  topEdgeM: null,
+  rightEdgeM: null,
+  bottomEdgeM: null,
   eachPixUnitsFloat: 0.0,
   leftEdgeFloat: 0.0,
   topEdgeFloat: 0.0,
@@ -1328,7 +1334,9 @@ function resetWindowCalcContext() {
   }
   precision = settings.precision;
   windowCalc.algorithm = settings.algorithm;
-  console.log("user-adjusted mandelbrot settings:", {precision:precision, algorithm:windowCalc.algorithm});
+  console.log("user-adjusted settings:", {precision:precision, algorithm:windowCalc.algorithm});
+
+  windowCalc.math = selectMathInterfaceFromAlgorithm(windowCalc.algorithm);
 
   // attempt to resolve slowdown experienced when repeatedly panning/zooming,
   //   where the slowdown is resolved when refreshing the page
@@ -1367,6 +1375,7 @@ function resetWindowCalcContext() {
 
   // rather than calculate this for each chunk, compute it once here
   windowCalc.eachPixUnits = infNumDiv(infNum(1n, 0n), params.scale, precision);
+  windowCalc.eachPixUnitsM = windowCalc.math.createFromInfNum(windowCalc.eachPixUnits);
 
   // find the visible abstract points using offset and scale
   const scaledWidth = infNumDiv(canvasWidth, params.scale, precision);
@@ -1392,6 +1401,10 @@ function resetWindowCalcContext() {
   windowCalc.eachPixUnitsFloat = infNumToFloat(windowCalc.eachPixUnits);
   windowCalc.leftEdgeFloat = infNumToFloat(leftEdge);
   windowCalc.topEdgeFloat = infNumToFloat(topEdge);
+  windowCalc.leftEdgeM = windowCalc.math.createFromInfNum(leftEdge);
+  windowCalc.topEdgeM = windowCalc.math.createFromInfNum(topEdge);
+  windowCalc.rightEdgeM = windowCalc.math.createFromInfNum(rightEdge);
+  windowCalc.bottomEdgeM = windowCalc.math.createFromInfNum(bottomEdge);
 
   resetGoToBoundsValues();
   resetGoToCenterValues();
@@ -1817,10 +1830,15 @@ function kickoffWindowWorker() {
   const workerCalc = {};
   workerCalc.plot = windowCalc.plotName;
   workerCalc.eachPixUnits = windowCalc.eachPixUnits;
+  workerCalc.eachPixUnitsM = windowCalc.eachPixUnitsM;
   workerCalc.leftEdge = windowCalc.leftEdge;
   workerCalc.rightEdge = windowCalc.rightEdge;
   workerCalc.topEdge = windowCalc.topEdge;
   workerCalc.bottomEdge = windowCalc.bottomEdge;
+  workerCalc.leftEdgeM = windowCalc.leftEdgeM;
+  workerCalc.rightEdgeM = windowCalc.rightEdgeM;
+  workerCalc.topEdgeM = windowCalc.topEdgeM;
+  workerCalc.bottomEdgeM = windowCalc.bottomEdgeM;
   workerCalc.n = windowCalc.n;
   workerCalc.precision = precision;
   workerCalc.algorithm = windowCalc.algorithm;

@@ -48,9 +48,11 @@ const windowCalc = {
   "pointCalcFunction": null,
   "eachPixUnits": null,
   "edges": null,
+  "edgesM": null,
   "n": null,
   "precision": null,
   "algorithm": null,
+  "math": null,
   "passNumber": null,
   "lineWidth": null,
   "finalWidth": null,
@@ -79,6 +81,8 @@ const windowCalc = {
   "referenceOrbitN": null,
   "referenceBlaTables": null,
   "referenceBlaN": null,
+  "referenceBottomLeftDeltaX": null,
+  "referenceBottomLeftDeltaY": null,
   "saCoefficients": null,
   "saCoefficientsN": null,
   "saCoefficientsEdges": null,
@@ -133,15 +137,25 @@ function runCalc(msg) {
   windowCalc.plot = msg.plot;
   windowCalc.stopped = false;
   windowCalc.eachPixUnits = msg.eachPixUnits;
+  windowCalc.eachPixUnitsM = msg.eachPixUnitsM;
+  // edges in InfNum objects
   windowCalc.edges = {
     left: msg.leftEdge,
     right:  msg.rightEdge,
     top: msg.topEdge,
     bottom: msg.bottomEdge
   };
+  // edges for algorithm's math inteface
+  windowCalc.edgesM = {
+    left: msg.leftEdgeM,
+    right:  msg.rightEdgeM,
+    top: msg.topEdgeM,
+    bottom: msg.bottomEdgeM
+  };
   windowCalc.n = msg.n;
   windowCalc.precision = msg.precision;
   windowCalc.algorithm = msg.algorithm;
+  windowCalc.math = selectMathInterfaceFromAlgorithm(windowCalc.algorithm);
   windowCalc.passNumber = startPassNumber - 1;
   // the main thread does its own 64-wide pixels synchronously,
   //   so the worker threads should start at 32-wide (set to 64
@@ -151,8 +165,12 @@ function runCalc(msg) {
   windowCalc.chunksComplete = 0;
   windowCalc.canvasWidth = msg.canvasWidth;
   windowCalc.canvasHeight = msg.canvasHeight;
-  // include "nocache" in algorithm name to turn off caching
-  windowCalc.caching = !windowCalc.algorithm.includes("nocache");
+  // since pixel position math is now dependent on algorithm,
+  //   the old caching no longer works as-is, so we will just
+  //   turn it off for now
+  windowCalc.caching = false;
+//  // include "nocache" in algorithm name to turn off caching
+//  windowCalc.caching = !windowCalc.algorithm.includes("nocache");
   if (windowCalc.pointsCache === null || !windowCalc.caching ||
       (windowCalc.pointsCacheAlgorithm !== null &&
         windowCalc.pointsCacheAlgorithm != windowCalc.algorithm)) {
@@ -386,6 +404,7 @@ function runSetupTasks() {
       clearTimeout(windowCalc.timeout);
     }
     if (!windowCalc.stopped) {
+      setupPixelPositionDelta();
       calculatePass();
     }
     return;
@@ -532,6 +551,29 @@ var calculatePass = function() {
   //  cleanUpWindowCache();
   //}
 };
+
+// for the non-basic (perturbation theory) algorithm, we don't ever need
+//   to fully calculate the position of all points to our set "precision"
+//   (number of significant digits) with arbitrary precision math.
+// instead (again, just for perturbation theory) all we need is the
+//   difference from the reference point to each pixel -- and that difference
+//   value will always be really small and expressable with float or
+//   floatexp
+function setupPixelPositionDelta() {
+  windowCalc.referenceBottomLeftDeltaX = null;
+  windowCalc.referenceBottomLeftDeltaY = null;
+  if (windowCalc.algorithm.includes("basic") ||
+      windowCalc.referencePx === null ||
+      windowCalc.referencePy === null) {
+    // having just reset the delta to null is what we want
+    return;
+  }
+  // the subtraction is done backwards from how i'd expect,
+  //   but that's how deltas are calculated now in the
+  //   Mandelbrot perturbation theory function
+  windowCalc.referenceBottomLeftDeltaX = windowCalc.math.createFromInfNum(infNumSub(windowCalc.edges.left, windowCalc.referencePx));
+  windowCalc.referenceBottomLeftDeltaY = windowCalc.math.createFromInfNum(infNumSub(windowCalc.edges.bottom, windowCalc.referencePy));
+}
 
 function buildChunkId(chunkPos) {
   return infNumFastStr(chunkPos.x) + "," + infNumFastStr(chunkPos.y);
@@ -837,11 +879,6 @@ if (windowCalc.caching) {
     status["saItersSkipped"] = windowCalc.saCoefficients.itersToSkip;
   }
   msg.data["calcStatus"] = status;
-  // convert InfNum objects to strings
-  msg.data.chunkPos.x = infNumExpString(msg.data.chunkPos.x);
-  msg.data.chunkPos.y = infNumExpString(msg.data.chunkPos.y);
-  msg.data.chunkInc.x = infNumExpString(msg.data.chunkInc.x);
-  msg.data.chunkInc.y = infNumExpString(msg.data.chunkInc.y);
   self.postMessage(msg.data);
 }
 
@@ -908,9 +945,38 @@ var calculateWindowPassChunks = function() {
   const yPointsPerChunk = Math.ceil(windowCalc.canvasHeight / pixelSize) + 1;
   const yPointsPerChunkHalf = Math.ceil(yPointsPerChunk / 2);
   
-  const incX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
-  const incXTwice = infNumMul(incX, infNum(2n, 0n));
-  let cursorX = copyInfNum(windowCalc.edges.left);
+  // the logic below is the same for basic and for perturb, but the
+  //   values represent different things:
+  // - cursorX - basic  : the actual position of the pixel
+  //           - perturb: the x delta to the pixel from the reference point
+  //
+  // - yBottom - basic  : the actual y position of the pixel at the bottom of the screen
+  //           - perturb: the y delta to the bottom pixel from the reference point
+  //
+  const isBasic = windowCalc.algorithm.includes("basic");
+
+  const incX = windowCalc.math.mul(windowCalc.eachPixUnitsM, windowCalc.math.createFromNumber(pixelSize));
+  const incXTwice = windowCalc.math.mul(incX, windowCalc.math.createFromNumber(2));
+  const zero = windowCalc.math.createFromNumber(0);
+
+  let cursorX, yBottom;
+  if (isBasic) {
+    // before, all this math was always done with InfNum
+    //incX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
+    //incXTwice = infNumMul(incX, infNum(2n, 0n));
+    //cursorX = structuredClone(windowCalc.edges.left);
+    //yBottom = structuredClone(windowCalc.edges.bottom);
+    //yBottomSkip = infNumAdd(windowCalc.edges.bottom, incX);
+    //zero = infNum(0n, 0n);
+    cursorX = structuredClone(windowCalc.edgesM.left);
+    yBottom = structuredClone(windowCalc.edgesM.bottom);
+  } else {
+    cursorX = structuredClone(windowCalc.referenceBottomLeftDeltaX);
+    yBottom = structuredClone(windowCalc.referenceBottomLeftDeltaY);
+  }
+
+  const yBottomSkip = windowCalc.math.add(yBottom, incX);
+
   let chunkNum = 0;
   for (let x = 0; x < windowCalc.canvasWidth; x+=pixelSize) {
     let chunk = {
@@ -925,11 +991,11 @@ var calculateWindowPassChunks = function() {
         // since we start at bottom edge, we increment pixels by subtracting Y value
         //   (because javascript canvas Y coordinate is backwards)
         "chunkPixInc": {"x": 0, "y": -2 * pixelSize},
-        "chunkPos": {"x": copyInfNum(cursorX), "y": infNumAdd(windowCalc.edges.bottom, incX)},
+        "chunkPos": {"x": structuredClone(cursorX), "y": structuredClone(yBottomSkip)},
         // within the chunk inself, each position along the chunk is incremented in the
         //   Y dimension, and since chunk pixels are square, the amount incremented in
         //   the Y dimension is the same as incX
-        "chunkInc": {"x": infNum(0n, 0n), "y": copyInfNum(incXTwice)},
+        "chunkInc": {"x": structuredClone(zero), "y": structuredClone(incXTwice)},
         "chunkLen": yPointsPerChunkHalf
       });
     } else {
@@ -938,16 +1004,17 @@ var calculateWindowPassChunks = function() {
         // since we start at bottom edge, we increment pixels by subtracting Y value
         //   (because javascript canvas Y coordinate is backwards)
         "chunkPixInc": {"x": 0, "y": -1 * pixelSize},
-        "chunkPos": {"x": copyInfNum(cursorX), "y": copyInfNum(windowCalc.edges.bottom)},
+        "chunkPos": {"x": structuredClone(cursorX), "y": structuredClone(yBottom)},
         // within the chunk inself, each position along the chunk is incremented in the
         //   Y dimension, and since chunk pixels are square, the amount incremented in
         //   the Y dimension is the same as incX
-        "chunkInc": {"x": infNum(0n, 0n), "y": copyInfNum(incX)},
+        "chunkInc": {"x": structuredClone(zero), "y": structuredClone(incX)},
         "chunkLen": yPointsPerChunk
       });
     }
     windowCalc.xPixelChunks.push(chunk);
-    cursorX = infNumAdd(cursorX, incX);
+    //cursorX = isBasic ? infNumAdd(cursorX, incX) : windowCalc.math.add(cursorX, incX);
+    cursorX = windowCalc.math.add(cursorX, incX);
     chunkNum++;
   }
 

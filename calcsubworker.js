@@ -29,6 +29,8 @@ var referenceOrbit = null;
 var referencePlotId = null;
 var referenceBlaTables = null;
 var saCoefficients = null;
+var mathPlotId = null;
+var math = null;
 
 self.onmessage = function(e) {
   if (e.data.t == "compute-chunk") {
@@ -38,6 +40,12 @@ self.onmessage = function(e) {
       referenceOrbit = null;
       referenceBlaTables = null;
       saCoefficients = null;
+    }
+
+    // once per plot, ensure the correct math interface is used
+    if (math === null || lastComputeChunkMsg.chunk.plotId !== mathPlotId) {
+      math = selectMathInterfaceFromAlgorithm(lastComputeChunkMsg.chunk.algorithm);
+      mathPlotId = lastComputeChunkMsg.referencePlotId;
     }
   } else if (e.data.t == "reference-orbit") {
     referencePx = e.data.v.referencePx;
@@ -95,30 +103,10 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
   // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean}
   ////////////////////////////////
 
-  let px = chunk.chunkPos.x;
-  let py = chunk.chunkPos.y;
-//  let incX = chunk.chunkInc.x;
-  let incY = chunk.chunkInc.y;
-
-  const computeFn = plotsByName[chunk.plot].computeBoundPointColor;
-
-  // assume exactly one of x or y increments is zero
-//  let moveX = true;
-//  if (infNumEq(infNum(0n, 0n), chunk.chunkInc.x)) {
-//    moveX = false;
-//  }
-//  if (moveX) {
-//    let norm = normInfNum(px, incX);
-//    px = norm[0];
-//    incX = norm[1];
-//  } else {
-    let norm = normInfNum(py, incY);
-    py = norm[0];
-    incY = norm[1];
-//  }
   let blaPixelsCount = 0;
   let blaIterationsSkipped = 0;
   let blaSkips = 0;
+
   // special case for when entire chunk is cached
   if (cachedIndices.length === 1 && cachedIndices[0] === -1) {
     // for this special case, don't allocate the entire results array
@@ -130,56 +118,75 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
     postMessage({t: "completed-chunk", v:chunk});
     return;
   }
+
   // pre-allocate array so we don't have to use array.push()
   const results = new Array(chunk.chunkLen);
+
   // if entire chunk is cached, we don't have to do anything
   if (cachedIndices.length < chunk.chunkLen) {
+
     if (chunk.algorithm.includes("basic-")) {
-//    if (moveX) {
-//      for (let i = 0; i < chunk.chunkLen; i++) {
-//        if (!binarySearchIncludesNumber(cachedIndices, i)) {
-//          results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, chunk.useFloat, px, py);
-//        }
-//        // since we want to start at the given starting position, increment
-//        //   the position AFTER computing each result
-//        px = infNumAddNorm(px, incX);
-//      }
-//    } else {
+      const computeFn = plotsByName[chunk.plot].computeBoundPointColor;
+
+      const px = chunk.chunkPos.x;
+      let py, incY;
+      const isInfNum = math.name == "arbprecis";
+      if (isInfNum) {
+        let norm = normInfNum(chunk.chunkPos.y, chunk.chunkInc.y);
+        py = norm[0];
+        incY = norm[1];
+      } else {
+        py = chunk.chunkPos.y;
+        incY = chunk.chunkInc.y;
+      }
+
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
           results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, chunk.algorithm, px, py);
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result
-        py = infNumAddNorm(py, incY);
+        py = isInfNum ? infNumAddNorm(py, incY) : math.add(py, incY);
       }
 
     // if not calculating with straightforward algorithm, we will use
     //   the perturbation theory algorithm
     } else if (chunk.algorithm.includes("perturb-")) {
+      const perturbFn = plotsByName[chunk.plot].computeBoundPointColorPerturbOrBla;
+
       //if (infNumEq(chunk.chunkPos.x, referencePx) && infNumEq(chunk.chunkPos.y, referencePy)) {
       //  console.log("chunk position and reference point are the same!!?!?");
       //}
-      const perturbFn = plotsByName[chunk.plot].computeBoundPointColorPerturbOrBla;
+
+      // for perturb, the chunk positions are actually deltas relative to
+      //   the reference point
+      const dx = chunk.chunkPos.x;
+      let dy = chunk.chunkPos.y;
+      const incY = chunk.chunkInc.y;
 
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients).colorpct;
+          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, dx, dy, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients).colorpct;
         }
         // since we want to start at the given starting position, increment
-        //   the position AFTER computing each result
-        py = infNumAddNorm(py, incY);
+        //   the delta AFTER computing each result
+        dy = math.add(dy, incY);
       }
-    } else if (chunk.algorithm.includes("bla-")) {
 
+    } else if (chunk.algorithm.includes("bla-")) {
       const blaFn = plotsByName[chunk.plot].computeBoundPointColorPerturbOrBla;
+
+      // for perturb, the chunk positions are actually deltas relative to
+      //   the reference point
+      const dx = chunk.chunkPos.x;
+      let dy = chunk.chunkPos.y;
+      const incY = chunk.chunkInc.y;
 
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = blaFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients);
-          let pixelResult = blaFn(chunk.chunkN, chunk.chunkPrecision, px, py, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients);
+          let pixelResult = blaFn(chunk.chunkN, chunk.chunkPrecision, dx, dy, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients);
           results[i] = pixelResult.colorpct;
           blaPixelsCount++;
           blaIterationsSkipped += pixelResult.blaItersSkipped;
@@ -187,7 +194,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result
-        py = infNumAddNorm(py, incY);
+        dy = math.add(dy, incY);
       }
     }
   }

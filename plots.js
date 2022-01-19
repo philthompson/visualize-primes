@@ -37,15 +37,6 @@ const plots = [{
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColor": function(n, precis, algorithm, x, y) {
 
-    const math = algorithm.includes("arbprecis") ?
-      infNumMath
-      :
-      (algorithm.includes("floatexp") ?
-        floatExpMath
-        :
-        floatMath
-      );
-
     const maxIter = n;
 
     // for absolute fastest speed, we'll keep a separate version of the
@@ -53,8 +44,8 @@ const plots = [{
     if (algorithm == "basic-float") {
       // truncating to 15 decimal digits here is equivalent to truncating
       //   to 16 significant digits, but it's more efficient to do both at once
-      let xFloat = typeof x == "number" ? x : parseFloat(infNumExpStringTruncToLen(x, 18));
-      let yFloat = typeof y == "number" ? y : parseFloat(infNumExpStringTruncToLen(y, 18));
+      //let xFloat = typeof x == "number" ? x : parseFloat(infNumExpStringTruncToLen(x, 18));
+      //let yFloat = typeof y == "number" ? y : parseFloat(infNumExpStringTruncToLen(y, 18));
       let ix = 0;
       let iy = 0;
       let ixSq = 0;
@@ -67,8 +58,8 @@ const plots = [{
         if (ixSq + iySq > 4) {
           break;
         }
-        ixTemp = xFloat + (ixSq - iySq);
-        iy = yFloat + (2 * ix * iy);
+        ixTemp = x + (ixSq - iySq);
+        iy = y + (2 * ix * iy);
         ix = ixTemp;
         iter++;
       }
@@ -80,6 +71,8 @@ const plots = [{
         return iter / maxIter;
       }
     }
+
+    const math = selectMathInterfaceFromAlgorithm(algorithm);
 
     // the coords used for iteration
     const xConv = math.createFromInfNum(x);
@@ -120,14 +113,7 @@ const plots = [{
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeReferenceOrbit": function(n, precis, algorithm, x, y, period, fnContext) {
 
-    const outputMath = algorithm.includes("arbprecis") ?
-      infNumMath
-      :
-      (algorithm.includes("floatexp") ?
-        floatExpMath
-        :
-        floatMath
-      );
+    const outputMath = selectMathInterfaceFromAlgorithm(algorithm);
     const outputIsFloatExp = outputMath.name == "floatexp";
 
     const periodLessThanN = period !== null && period > 0 && period < n;
@@ -212,14 +198,7 @@ const plots = [{
     // This method is explained here: http://www.mrob.com/pub/muency/period.html
     //
 
-    const outputMath = algorithm.includes("arbprecis") ?
-      infNumMath
-      :
-      (algorithm.includes("floatexp") ?
-        floatExpMath
-        :
-        floatMath
-      );
+    const outputMath = selectMathInterfaceFromAlgorithm(algorithm);
     const outputIsFloatExp = outputMath.name == "floatexp";
 
     const maxIter = n;
@@ -309,14 +288,7 @@ const plots = [{
     // always use FloatExp for SA coefficients
     const math = floatExpMath;
 
-    const algoMath = algorithm.includes("arbprecis") ?
-      infNumMath
-      :
-      (algorithm.includes("floatexp") ?
-        floatExpMath
-        :
-        floatMath
-      );
+    const algoMath = selectMathInterfaceFromAlgorithm(algorithm);
     const algoMathIsFloatExp = algoMath.name == "floatexp";
 
     // fnContext allows the loop to be done piecemeal
@@ -605,14 +577,7 @@ const plots = [{
     //   sides of the inequality, but unlike attempt "three" we will
     //   increment both n and l when calculating coefficients
 
-    const math = algorithm.includes("arbprecis") ?
-      infNumMath
-      :
-      (algorithm.includes("floatexp") ?
-        floatExpMath
-        :
-        floatMath
-      );
+    const math = selectMathInterfaceFromAlgorithm(algorithm);
 
     if (fnContext === null) {
       fnContext = {
@@ -745,16 +710,9 @@ const plots = [{
 
   },
   // x, y, referenceX, and referenceY must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeBoundPointColorPerturbOrBla": function(n, precis, x, y, algorithm, referenceX, referenceY, referenceOrbit, blaTables, saCoefficients) {
+  "computeBoundPointColorPerturbOrBla": function(n, precis, dx, dy, algorithm, referenceX, referenceY, referenceOrbit, blaTables, saCoefficients) {
 
-    const math = algorithm.includes("arbprecis") ?
-      infNumMath
-      :
-      (algorithm.includes("floatexp") ?
-        floatExpMath
-        :
-        floatMath
-      );
+    const math = selectMathInterfaceFromAlgorithm(algorithm);
 
     // this function is used for both:
     //   "bla-float"    : BLA+perturb, and for
@@ -789,21 +747,15 @@ const plots = [{
     //   orbit has been followed to the end) is from Zhuoran's post here:
     // https://fractalforums.org/fractal-mathematics-and-new-theories/28/another-solution-to-perturbation-glitches/4360
 
-    const deltaCx = infNumSub(x, referenceX);
-    const deltaCy = infNumSub(y, referenceY);
+    // we used to always use InfNum to calcualte delta from the reference point,
+    //   but now deltas are used everywhere and just provided to this function
+    //   as arguments
+    //const deltaCx = infNumSub(x, referenceX);
+    //const deltaCy = infNumSub(y, referenceY);
 
-    // (it seems more efficient to let JavaScript truncate by using
-    //   the full exponential notation with parseFloat(), but maybe
-    //   some precision is lost and it would be better to truncate
-    //   first, then call parseFloat()?
     let deltaC = {
-      x: math.createFromInfNum(deltaCx),
-      y: math.createFromInfNum(deltaCy)
-    };
-
-    let deltaCFloatExp = {
-      x: floatExpMath.createFromInfNum(deltaCx),
-      y: floatExpMath.createFromInfNum(deltaCy)
+      x: dx,
+      y: dy
     };
 
     const deltaCAbs = math.complexAbs(deltaC);
@@ -823,6 +775,12 @@ const plots = [{
     // saCoefficients: {itersToSkip:itersToSkip, coefficients:terms};
     // always use floatexp math for SA
     if (useSa && saCoefficients.itersToSkip > 0) {
+      // since series approximation math is always done with floatexp, we
+      //   may have to convert the delta
+      let deltaCFloatExp = {
+        x: math.name == "floatexp" ? structuredClone(deltaC.x) : floatExpMath.createFromExpString(math.toExpString(deltaC.x)),
+        y: math.name == "floatexp" ? structuredClone(deltaC.y) : floatExpMath.createFromExpString(math.toExpString(deltaC.y))
+      };
       let deltaZFloatExp = {x: floatExpMath.zero, y: floatExpMath.zero};
       let deltaCpower = structuredClone(deltaCFloatExp);
       for (let i = 0; i < saCoefficients.coefficients.length; i++) {

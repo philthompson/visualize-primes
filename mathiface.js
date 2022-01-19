@@ -1,3 +1,15 @@
+function selectMathInterfaceFromAlgorithm(algorithm) {
+  if (algorithm.includes("arbprecis")) {
+    return infNumMath;
+  }
+  // since "floatexp" contains "float" we must check for
+  //   "floatexp" first
+  if (algorithm.includes("floatexp")) {
+    return floatExpMath;
+  }
+  return floatMath;
+}
+
 const floatMath = {
   name: "float",
   zero: 0, one: 1, two: 2, four:4, // these are NOT complex numbers
@@ -40,7 +52,7 @@ const floatMath = {
   //   some precision is lost and it would be better to truncate
   //   first, then call parseFloat()?
   createFromInfNum: function(a) {
-    return parseFloat(infNumExpString(a));
+    return parseFloat(infNumExpStringTruncToLen(a, 18));
   },
   createFromNumber: function(a) {
     return a;

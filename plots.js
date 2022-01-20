@@ -1009,9 +1009,7 @@ const plots = [{
   "computeBoundPointColor": function(n, precis, algorithm, x, y) {
     const maxIter = n;
 
-    let xFloat = parseFloat(infNumExpStringTruncToLen(x, 17));
-    let yFloat = parseFloat(infNumExpStringTruncToLen(y, 17));
-    let val = Math.round(xFloat ** yFloat);
+    let val = Math.round(x ** y);
     if (val <= 0) {
       return windowCalcBackgroundColor;
     }

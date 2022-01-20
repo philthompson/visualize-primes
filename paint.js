@@ -166,7 +166,11 @@ const blogLinkMain = document.getElementById("blog-link");
 const blogLinkMandel = document.getElementById("blog-link-mandel");
 
 document.getElementById("btn-download").addEventListener("click", function() {
-  dContext.putImageData(windowCalc.pixelsImage, 0, 0);
+  if (isCurrentPlotAWindowPlot()) {
+    dContext.putImageData(windowCalc.pixelsImage, 0, 0);
+  } else {
+    drawPointsFullSize();
+  }
   // thanks to https://stackoverflow.com/a/50300880/259456
   let link = document.createElement("a");
   link.download = "filename.png";
@@ -806,6 +810,7 @@ function start() {
   }
 
   if (plot.calcFrom == "sequence") {
+    annotateClickPosition = true;
     // if viewing a sequence plot, ensure there's no window
     //   worker left running
     if (windowCalc.worker != null) {
@@ -824,8 +829,9 @@ function start() {
     }
 
     resetWindowCalcContext();
-    drawPoints(params);
+    drawPointsFitSize();
   } else if (plot.calcFrom == "window") {
+    annotateClickPosition = false;
     setupGradientSelectControl(windowPlotGradients);
     resetWindowCalcCache();
     resetWindowCalcContext();
@@ -1228,7 +1234,7 @@ function redraw() {
       windowCalc.worker = null;
     }
     annotateClickPosition = true;
-    drawPoints(historyParams);
+    drawPointsFitSize();
   } else if (plot.calcFrom == "window") {
     annotateClickPosition = false;
     calculateAndDrawWindow();
@@ -1239,7 +1245,15 @@ function infNumToFloat(n) {
   return parseFloat(infNumExpStringTruncToLen(n, 18));
 }
 
-function drawPoints(params) {
+function drawPointsFitSize() {
+  drawPoints(historyParams, fitSizeContext, fullSizeScaleFactor, 1);
+}
+
+function drawPointsFullSize() {
+  drawPoints(historyParams, dContext, 1, fullSizeScaleFactor);
+}
+
+function drawPoints(params, ctx, scaleFactor, lineWidthFactor) {
   // change URL bar to reflect current params, only if no params change
   //   for 1/4 second
   if (replaceStateTimeout != null) {
@@ -1247,13 +1261,13 @@ function drawPoints(params) {
   }
   replaceStateTimeout = window.setTimeout(replaceHistory, 250);
 
-  const lineWidth = params.lineWidth;
+  const lineWidth = params.lineWidth * lineWidthFactor;
   // this function is only used for drawing sequence plots,
   //   so lots of precision for scale and offset isn't needed,
   // convert scale to float, and below use float version of left/top edges
-  const scale = infNumToFloat(params.scale) / fullSizeScaleFactor;
+  const scale = infNumToFloat(params.scale) / scaleFactor;
 
-  fillBg(fitSizeContext);
+  fillBg(ctx);
   console.log("drawing [" + points.length + "] points with a total length of [" + totalLength + "]");
 
   var drawnLength = 0.0;
@@ -1262,9 +1276,9 @@ function drawPoints(params) {
   var lastY = (windowCalc.topEdgeFloat - 0.0) * scale;
   var segmentX = 0.0;
   var segmentY = 0.0;
-  fitSizeContext.lineWidth = lineWidth;
-  fitSizeContext.lineCap = "round";
-  fitSizeContext.lineJoin = "round";
+  ctx.lineWidth = lineWidth;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   for (var i = 0; i < points.length; i++) {
     var x = (points[i].x - windowCalc.leftEdgeFloat) * scale;
     var y = (windowCalc.topEdgeFloat - points[i].y) * scale;
@@ -1282,13 +1296,13 @@ function drawPoints(params) {
         drawnLength += Math.hypot(segmentX, segmentY);
       }
     }
-    fitSizeContext.beginPath();
-    fitSizeContext.moveTo(lastX, lastY);
-    //fitSizeContext.strokeStyle = getLineColor(drawnLength / totalLengthScaled, params.lineColor);
-    fitSizeContext.strokeStyle = applyBuiltGradient(builtGradient, drawnLength / totalLengthScaled);
-    fitSizeContext.lineTo(x, y);
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    //ctx.strokeStyle = getLineColor(drawnLength / totalLengthScaled, params.lineColor);
+    ctx.strokeStyle = applyBuiltGradient(builtGradient, drawnLength / totalLengthScaled);
+    ctx.lineTo(x, y);
     // stroke every line individually in order to do gradual color gradient
-    fitSizeContext.stroke();
+    ctx.stroke();
     lastX = x;
     lastY = y;
   }
@@ -2354,7 +2368,7 @@ function recolor() {
 
 function repaintOnly() {
   if (plotsByName[historyParams.plot].calcFrom == "sequence") {
-    drawPoints(historyParams);
+    drawPointsFitSize();
   } else {
     if (fullSizeScalePower == 0) {
       fitSizeContext.putImageData(windowCalc.pixelsImage, 0, 0);
@@ -2701,7 +2715,7 @@ function drawAnnotationAtPixelPosition(x, y) {
     //   here without calling a full "redraw()"
     // even if we have no closestPoints, we still want to re-draw
     //   because we might be clearing away an old annotation
-    drawPoints(historyParams);
+    drawPointsFitSize();
     if (closestPoints.length === 0) {
       return;
     }

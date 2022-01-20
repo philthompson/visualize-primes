@@ -1251,7 +1251,7 @@ function drawPoints(params) {
   // this function is only used for drawing sequence plots,
   //   so lots of precision for scale and offset isn't needed,
   // convert scale to float, and below use float version of left/top edges
-  const scale = infNumToFloat(params.scale);
+  const scale = infNumToFloat(params.scale) / fullSizeScaleFactor;
 
   fillBg(fitSizeContext);
   console.log("drawing [" + points.length + "] points with a total length of [" + totalLength + "]");
@@ -2554,7 +2554,7 @@ function drawSequencePointsData(infoPoints, mouseX, mouseY) {
     ctx.fillText(lines[i], noticeOffsetLeft + Math.round(noticeHeight*0.2), (noticeHeight * (i+1)) - Math.round(noticeHeight* 0.2));
   }
   ctx.beginPath();
-  const scale = infNumToFloat(historyParams.scale);
+  const scale = infNumToFloat(historyParams.scale) / fullSizeScaleFactor;
   const circleX = (infoPoints[0].x - windowCalc.leftEdgeFloat) * scale;
   const circleY = (windowCalc.topEdgeFloat - infoPoints[0].y) * scale;
   ctx.lineWidth = 4.0;

@@ -384,13 +384,15 @@
           <summary>window options</summary>
           <details class="help-text">
             <summary>?</summary>
-            Turning off auto-resize is useful when performing long-running calculations.  Otherwise, it's probably best left on.
+            Turn off auto-resize if you are running a long render.  It will prevent the render from restarting if the browser asks the window to resize itself (which can happen when switching browser tabs, or turning off your monitor).  Otherwise, it's probably best left on.<br/>
+            <br/>
+            With photo editing software, you can resize the full size render down for a smaller, smoother-looking image.
           </details>
           <div>
             <table>
               <tr><td>auto-resize:</td><td><input id="auto-resize-cb" type="checkbox" checked /></td></tr>
               <tr><td>render size:</td><td><select style="font-size:0.9rem;" id="full-size-select"></select></td></tr>
-              <tr><td colspan="2">Larger images have much more detail but take a lot more time to render.  Use the "Save Image" button to download the full-size render.  With photo editing software, you can resize the full size render down for a smaller, smoother-looking image.</td></tr>
+              <tr><td colspan="2">Smaller images are fast, and good for exploring.  Larger images have much more detail but take a lot more time to render.  Use the "Save Image" button to download the full-size render.</td></tr>
             </table>
           </div>
         </details>

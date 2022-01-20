@@ -916,7 +916,7 @@ function populateRenderSizeOptions() {
     let factor = 2 ** i;
     let scaledWidth = Math.round(width * factor);
     let scaledHeight = Math.round(height * factor);
-    let megapixels = Math.round(scaledWidth * scaledHeight * 100 / 1000000) / 100;
+    let megapixels = Math.round(scaledWidth * scaledHeight * 10 / 1000000) / 10;
     html.push(
       "<option " + (i === selectedPower ? "selected" : "") + " value=\"" + i + "\">" +
       factor + "x: " + scaledWidth + "x" + scaledHeight + " (" + megapixels + "MP)" +

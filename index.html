@@ -24,7 +24,8 @@
     /* use overflow: hidden to stop scrolling on mobile devices, thanks;
          to https://stackoverflow.com/a/28411556/259456 */
     body, html {  height: 100%; overflow: hidden; }
-    #dc { position:absolute; width: 100%; height: 100%; z-index:10; }
+    #fit-size-canvas { position:absolute; width: 100%; height: 100%; z-index:10; }
+    #dc { display:none; }
     #menu, #help-menu, #controls-menu, #menu-open-wrap {
         position:fixed;
         width: 96%;
@@ -207,6 +208,7 @@
 </head>
 <body>
     <canvas id="dc"></canvas>
+    <canvas id="fit-size-canvas"></canvas>
     <div id="menu-open-wrap">
         <div class="fixed-top-left-btn">
           <span id="help-menu-open"><kbd class="frosted-bg">?</kbd></span>
@@ -266,6 +268,7 @@
     </div>
     <div id="controls-menu">
         <span style="position: fixed; left: 1.2rem; top: 1.2rem;" id="controls-menu-close">×</span>
+        <button id="btn-download">Save Image</button>
         <details>
           <summary>go to location by center and scale</summary>
           <details class="help-text">

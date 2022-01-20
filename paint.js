@@ -3,8 +3,13 @@
 const points = [];
 var totalLength = 0;
 
-const dCanvas = document.getElementById('dc');
-const dContext = dCanvas.getContext('2d');
+const dCanvas = document.getElementById("dc");
+const dContext = dCanvas.getContext("2d");
+const fitSizeCanvas = document.getElementById("fit-size-canvas");
+const fitSizeContext = fitSizeCanvas.getContext("2d");
+var fullSizeScalePower = 1; // 2^x scale for the full-size image.  0: same size, 1: twice as big, 2: 4x...
+var fullSizeScaleFactor = 2 ** fullSizeScalePower;
+var fullSizeScalePowerDouble = 2 * fullSizeScalePower; // used to calculated pixel offset in fit image
 var mouseDrag = false;
 var mouseDragX = 0;
 var mouseDragY = 0;
@@ -109,6 +114,7 @@ const windowCalc = {
   workersCountRange: "-",
   saItersSkipped: null,
   plotId: 0,
+  fitImage: null,
   pixelsImage: null,
   referencePx: null,
   referencePy: null,
@@ -118,7 +124,8 @@ var windowCalcRepeat = -1;
 var windowCalcTimes = [];
 var imageParametersCaption = false;
 
-var previewImage = null;
+var //previewImage = null;
+previewImage = null;
 var previewImageOffsetX = 0;
 var previewImageOffsetY = 0;
 
@@ -157,6 +164,15 @@ const detailsAlgoControls = document.getElementById("algo-controls");
 
 const blogLinkMain = document.getElementById("blog-link");
 const blogLinkMandel = document.getElementById("blog-link-mandel");
+
+document.getElementById("btn-download").addEventListener("click", function() {
+  dContext.putImageData(windowCalc.pixelsImage, 0, 0);
+  // thanks to https://stackoverflow.com/a/50300880/259456
+  let link = document.createElement("a");
+  link.download = "filename.png";
+  link.href = dCanvas.toDataURL();
+  link.click();
+});
 
 // this is checked each time a key is pressed, so keep it
 //   here so we don't have to do a DOM query every time
@@ -258,7 +274,7 @@ function calculateReferenceOrbit() {
   let refOrbitCalcContext = null;
   while (refOrbitCalcContext === null || !refOrbitCalcContext.done) {
     refOrbitCalcContext = plotsByName[historyParams.plot].computeReferenceOrbit(windowCalc.n, precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, -1, refOrbitCalcContext);
-    drawStatusNotice(dContext, refOrbitCalcContext.status);
+    drawStatusNotice(fitSizeContext, refOrbitCalcContext.status);
   }
   windowCalc.referenceOrbit = refOrbitCalcContext.orbit;
 
@@ -773,7 +789,7 @@ function start() {
     document.getElementById("workers-warning").style.display = "none";
   }
 
-  setDScaleVars(dContext);
+  setDScaleVars();
 
   // run the selected plot
   const plot = plotsByName[params.plot];
@@ -856,17 +872,19 @@ function fillBg(ctx) {
   ctx.fillRect(0,0,canvas.width, canvas.height);
 }
 
-function setDScaleVarsNoScale(dCtx) {
-  var canvas = dCtx.canvas;
+function setDScaleVarsNoScale() {
+  let canvas = fitSizeCanvas;
   if (canvas.width != canvas.offsetWidth || canvas.height != canvas.offsetHeight) {
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
-    fillBg(dCtx);
+    dCanvas.width = canvas.width * fullSizeScaleFactor;
+    dCanvas.height = canvas.height * fullSizeScaleFactor;
+    fillBg(fitSizeContext);
   }
 }
 
-function setDScaleVars(dCtx) {
-  setDScaleVarsNoScale(dCtx);
+function setDScaleVars() {
+  setDScaleVarsNoScale();
   historyParams.scale = convertMagnificationToScale(historyParams.mag, plotsByName[historyParams.plot].magnificationFactor);
 }
 
@@ -1235,7 +1253,7 @@ function drawPoints(params) {
   // convert scale to float, and below use float version of left/top edges
   const scale = infNumToFloat(params.scale);
 
-  fillBg(dContext);
+  fillBg(fitSizeContext);
   console.log("drawing [" + points.length + "] points with a total length of [" + totalLength + "]");
 
   var drawnLength = 0.0;
@@ -1244,9 +1262,9 @@ function drawPoints(params) {
   var lastY = (windowCalc.topEdgeFloat - 0.0) * scale;
   var segmentX = 0.0;
   var segmentY = 0.0;
-  dContext.lineWidth = lineWidth;
-  dContext.lineCap = "round";
-  dContext.lineJoin = "round";
+  fitSizeContext.lineWidth = lineWidth;
+  fitSizeContext.lineCap = "round";
+  fitSizeContext.lineJoin = "round";
   for (var i = 0; i < points.length; i++) {
     var x = (points[i].x - windowCalc.leftEdgeFloat) * scale;
     var y = (windowCalc.topEdgeFloat - points[i].y) * scale;
@@ -1264,13 +1282,13 @@ function drawPoints(params) {
         drawnLength += Math.hypot(segmentX, segmentY);
       }
     }
-    dContext.beginPath();
-    dContext.moveTo(lastX, lastY);
-    //dContext.strokeStyle = getLineColor(drawnLength / totalLengthScaled, params.lineColor);
-    dContext.strokeStyle = applyBuiltGradient(builtGradient, drawnLength / totalLengthScaled);
-    dContext.lineTo(x, y);
+    fitSizeContext.beginPath();
+    fitSizeContext.moveTo(lastX, lastY);
+    //fitSizeContext.strokeStyle = getLineColor(drawnLength / totalLengthScaled, params.lineColor);
+    fitSizeContext.strokeStyle = applyBuiltGradient(builtGradient, drawnLength / totalLengthScaled);
+    fitSizeContext.lineTo(x, y);
     // stroke every line individually in order to do gradual color gradient
-    dContext.stroke();
+    fitSizeContext.stroke();
     lastX = x;
     lastY = y;
   }
@@ -1347,12 +1365,15 @@ function resetWindowCalcContext() {
 
   // save the image for previewing when panning
   if (previewImage === null) {
-    previewImage = windowCalc.pixelsImage;
+    //previewImage = fullSizeScalePower == 0 ? windowCalc.pixelsImage : windowCalc.fitImage;
+    previewImage = windowCalc.fitImage;
   }
 
   windowCalc.lineWidth = 128; // placeholder value
-  //windowCalc.pixelsImage = dContext.createImageData(dContext.canvas.width, dContext.canvas.height);
-  windowCalc.pixelsImage = dContext.getImageData(0, 0, dContext.canvas.width, dContext.canvas.height);
+  // the imagedata for the canvas that fits on the screen
+  windowCalc.fitImage = fitSizeContext.getImageData(0, 0, fitSizeCanvas.width, fitSizeCanvas.height);
+  // the imagedata for the invisible canvas that's the full size
+  windowCalc.pixelsImage = dContext.getImageData(0, 0, dCanvas.width, dCanvas.height);
   windowCalc.xPixelChunks = [];
   windowCalc.pointsBounds = "";
   windowCalc.passTimeMs = 0;
@@ -1370,8 +1391,10 @@ function resetWindowCalcContext() {
 
   const two = infNum(2n, 0n);
 
-  const canvasWidth = createInfNum(dContext.canvas.offsetWidth.toString());
-  const canvasHeight = createInfNum(dContext.canvas.offsetHeight.toString());
+  //const canvasWidth = createInfNum(dContext.canvas.offsetWidth.toString());
+  //const canvasHeight = createInfNum(dContext.canvas.offsetHeight.toString());
+  const canvasWidth = createInfNum(dCanvas.width.toString());
+  const canvasHeight = createInfNum(dCanvas.height.toString());
 
   // rather than calculate this for each chunk, compute it once here
   windowCalc.eachPixUnits = infNumDiv(infNum(1n, 0n), params.scale, precision);
@@ -1631,7 +1654,7 @@ var calcWorkerOnmessage = function(e) {
   if ("statusMessage" in e.data) {
     const messageString = e.data.statusMessage;
     repaintOnly();
-    drawStatusNotice(dContext, messageString);
+    drawStatusNotice(fitSizeContext, messageString);
     if (showMousePosition) {
       redrawMousePosNotice();
     }
@@ -1651,7 +1674,7 @@ var calcWorkerOnmessage = function(e) {
   }
   const percentComplete = Math.round(e.data.calcStatus.chunksComplete * 100.0 / e.data.calcStatus.chunks);
   if (percentComplete < 100) {
-    drawCalculatingNotice(dContext, e.data.calcStatus.pixelWidth, percentComplete, e.data.calcStatus.workersNow);
+    drawCalculatingNotice(fitSizeContext, e.data.calcStatus.pixelWidth, percentComplete, e.data.calcStatus.workersNow);
 
   // if the pass is complete, the entire image may be complete
   } else {
@@ -1712,8 +1735,16 @@ function drawWorkerColorPoints(workerMessage) {
     //   both the position and pixel AFTER creating each result
     pixY += pixIncY;
   }
+  //if (fullSizeScalePower == 0) {
+  //  drawColorPointsNoScale(results, pixelSize);
+  //  previewImage = windowCalc.pixelsImage;
+  //} else {
+  //  drawColorPoints(results, pixelSize);
+  //  previewImage = windowCalc.fitImage;
+  //}
   drawColorPoints(results, pixelSize);
-  previewImage = windowCalc.pixelsImage;
+  //previewImage = fullSizeScalePower == 0 ? windowCalc.pixelsImage : windowCalc.fitImage;
+  previewImage = windowCalc.fitImage;
   previewImageOffsetX = 0;
   previewImageOffsetY = 0;
 }
@@ -1722,16 +1753,15 @@ function drawWorkerColorPoints(workerMessage) {
 //   the entire image, for floating point only
 function calculateAndDrawWindowSync(pixelSize) {
   const compute = plotsByName[windowCalc.plotName].computeBoundPointColor;
-  let step = windowCalc.eachPixUnitsFloat * pixelSize;
+  let step = (windowCalc.eachPixUnitsFloat * fullSizeScaleFactor) * pixelSize;
   let px = windowCalc.leftEdgeFloat;
   let xStep = step;
   // pre-allocate array so we don't have to use array.push()
-  const results = new Array(Math.ceil(dContext.canvas.width/pixelSize) * Math.ceil(dContext.canvas.height/pixelSize));
+  const results = new Array(Math.ceil(fitSizeCanvas.width/pixelSize) * Math.ceil(fitSizeCanvas.height/pixelSize));
   let resultCounter = 0;
-  for (let x = 0; x < dContext.canvas.width; x+=pixelSize) {
+  for (let x = 0; x < fitSizeCanvas.width; x+=pixelSize) {
     let py = windowCalc.topEdgeFloat;
-    let yStep = step;
-    for (let y = 0; y < dContext.canvas.height; y+=pixelSize) {
+    for (let y = 0; y < fitSizeCanvas.height; y+=pixelSize) {
       // create a wrappedPoint
       // px -- the pixel "color point"
       // pt -- the abstract coordinate on the plane
@@ -1739,11 +1769,11 @@ function calculateAndDrawWindowSync(pixelSize) {
         px: getColorPoint(x, y, compute(windowCalc.n, precision, windowCalc.algorithm, px, py))
       };
       resultCounter++;
-      py -= yStep;
+      py -= step;
     }
     px += xStep;
   }
-  drawColorPoints(results, pixelSize, false);
+  drawColorPointsFitOnlyNoCache(results, pixelSize);
 }
 
 function calculateAndDrawWindow() {
@@ -1751,7 +1781,7 @@ function calculateAndDrawWindow() {
     // since we are just starting a new image, calculate and draw the first
     //   pass synchronously, so that as the user drags a mouse/finger, or
     //   zooms, the canvas is updated as rapidly as possible
-    calculateAndDrawWindowSync(64);
+    calculateAndDrawWindowSync(100);
     previewImage = null;
     previewImageOffsetX = 0;
     previewImageOffsetY = 0;
@@ -1952,7 +1982,7 @@ function windowDrawLoop() {
   //console.log("windowDrawLoop() at " + new Error().stack.split('\n')[1]);
 
   if (windowCalc.stage === windowCalcStages.drawCalculatingNotice) {
-    drawCalculatingNoticeOld(dContext);
+    drawCalculatingNoticeOld(fitSizeContext);
     // if line width just finished is greater than the param lineWidth,
     //   we have to do it again
     // otherwise, we are done so do cleanup/end-of-image stuff
@@ -2037,7 +2067,8 @@ function calculateAndDrawNextChunk() {
 
     if (nextXChunk) {
       drawColorPoints(computeBoundPointsChunk(nextXChunk).points, Math.round(windowCalc.lineWidth));
-      previewImage = windowCalc.pixelsImage;
+      //previewImage = fullSizeScalePower == 0 ? windowCalc.pixelsImage : windowCalc.fitImage;
+      previewImage = windowCalc.fitImage;
       previewImageOffsetX = 0;
       previewImageOffsetY = 0;
     }
@@ -2046,7 +2077,7 @@ function calculateAndDrawNextChunk() {
   //   the calculating notice between the above 8 chunks -- just
   //   do it once after all of them
   if (!isPassFinished) {
-    drawCalculatingNoticeOld(dContext);
+    drawCalculatingNoticeOld(fitSizeContext);
   }
   return isPassFinished;
 }
@@ -2099,7 +2130,7 @@ function windowAverageTiming() {
   }
 }
 
-function drawColorPoints(windowPoints, pixelSize, saveToCache = true) {
+function drawColorPointsFitOnlyNoCache(windowPoints, pixelSize) {
   // change URL bar to reflect current params, only if no params change
   //   for 1/4 second
   if (replaceStateTimeout != null) {
@@ -2108,10 +2139,13 @@ function drawColorPoints(windowPoints, pixelSize, saveToCache = true) {
   replaceStateTimeout = window.setTimeout(replaceHistory, 250);
 
   //const pixelSize = Math.round(windowCalc.lineWidth);
-  const canvas = dContext.canvas;
-  const width = canvas.width;
-  const height = canvas.height;
-  const pixelsImage = windowCalc.pixelsImage;
+  //const canvas = dContext.canvas;
+  const width = fitSizeCanvas.width;
+  const height = fitSizeCanvas.height;
+  const imageData = fullSizeScalePower == 0 ? windowCalc.pixelsImage : windowCalc.fitImage;
+  //const context = fullSizeScalePower == 0 ? dContext : fitSizeContext;
+  const context = fitSizeContext
+  const fitImage = windowCalc.fitImage;
   const bgColor = getBgColor(false);
   let pointColor = null;
   for (let i = 0; i < windowPoints.length; i++) {
@@ -2131,32 +2165,133 @@ function drawColorPoints(windowPoints, pixelSize, saveToCache = true) {
       pointColor = applyBuiltGradient(builtGradient, colorPct, false);
     }
     let pixelOffsetInImage = 0;
+    let pixX, pixY;
     for (let x = 0; x < pixelSize; x++) {
+      pixX = resX + x;
       // there may be a more efficient way to break early when pixels
       //   would extend beyond the edge of the canvas, other than
       //   checking every single pixel
-      if (resX + x >= width) {
+      if (pixX >= width) {
         break;
       }
       for (let y = 0; y < pixelSize; y++) {
+        pixY = resY + y;
         // there may be a more efficient way to break early when pixels
         //   would extend beyond the edge of the canvas, other than
         //   checking every single pixel
-        if (resY + y >= height) {
+        if (pixY >= height) {
           break;
         }
-        pixelOffsetInImage = (((resY+y) * width) + (resX+x)) * 4;
+        pixelOffsetInImage = ((pixY * width) + pixX) * 4;
+        imageData.data[pixelOffsetInImage+0] = pointColor.r;
+        imageData.data[pixelOffsetInImage+1] = pointColor.g;
+        imageData.data[pixelOffsetInImage+2] = pointColor.b;
+        imageData.data[pixelOffsetInImage+3] = 255; // alpha
+      }
+    }
+  }
+  context.putImageData(imageData, 0, 0);
+}
+
+function drawColorPoints(windowPoints, pixelSize) {
+  // change URL bar to reflect current params, only if no params change
+  //   for 1/4 second
+  if (replaceStateTimeout != null) {
+    window.clearTimeout(replaceStateTimeout);
+  }
+  replaceStateTimeout = window.setTimeout(replaceHistory, 250);
+
+  //const pixelSize = Math.round(windowCalc.lineWidth);
+  const canvas = dContext.canvas;
+  const width = canvas.width;
+  const height = canvas.height;
+  const pixelsImage = windowCalc.pixelsImage;
+  const fitWidth = fitSizeCanvas.width;
+  const fitImage = windowCalc.fitImage;
+  const bgColor = getBgColor(false);
+  let pointColor = null;
+  let pixX, pixY, fitPixX, fitPixY;
+  let pixelOffsetInImage = 0;
+  let fitPixOffset = 0;
+  for (let i = 0; i < windowPoints.length; i++) {
+    // use lineWidth param as "resolution":
+    //   1 = 1  pixel  drawn per point
+    //   2 = 2  pixels drawn per point
+    //  10 = 10 pixels drawn per point
+    const resX = windowPoints[i].px.x;
+    const resY = windowPoints[i].px.y;
+    let lastFitPixX = 31 << 26;
+    let lastFitPixY = 31 << 26;
+    //let lastFitPixOffset = 31 << 26;
+    const colorPct = windowPoints[i].px.c;
+    // just completely skip points with this special color "value"
+    if (colorPct == windowCalcIgnorePointColor) {
+      continue;
+    } else if (colorPct == windowCalcBackgroundColor) {
+      pointColor = bgColor;
+    } else {
+      pointColor = applyBuiltGradient(builtGradient, colorPct, false);
+    }
+    
+    //let fitOffsetInImage = 0;
+    for (let x = 0; x < pixelSize; x++) {
+      pixX = resX + x;
+      // there may be a more efficient way to break early when pixels
+      //   would extend beyond the edge of the canvas, other than
+      //   checking every single pixel
+      if (pixX >= width) {
+        break;
+      }
+      fitPixX = pixX >> fullSizeScalePower;
+      for (let y = 0; y < pixelSize; y++) {
+        pixY = resY + y;
+        // there may be a more efficient way to break early when pixels
+        //   would extend beyond the edge of the canvas, other than
+        //   checking every single pixel
+        if (pixY >= height) {
+          break;
+        }
+        pixelOffsetInImage = ((pixY * width) + pixX) * 4;
+        //pixelOffsetInImage = ((pixY * width) + pixX) << 2;
         pixelsImage.data[pixelOffsetInImage+0] = pointColor.r;
         pixelsImage.data[pixelOffsetInImage+1] = pointColor.g;
         pixelsImage.data[pixelOffsetInImage+2] = pointColor.b;
         pixelsImage.data[pixelOffsetInImage+3] = 255; // alpha
-        if (saveToCache) {
-          windowCalc.pixelCache[resX+x][resY+y] = colorPct;
+        windowCalc.pixelCache[pixX][pixY] = colorPct;
+        if (fullSizeScalePower == 0) {
+          continue;
         }
+        //fitPixOffset = pixelOffsetInImage >> fullSizeScalePowerDouble;
+        //let shortcutOffsetSave = fitPixOffset;
+        fitPixY = pixY >> fullSizeScalePower;
+        if (fitPixY == lastFitPixY && fitPixX == lastFitPixX) {
+        //if (fitPixOffset == lastFitPixOffset) {
+          continue;
+        }
+        lastFitPixX = fitPixX;
+        lastFitPixY = fitPixY;
+        //lastFitPixOffset = fitPixOffset;
+        fitPixOffset = ((fitPixY * fitWidth) + fitPixX) * 4;
+        //fitPixOffset = ((fitPixY * fitWidth) + fitPixX) << 2;
+        //console.log("diff correct - shortcut = " + (fitPixOffset-shortcutOffsetSave));
+        fitImage.data[fitPixOffset+0] = pointColor.r;
+        fitImage.data[fitPixOffset+1] = pointColor.g;
+        fitImage.data[fitPixOffset+2] = pointColor.b;
+        fitImage.data[fitPixOffset+3] = 255; // alpha
       }
     }
   }
-  dContext.putImageData(pixelsImage, 0, 0);
+  // doing putImageData() on both images is too time-consuming,
+  //   and especially since the pixelsImage may be several times
+  //   larger than the fitImage, and since the user doesn't actually
+  //   see the pixelsImage (until downloading it) we don't need to
+  //   draw the pixelsImage on the invisible dContext
+  //dContext.putImageData(pixelsImage, 0, 0);
+  if (fullSizeScalePower == 0) {
+    fitSizeContext.putImageData(pixelsImage, 0, 0);
+  } else {
+    fitSizeContext.putImageData(fitImage, 0, 0);
+  }
 }
 
 function recolor() {
@@ -2166,13 +2301,18 @@ function recolor() {
   // ensure this gradient is inserted into the URL bar
   replaceStateTimeout = window.setTimeout(replaceHistory, 250);
   resetGradientInput();
+  const fitWidth = fitSizeCanvas.width;
   const width = dCanvas.width;
   const height = dCanvas.height;
   const bgColor = getBgColor(false);
   let colorPct = -2;
   let color = null;
   let pixelOffsetInImage = null;
+  let fitOffset, fitX, fitY;
+  let lastFitY = 31 << 26;
+  let lastFitX = 31 << 26;
   for (let x = 0; x < width; x++) {
+    fitX = x >> fullSizeScalePower;
     for (let y = 0; y < height; y++) {
       colorPct = windowCalc.pixelCache[x][y];
       if (colorPct === undefined || colorPct == windowCalcIgnorePointColor) {
@@ -2188,23 +2328,46 @@ function recolor() {
       windowCalc.pixelsImage.data[pixelOffsetInImage+1] = color.g;
       windowCalc.pixelsImage.data[pixelOffsetInImage+2] = color.b;
       windowCalc.pixelsImage.data[pixelOffsetInImage+3] = 255; // alpha
+      if (fullSizeScalePower == 0) {
+        continue;
+      }
+      fitY = y >> fullSizeScalePower;
+      if (fitY == lastFitY && fitX == lastFitX) {
+        continue;
+      }
+      lastFitX = fitX;
+      lastFitY = fitY;
+      fitOffset = ((fitY * fitWidth) + fitX) * 4;
+      windowCalc.fitImage.data[fitOffset+0] = color.r;
+      windowCalc.fitImage.data[fitOffset+1] = color.g;
+      windowCalc.fitImage.data[fitOffset+2] = color.b;
+      windowCalc.fitImage.data[fitOffset+3] = 255; // alpha
     }
   }
-  dContext.putImageData(windowCalc.pixelsImage, 0, 0);
+  //dContext.putImageData(windowCalc.pixelsImage, 0, 0);
+  if (fullSizeScalePower == 0) {
+    fitSizeContext.putImageData(windowCalc.pixelsImage, 0, 0);
+  } else {
+    fitSizeContext.putImageData(windowCalc.fitImage, 0, 0);
+  }
 }
 
 function repaintOnly() {
   if (plotsByName[historyParams.plot].calcFrom == "sequence") {
     drawPoints(historyParams);
   } else {
-    dContext.putImageData(windowCalc.pixelsImage, 0, 0);
+    if (fullSizeScalePower == 0) {
+      fitSizeContext.putImageData(windowCalc.pixelsImage, 0, 0);
+    } else {
+      fitSizeContext.putImageData(windowCalc.fitImage, 0, 0);
+    }
   }
 }
 
 function drawPreviewImage() {
-  fillBg(dContext);
+  fillBg(fitSizeContext);
   if (previewImage !== null) {
-    dContext.putImageData(previewImage, previewImageOffsetX, previewImageOffsetY);
+    fitSizeContext.putImageData(previewImage, previewImageOffsetX, previewImageOffsetY);
   }
 }
 
@@ -2234,8 +2397,8 @@ function drawStatusNotice(ctx, message) {
 }
 
 function drawStartingPassNotice() {
-  const ctx = dContext;
-  const canvas = ctx.canvas;
+  const ctx = fitSizeContext;
+  const canvas = fitSizeCanvas;
   ctx.fillStyle = "rgba(100,100,100,1.0)";
   const noticeHeight = Math.max(24, canvas.height * 0.03);
   const textHeight = Math.round(noticeHeight * 0.6);
@@ -2243,7 +2406,7 @@ function drawStartingPassNotice() {
   ctx.fillRect(0,canvas.height-noticeHeight,noticeWidth, noticeHeight);
   ctx.font = textHeight + "px system-ui";
   ctx.fillStyle = "rgba(0,0,0,0.9)";
-  ctx.fillText("Starting next pass ...", Math.round(noticeHeight*0.2), dCanvas.height - Math.round(noticeHeight* 0.2));
+  ctx.fillText("Starting next pass ...", Math.round(noticeHeight*0.2), canvas.height - Math.round(noticeHeight* 0.2));
 }
 
 function redrawMousePosNotice() {
@@ -2253,8 +2416,8 @@ function redrawMousePosNotice() {
 function drawMousePosNotice(x, y) {
   mouseNoticePosX = x;
   mouseNoticePosY = y;
-  const canvas = dCanvas;
-  const ctx = dContext;
+  const canvas = fitSizeCanvas;
+  const ctx = fitSizeContext;
   const noticeHeight = Math.max(16, canvas.height * 0.03);
   const textHeight = Math.round(noticeHeight * 0.6);
   const noticeWidth = Math.max(200, textHeight * 18);
@@ -2300,8 +2463,8 @@ function drawMousePosNotice(x, y) {
 }
 
 function drawImageParameters() {
-  const canvas = dCanvas;
-  const ctx = dContext;
+  const canvas = fitSizeCanvas;
+  const ctx = fitSizeContext;
   const lineValLengthLimit = 26;
   const noticeHeight = Math.max(16, canvas.height * 0.01);
   const textHeight = Math.round(noticeHeight * 0.6);
@@ -2347,8 +2510,8 @@ function drawImageParameters() {
 }
 
 function drawSequencePointsData(infoPoints, mouseX, mouseY) {
-  const canvas = dCanvas;
-  const ctx = dContext;
+  const canvas = fitSizeCanvas;
+  const ctx = fitSizeContext;
   // for now, put this info toward the top left of screen
   //   (will be centered on phone screens)
   const noticeOffsetLeft = canvas.width * 0.25;
@@ -2415,10 +2578,10 @@ function panPercentOfPixels(isHorizontal, nPercent) {
   const unitsToPan = infNumMul(createInfNum(pixelsToPan.toString()), windowCalc.eachPixUnits);
   if (isHorizontal) {
     historyParams.centerX = infNumAdd(historyParams.centerX, unitsToPan);
-    previewImageOffsetX -= pixelsToPan;
+    previewImageOffsetX -= pixelsToPan / fullSizeScaleFactor;
   } else {
     historyParams.centerY = infNumAdd(historyParams.centerY, unitsToPan);
-    previewImageOffsetY += pixelsToPan;
+    previewImageOffsetY += pixelsToPan / fullSizeScaleFactor;
   }
 }
 
@@ -2467,8 +2630,8 @@ function sanityCheckLineWidth(w, circular, plot) {
 }
 
 function convertPixelPosToPlanePos(x, y) {
-  let pixX = infNum(BigInt(x), 0n);
-  let pixY = infNum(BigInt(y), 0n);
+  let pixX = infNum(BigInt(x*fullSizeScaleFactor), 0n);
+  let pixY = infNum(BigInt(y*fullSizeScaleFactor), 0n);
   // this all works, to re-compute left/top edges here
   //const canvasWidth = createInfNum(dCanvas.width.toString());
   //const canvasHeight = createInfNum(dCanvas.height.toString());
@@ -2813,7 +2976,7 @@ function resizeCanvas() {
   if (!autoResize) {
     return;
   }
-  setDScaleVars(dContext);
+  setDScaleVars();
   redraw();
 }
 
@@ -2839,8 +3002,8 @@ var mouseDownHandler = function(e) {
     return;
   }
   if (shiftPressed) {
-    let pixXFloat = Math.round(e.pageX - (dCanvas.width / 2));
-    let pixYFloat = Math.round((dCanvas.height - e.pageY) - (dCanvas.height / 2));
+    let pixXFloat = Math.round(e.pageX - (fitSizeCanvas.width / 2));
+    let pixYFloat = Math.round((fitSizeCanvas.height - e.pageY) - (fitSizeCanvas.height / 2));
     let pixX = infNum(BigInt(pixXFloat), 0n);
     let pixY = infNum(BigInt(pixYFloat), 0n);
     // make sure we move in an exact multiple of the pixel size, so
@@ -2864,8 +3027,8 @@ var mouseDownHandler = function(e) {
   mouseDragX = e.pageX;
   mouseDragY = e.pageY;
 };
-dCanvas.addEventListener("mousedown", mouseDownHandler);
-dCanvas.addEventListener("touchstart", mouseDownHandler);
+fitSizeCanvas.addEventListener("mousedown", mouseDownHandler);
+fitSizeCanvas.addEventListener("touchstart", mouseDownHandler);
 
 var mouseMoveHandler = function(e) {
   // this might help prevent strange ios/mobile weirdness
@@ -2884,8 +3047,8 @@ var mouseMoveHandler = function(e) {
   const newY = e.pageY;
   // make sure we move in an exact multiple of the pixel size
   //   in order to re-use previously cached pixels after the move
-  const pixDiffX = mouseDragX - newX;
-  const pixDiffY = mouseDragY - newY;
+  const pixDiffX = (mouseDragX - newX) * fullSizeScaleFactor;
+  const pixDiffY = (mouseDragY - newY) * fullSizeScaleFactor;
   const diffX = infNumMul(infNum(BigInt(pixDiffX), 0n), windowCalc.eachPixUnits);
   const diffY = infNumMul(infNum(BigInt(pixDiffY), 0n), windowCalc.eachPixUnits);
   historyParams.centerX = infNumAdd(historyParams.centerX, diffX);
@@ -2893,8 +3056,8 @@ var mouseMoveHandler = function(e) {
   mouseDragX = newX;
   mouseDragY = newY;
 
-  previewImageOffsetX -= pixDiffX;
-  previewImageOffsetY -= pixDiffY;
+  previewImageOffsetX -= pixDiffX / fullSizeScaleFactor;
+  previewImageOffsetY -= pixDiffY / fullSizeScaleFactor;
 
   // if 2 or more fingers are touching, perform zoom
   if ("touches" in e && "1" in e.touches) {
@@ -2937,16 +3100,16 @@ var mouseMoveHandler = function(e) {
 
     // see "wheel" event below for explanation of centering the zoom in/out from the mouse/pinch point
 
-    const newCenterX = calculateNewZoomCenterX(createInfNum(midX.toString()), createInfNum(dCanvas.width.toString()),  historyParams.centerX, oldScale, historyParams.scale);
-    const newCenterY = calculateNewZoomCenterY(createInfNum(midY.toString()), createInfNum(dCanvas.height.toString()), historyParams.centerY, oldScale, historyParams.scale);
+    const newCenterX = calculateNewZoomCenterX(infNum(BigInt(midX*fullSizeScaleFactor), 0n), infNum(BigInt(dCanvas.width), 0n),  historyParams.centerX, oldScale, historyParams.scale);
+    const newCenterY = calculateNewZoomCenterY(infNum(BigInt(midY*fullSizeScaleFactor), 0n), infNum(BigInt(dCanvas.height), 0n), historyParams.centerY, oldScale, historyParams.scale);
     historyParams.centerX = newCenterX;
     historyParams.centerY = newCenterY;
   }
 
   redraw();
 };
-dCanvas.addEventListener("mousemove", mouseMoveHandler);
-dCanvas.addEventListener("touchmove", mouseMoveHandler);
+fitSizeCanvas.addEventListener("mousemove", mouseMoveHandler);
+fitSizeCanvas.addEventListener("touchmove", mouseMoveHandler);
 
 var mouseUpHandler = function(e) {
   // this might help prevent strange ios/mobile weirdness
@@ -2959,10 +3122,10 @@ var mouseUpHandler = function(e) {
     drawAnnotationAtPixelPosition(e.pageX, e.pageY);
   }
 };
-dCanvas.addEventListener("mouseup", mouseUpHandler);
-dCanvas.addEventListener("touchend", mouseUpHandler);
+fitSizeCanvas.addEventListener("mouseup", mouseUpHandler);
+fitSizeCanvas.addEventListener("touchend", mouseUpHandler);
 
-dCanvas.addEventListener("wheel", function(e) {
+fitSizeCanvas.addEventListener("wheel", function(e) {
   // set 48 wheelDeltaY units as 5% zoom (in or out)
   // so -48 is 95% zoom, and +96 is 110% zoom
   const oldScale = historyParams.scale;
@@ -2995,8 +3158,8 @@ dCanvas.addEventListener("wheel", function(e) {
 
   // use mouse position when scrolling to effecively zoom in/out directly on the spot where the mouse is
 
-  const newCenterX = calculateNewZoomCenterX(createInfNum(e.pageX.toString()), createInfNum(dCanvas.width.toString()),  historyParams.centerX, oldScale, historyParams.scale);
-  const newCenterY = calculateNewZoomCenterY(createInfNum(e.pageY.toString()), createInfNum(dCanvas.height.toString()), historyParams.centerY, oldScale, historyParams.scale);
+  const newCenterX = calculateNewZoomCenterX(infNum(BigInt(e.pageX*fullSizeScaleFactor), 0n), infNum(BigInt(dCanvas.width), 0n),  historyParams.centerX, oldScale, historyParams.scale);
+  const newCenterY = calculateNewZoomCenterY(infNum(BigInt(e.pageY*fullSizeScaleFactor), 0n), infNum(BigInt(dCanvas.height), 0n), historyParams.centerY, oldScale, historyParams.scale);
 
   historyParams.centerX = newCenterX;
   historyParams.centerY = newCenterY;
@@ -3154,6 +3317,6 @@ function hideFooter() {
 buildGradient("rygb");
 // since scale is determined by magnification, we need to set the
 //   canvas size before parsing URL parameters
-setDScaleVarsNoScale(dContext);
+setDScaleVarsNoScale();
 parseUrlParams();
 start();

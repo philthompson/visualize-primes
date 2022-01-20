@@ -171,6 +171,9 @@ document.getElementById("btn-download").addEventListener("click", function() {
   } else {
     drawPointsFullSize();
   }
+  if (imageParametersCaption) {
+    drawImageParametersOnContext(dContext);
+  }
   // thanks to https://stackoverflow.com/a/50300880/259456
   let link = document.createElement("a");
   link.download = "filename.png";
@@ -2477,8 +2480,13 @@ function drawMousePosNotice(x, y) {
 }
 
 function drawImageParameters() {
-  const canvas = fitSizeCanvas;
-  const ctx = fitSizeContext;
+  drawImageParametersOnContext(fitSizeContext);
+  drawImageParametersOnContext(dContext);
+}
+
+function drawImageParametersOnContext(context2d) {
+  const ctx = context2d;
+  const canvas = ctx.canvas;
   const lineValLengthLimit = 26;
   const noticeHeight = Math.max(16, canvas.height * 0.01);
   const textHeight = Math.round(noticeHeight * 0.6);

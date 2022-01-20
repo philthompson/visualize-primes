@@ -7,9 +7,8 @@ const dCanvas = document.getElementById("dc");
 const dContext = dCanvas.getContext("2d");
 const fitSizeCanvas = document.getElementById("fit-size-canvas");
 const fitSizeContext = fitSizeCanvas.getContext("2d");
-var fullSizeScalePower = 1; // 2^x scale for the full-size image.  0: same size, 1: twice as big, 2: 4x...
+var fullSizeScalePower = 0; // 2^x scale for the full-size image.  0: same size, 1: twice as big, 2: 4x...
 var fullSizeScaleFactor = 2 ** fullSizeScalePower;
-var fullSizeScalePowerDouble = 2 * fullSizeScalePower; // used to calculated pixel offset in fit image
 var mouseDrag = false;
 var mouseDragX = 0;
 var mouseDragY = 0;
@@ -161,6 +160,7 @@ const algoSelect = document.getElementById("algo-select");
 const btnAlgoGo = document.getElementById("algo-go");
 const btnAlgoReset = document.getElementById("algo-reset");
 const detailsAlgoControls = document.getElementById("algo-controls");
+const fullSizeSelect = document.getElementById("full-size-select");
 
 const blogLinkMain = document.getElementById("blog-link");
 const blogLinkMandel = document.getElementById("blog-link-mandel");
@@ -883,7 +883,9 @@ function fillBg(ctx) {
 
 function setDScaleVarsNoScale() {
   let canvas = fitSizeCanvas;
-  if (canvas.width != canvas.offsetWidth || canvas.height != canvas.offsetHeight) {
+  if (canvas.width != canvas.offsetWidth || canvas.height != canvas.offsetHeight ||
+      dCanvas.width != canvas.width * fullSizeScaleFactor ||
+      dCanvas.height != canvas.height * fullSizeScaleFactor) {
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
     dCanvas.width = canvas.width * fullSizeScaleFactor;
@@ -894,7 +896,51 @@ function setDScaleVarsNoScale() {
 
 function setDScaleVars() {
   setDScaleVarsNoScale();
+  populateRenderSizeOptions();
   historyParams.scale = convertMagnificationToScale(historyParams.mag, plotsByName[historyParams.plot].magnificationFactor);
+}
+
+function populateRenderSizeOptions() {
+  const width = fitSizeCanvas.width;
+  const height = fitSizeCanvas.height;
+  const html = [];
+  let lowPower = 0;
+  let selectedPower = fullSizeScalePower;
+  if (historyParams.plot.startsWith("Mandelbrot")) {
+    lowPower = -1;
+    if (historyParams.lineWidth == 2) {
+      selectedPower = -1;
+    }
+  }
+  for (let i = lowPower; i <= 3; i++) {
+    let factor = 2 ** i;
+    let scaledWidth = Math.round(width * factor);
+    let scaledHeight = Math.round(height * factor);
+    let megapixels = Math.round(scaledWidth * scaledHeight * 100 / 1000000) / 100;
+    html.push(
+      "<option " + (i === selectedPower ? "selected" : "") + " value=\"" + i + "\">" +
+      factor + "x: " + scaledWidth + "x" + scaledHeight + " (" + megapixels + "MP)" +
+      "</option>");
+  }
+  fullSizeSelect.innerHTML = html.join("");
+}
+fullSizeSelect.addEventListener("change", setRenderSize);
+
+function setRenderSize() {
+  let selectedPower = fullSizeSelect.value;
+  if (historyParams.plot.startsWith("Mandelbrot")) {
+    if (selectedPower == -1) {
+      historyParams.lineWidth = 2;
+      selectedPower = 0;
+    } else {
+      historyParams.lineWidth = 1;
+    }
+  }
+  fullSizeScalePower = parseInt(selectedPower);
+  fullSizeScaleFactor = 2 ** fullSizeScalePower;
+  setDScaleVarsNoScale();
+  historyParams.scale = convertMagnificationToScale(historyParams.mag, plotsByName[windowCalc.plotName].magnificationFactor);
+  redraw();
 }
 
 function convertScaleToMagnification(scale, magnificationFactor) {
@@ -949,6 +995,10 @@ function replaceHistoryWithParams(params) {
   // include magnification in URL, not scale
   paramsCopy.mag = infNumExpStringTruncToLen(params.mag, precision);
   delete paramsCopy.scale;
+  // do not include lineWidth for window plots
+  if (isCurrentPlotAWindowPlot()) {
+    delete paramsCopy.lineWidth;
+  }
   paramsCopy.centerX = infNumExpStringTruncToLen(params.centerX, precision);
   paramsCopy.centerY = infNumExpStringTruncToLen(params.centerY, precision);
   history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
@@ -2269,7 +2319,6 @@ function drawColorPoints(windowPoints, pixelSize) {
           break;
         }
         pixelOffsetInImage = ((pixY * width) + pixX) * 4;
-        //pixelOffsetInImage = ((pixY * width) + pixX) << 2;
         pixelsImage.data[pixelOffsetInImage+0] = pointColor.r;
         pixelsImage.data[pixelOffsetInImage+1] = pointColor.g;
         pixelsImage.data[pixelOffsetInImage+2] = pointColor.b;
@@ -2278,19 +2327,13 @@ function drawColorPoints(windowPoints, pixelSize) {
         if (fullSizeScalePower == 0) {
           continue;
         }
-        //fitPixOffset = pixelOffsetInImage >> fullSizeScalePowerDouble;
-        //let shortcutOffsetSave = fitPixOffset;
         fitPixY = pixY >> fullSizeScalePower;
         if (fitPixY == lastFitPixY && fitPixX == lastFitPixX) {
-        //if (fitPixOffset == lastFitPixOffset) {
           continue;
         }
         lastFitPixX = fitPixX;
         lastFitPixY = fitPixY;
-        //lastFitPixOffset = fitPixOffset;
         fitPixOffset = ((fitPixY * fitWidth) + fitPixX) * 4;
-        //fitPixOffset = ((fitPixY * fitWidth) + fitPixX) << 2;
-        //console.log("diff correct - shortcut = " + (fitPixOffset-shortcutOffsetSave));
         fitImage.data[fitPixOffset+0] = pointColor.r;
         fitImage.data[fitPixOffset+1] = pointColor.g;
         fitImage.data[fitPixOffset+2] = pointColor.b;
@@ -2361,6 +2404,11 @@ function recolor() {
       windowCalc.fitImage.data[fitOffset+3] = 255; // alpha
     }
   }
+  // doing putImageData() on both images is too time-consuming,
+  //   and especially since the pixelsImage may be several times
+  //   larger than the fitImage, and since the user doesn't actually
+  //   see the pixelsImage (until downloading it) we don't need to
+  //   draw the pixelsImage on the invisible dContext
   //dContext.putImageData(windowCalc.pixelsImage, 0, 0);
   if (fullSizeScalePower == 0) {
     fitSizeContext.putImageData(windowCalc.pixelsImage, 0, 0);

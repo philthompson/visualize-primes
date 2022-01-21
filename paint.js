@@ -921,7 +921,7 @@ function getBgColor(stringFormat = true) {
 
 function fillBg(ctx) {
   var canvas = ctx.canvas;
-  ctx.fillStyle = getBgColor();
+  ctx.fillStyle = getBgColor(true);
   ctx.fillRect(0,0,canvas.width, canvas.height);
 }
 
@@ -1776,7 +1776,10 @@ var calcWorkerOnmessage = function(e) {
   }
   if ("statusMessage" in e.data) {
     const messageString = e.data.statusMessage;
-    repaintOnly();
+    // this causes a white screen to be painted when initially doing setup
+    //   tasks (calculating ref orbit..) for longer renders, upon inital
+    //   page load, so for now, not doing a repaint before the message
+    //repaintOnly();
     drawStatusNotice(fitSizeContext, messageString);
     if (showMousePosition) {
       redrawMousePosNotice();

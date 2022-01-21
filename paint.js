@@ -1552,18 +1552,30 @@ function resetGoToBoundsValues() {
   if ("usesImaginaryCoordinates" in plotsByName[historyParams.plot].privContext) {
     imaginaryCoordinates = plotsByName[historyParams.plot].privContext.usesImaginaryCoordinates;
   }
-  inputGotoTopLeftX.value = windowCalc.leftEdgeFloat;
-  inputGotoTopLeftY.value = windowCalc.topEdgeFloat + (imaginaryCoordinates ? "i" : "");
-  inputGotoBotRightX.value = infNumToFloat(windowCalc.rightEdge);
-  inputGotoBotRightY.value = infNumToFloat(windowCalc.bottomEdge) + (imaginaryCoordinates ? "i" : "");
+  if (historyParams.plot.startsWith("Mandelbrot")) {
+    inputGotoTopLeftX.value = infNumToString(windowCalc.leftEdge);
+    inputGotoTopLeftY.value = infNumToString(windowCalc.topEdge) + (imaginaryCoordinates ? "i" : "");
+    inputGotoBotRightX.value = infNumToString(windowCalc.rightEdge);
+    inputGotoBotRightY.value = infNumToString(windowCalc.bottomEdge) + (imaginaryCoordinates ? "i" : "");
+  } else {
+    inputGotoTopLeftX.value = infNumExpString(windowCalc.leftEdge);
+    inputGotoTopLeftY.value = infNumExpString(windowCalc.topEdge) + (imaginaryCoordinates ? "i" : "");
+    inputGotoBotRightX.value = infNumExpString(windowCalc.rightEdge);
+    inputGotoBotRightY.value = infNumExpString(windowCalc.bottomEdge) + (imaginaryCoordinates ? "i" : "");
+  }
 }
 function resetGoToCenterValues() {
   var imaginaryCoordinates = false;
   if ("usesImaginaryCoordinates" in plotsByName[historyParams.plot].privContext) {
     imaginaryCoordinates = plotsByName[historyParams.plot].privContext.usesImaginaryCoordinates;
   }
-  inputGotoCenterX.value = infNumExpString(historyParams.centerX);
-  inputGotoCenterY.value = infNumExpString(historyParams.centerY) + (imaginaryCoordinates ? "i" : "");
+  if (historyParams.plot.startsWith("Mandelbrot")) {
+    inputGotoCenterX.value = infNumToString(historyParams.centerX);
+    inputGotoCenterY.value = infNumToString(historyParams.centerY) + (imaginaryCoordinates ? "i" : "");
+  } else {
+    inputGotoCenterX.value = infNumExpString(historyParams.centerX);
+    inputGotoCenterY.value = infNumExpString(historyParams.centerY) + (imaginaryCoordinates ? "i" : "");
+  }
   inputGotoScale.value = infNumExpString(historyParams.scale);
   inputGotoMag.value = infNumExpString(historyParams.mag);
 }
@@ -2580,6 +2592,10 @@ function drawImageParameters() {
 }
 
 function drawImageParametersOnContext(context2d) {
+  let imaginaryCoordinates = false;
+  if ("usesImaginaryCoordinates" in plotsByName[historyParams.plot].privContext) {
+    imaginaryCoordinates = plotsByName[historyParams.plot].privContext.usesImaginaryCoordinates;
+  }
   const ctx = context2d;
   const canvas = ctx.canvas;
   const lineValLengthLimit = 26;
@@ -2588,8 +2604,6 @@ function drawImageParametersOnContext(context2d) {
   const noticeWidth = Math.max(200, textHeight * lineValLengthLimit * 0.9);
   const lines = [];
   let entries = [
-    [" x (re)", infNumExpString(historyParams.centerX)],
-    [" y (im)", infNumExpString(historyParams.centerY)],
     [" magnif", infNumExpString(historyParams.mag)],
     ["  scale", infNumExpString(historyParams.scale)],
     ["   iter", historyParams.n.toString()],
@@ -2597,6 +2611,18 @@ function drawImageParametersOnContext(context2d) {
     ["  bgclr", historyParams.bgColor],
     ["workers", windowCalc.workersCountRange]
   ];
+  if (historyParams.plot.startsWith("Mandelbrot")) {
+    entries.unshift([" y (im)", infNumToString(historyParams.centerY)]);
+    entries.unshift([" x (re)", infNumToString(historyParams.centerX)]);
+  } else {
+    if (imaginaryCoordinates) {
+      entries.unshift([" y (im)", infNumExpString(historyParams.centerY)]);
+      entries.unshift([" x (re)", infNumExpString(historyParams.centerX)]);
+    } else {
+      entries.unshift(["      y", infNumExpString(historyParams.centerY)]);
+      entries.unshift(["      x", infNumExpString(historyParams.centerX)]);
+    }
+  }
   entries.push(["   algo", windowCalc.algorithm]);
   entries.push(["sig dig", precision.toString()]);
   if (windowCalc.saItersSkipped !== null) {

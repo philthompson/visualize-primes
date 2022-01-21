@@ -221,9 +221,32 @@ function calculateWindowPassChunks() {
   const yPointsPerChunk = Math.ceil(dContext.canvas.height / pixelSize) + 1;
   const yPointsPerChunkHalf = Math.ceil(yPointsPerChunk / 2);
 
-  const incX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelSize), 0n));
-  const incXTwice = infNumMul(incX, infNum(2n, 0n));
-  let cursorX = copyInfNum(windowCalc.leftEdge);
+  // the logic below is the same for basic and for perturb, but the
+  //   values represent different things:
+  // - cursorX - basic  : the actual position of the pixel
+  //           - perturb: the x delta to the pixel from the reference point
+  //
+  // - yBottom - basic  : the actual y position of the pixel at the bottom of the screen
+  //           - perturb: the y delta to the bottom pixel from the reference point
+  //
+  const isBasic = windowCalc.algorithm.includes("basic");
+
+  const incX = windowCalc.math.mul(windowCalc.eachPixUnitsM, windowCalc.math.createFromNumber(pixelSize));
+  const incXTwice = windowCalc.math.mul(incX, windowCalc.math.createFromNumber(2));
+  const zero = windowCalc.math.createFromNumber(0);
+
+  let cursorX, yBottom;
+  if (isBasic) {
+    // before, all this math was always done with InfNum
+    cursorX = structuredClone(windowCalc.leftEdgeM);
+    yBottom = structuredClone(windowCalc.bottomEdgeM);
+  } else {
+    cursorX = structuredClone(windowCalc.referenceBottomLeftDeltaX);
+    yBottom = structuredClone(windowCalc.referenceBottomLeftDeltaY);
+  }
+
+  const yBottomSkip = windowCalc.math.add(yBottom, incX);
+
   let chunkNum = 0;
   for (let x = 0; x < dContext.canvas.width; x+=pixelSize) {
     let chunk = {};
@@ -233,11 +256,11 @@ function calculateWindowPassChunks() {
         // since we start at bottom edge, we increment pixels by subtracting Y value
         //   (because javascript canvas Y coordinate is backwards)
         "chunkPixInc": {"x": 0, "y": -2 * pixelSize},
-        "chunkPos": {"x": copyInfNum(cursorX), "y": infNumAdd(windowCalc.bottomEdge, incX)},
+        "chunkPos": {"x": structuredClone(cursorX), "y": structuredClone(yBottomSkip)},
         // within the chunk inself, each position along the chunk is incremented in the
         //   Y dimension, and since chunk pixels are square, the amount incremented in
         //   the Y dimension is the same as incX
-        "chunkInc": {"x": infNum(0n, 0n), "y": copyInfNum(incXTwice)},
+        "chunkInc": {"x": structuredClone(zero), "y": structuredClone(incXTwice)},
         "chunkLen": yPointsPerChunkHalf
       });
     } else {
@@ -246,16 +269,16 @@ function calculateWindowPassChunks() {
         // since we start at bottom edge, we increment pixels by subtracting Y value
         //   (because javascript canvas Y coordinate is backwards)
         "chunkPixInc": {"x": 0, "y": -1 * pixelSize},
-        "chunkPos": {"x": copyInfNum(cursorX), "y": copyInfNum(windowCalc.bottomEdge)},
+        "chunkPos": {"x": structuredClone(cursorX), "y": structuredClone(yBottom)},
         // within the chunk inself, each position along the chunk is incremented in the
         //   Y dimension, and since chunk pixels are square, the amount incremented in
         //   the Y dimension is the same as incX
-        "chunkInc": {"x": infNum(0n, 0n), "y": copyInfNum(incX)},
+        "chunkInc": {"x": structuredClone(zero), "y": structuredClone(incX)},
         "chunkLen": yPointsPerChunk
       });
     }
     windowCalc.xPixelChunks.push(chunk);
-    cursorX = infNumAdd(cursorX, incX);
+    cursorX = windowCalc.math.add(cursorX, incX);
     chunkNum++;
   }
 
@@ -288,16 +311,17 @@ function calculateReferenceOrbit() {
   console.log("calculated middle reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
   console.log("referencePx: " + infNumToString(windowCalc.referencePx));
   console.log("referencePy: " + infNumToString(windowCalc.referencePy));
+
+  // the subtraction is done backwards from how i'd expect,
+  //   but that's how deltas are calculated now in the
+  //   Mandelbrot perturbation theory function
+  windowCalc.referenceBottomLeftDeltaX = windowCalc.math.createFromInfNum(infNumSub(windowCalc.leftEdge, windowCalc.referencePx));
+  windowCalc.referenceBottomLeftDeltaY = windowCalc.math.createFromInfNum(infNumSub(windowCalc.bottomEdge, windowCalc.referencePy));
 }
 
 function computeBoundPointsChunk(chunk) {
   var chunkStartMs = Date.now();
   const plot = plotsByName[historyParams.plot];
-
-  const norm = normInfNum(chunk.chunkPos.y, chunk.chunkInc.y);
-  const px = chunk.chunkPos.x;
-  let py = norm[0];
-  const incY = norm[1];
 
   const pixX = chunk.chunkPix.x;
   let pixY = chunk.chunkPix.y;
@@ -308,6 +332,19 @@ function computeBoundPointsChunk(chunk) {
 
   if (windowCalc.algorithm.includes("basic-")) {
     const computeFn = plot.computeBoundPointColor;
+
+    const px = chunk.chunkPos.x;
+    let py, incY;
+    const isInfNum = windowCalc.math.name == "arbprecis";
+    if (isInfNum) {
+      let norm = normInfNum(chunk.chunkPos.y, chunk.chunkInc.y);
+      py = norm[0];
+      incY = norm[1];
+    } else {
+      py = chunk.chunkPos.y;
+      incY = chunk.chunkInc.y;
+    }
+
     for (let i = 0; i < chunk.chunkLen; i++) {
       const pointResult = computeFn(windowCalc.n, precision, windowCalc.algorithm, px, py);
       // create a wrappedPoint
@@ -316,7 +353,7 @@ function computeBoundPointsChunk(chunk) {
       results[i] = {px: getColorPoint(pixX, pixY, pointResult)};
       // since we want to start at the given starting position, increment
       //   the position AFTER computing each result
-      py = infNumAddNorm(py, incY);
+      py = isInfNum ? infNumAddNorm(py, incY) : windowCalc.math.add(py, incY);
       pixY += pixIncY;
     }
 
@@ -325,15 +362,21 @@ function computeBoundPointsChunk(chunk) {
   } else if (windowCalc.algorithm.includes("perturb-")) {
     const perturbFn = plot.computeBoundPointColorPerturbOrBla;
 
+    // for perturb, the chunk positions are actually deltas relative to
+    //   the reference point
+    const dx = chunk.chunkPos.x;
+    let dy = chunk.chunkPos.y;
+    const incY = chunk.chunkInc.y;
+
     for (let i = 0; i < chunk.chunkLen; i++) {
-      const pointResult = perturbFn(windowCalc.n, precision, px, py, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, null, null).colorpct;
+      const pointResult = perturbFn(windowCalc.n, precision, dx, dy, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, null, null).colorpct;
       // create a wrappedPoint
       // px -- the pixel "color point"
       // pt -- the abstract coordinate on the plane (not needed since we are not caching)
       results[i] = {px: getColorPoint(pixX, pixY, pointResult)};
       // since we want to start at the given starting position, increment
       //   the position AFTER computing each result
-      py = infNumAddNorm(py, incY);
+      dy = windowCalc.math.add(dy, incY);
       pixY += pixIncY;
     }
   }
@@ -2056,6 +2099,9 @@ function windowDrawLoop() {
     windowCalc.stage = windowCalcStages.calculateReferenceOrbit;
 
   } else if (windowCalc.stage === windowCalcStages.calculateReferenceOrbit) {
+    // always reset these to null, regardless of algorithm
+    windowCalc.referenceBottomLeftDeltaX = null;
+    windowCalc.referenceBottomLeftDeltaY = null;
     if (windowCalc.algorithm.startsWith("perturb-")) {
       calculateReferenceOrbit();
     } else {

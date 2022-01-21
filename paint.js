@@ -2904,16 +2904,16 @@ window.addEventListener("keydown", function(e) {
       e.key == "Control" || e.keyCode == 17) {
     commandPressed = true;
   } else if (e.keyCode == 39 || e.key == "ArrowRight") {
-    panPercentOfPixels(true, -0.01);
-    redraw();
-  } else if (e.keyCode == 68 || e.key == "d" || e.key == "D") {
-    panPercentOfPixels(true, -0.1);
-    redraw();
-  } else if (e.keyCode == 37 || e.key == "ArrowLeft") {
     panPercentOfPixels(true, 0.01);
     redraw();
-  } else if (e.keyCode == 65 || e.key == "a" || e.key == "A") {
+  } else if (e.keyCode == 68 || e.key == "d" || e.key == "D") {
     panPercentOfPixels(true, 0.1);
+    redraw();
+  } else if (e.keyCode == 37 || e.key == "ArrowLeft") {
+    panPercentOfPixels(true, -0.01);
+    redraw();
+  } else if (e.keyCode == 65 || e.key == "a" || e.key == "A") {
+    panPercentOfPixels(true, -0.1);
     redraw();
   } else if (e.keyCode == 38 || e.key == "ArrowUp") {
     panPercentOfPixels(false, 0.01);

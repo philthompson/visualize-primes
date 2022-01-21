@@ -117,14 +117,15 @@ const windowCalc = {
   pixelsImage: null,
   referencePx: null,
   referencePy: null,
-  referenceOrbit: null
+  referenceOrbit: null,
+  referenceBottomLeftDeltaX: null,
+  referenceBottomLeftDeltaY: null,
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];
 var imageParametersCaption = false;
 
-var //previewImage = null;
-previewImage = null;
+var previewImage = null;
 var previewImageOffsetX = 0;
 var previewImageOffsetY = 0;
 
@@ -1475,8 +1476,8 @@ function resetWindowCalcContext() {
 
   // save the image for previewing when panning
   if (previewImage === null) {
-    //previewImage = fullSizeScalePower == 0 ? windowCalc.pixelsImage : windowCalc.fitImage;
-    previewImage = windowCalc.fitImage;
+    previewImage = fullSizeScalePower == 0 ? windowCalc.pixelsImage : windowCalc.fitImage;
+    //previewImage = windowCalc.fitImage;
   }
 
   windowCalc.lineWidth = 128; // placeholder value
@@ -1853,8 +1854,8 @@ function drawWorkerColorPoints(workerMessage) {
   //  previewImage = windowCalc.fitImage;
   //}
   drawColorPoints(results, pixelSize);
-  //previewImage = fullSizeScalePower == 0 ? windowCalc.pixelsImage : windowCalc.fitImage;
-  previewImage = windowCalc.fitImage;
+  previewImage = fullSizeScalePower == 0 ? windowCalc.pixelsImage : windowCalc.fitImage;
+  //previewImage = windowCalc.fitImage;
   previewImageOffsetX = 0;
   previewImageOffsetY = 0;
 }
@@ -2180,8 +2181,8 @@ function calculateAndDrawNextChunk() {
 
     if (nextXChunk) {
       drawColorPoints(computeBoundPointsChunk(nextXChunk).points, Math.round(windowCalc.lineWidth));
-      //previewImage = fullSizeScalePower == 0 ? windowCalc.pixelsImage : windowCalc.fitImage;
-      previewImage = windowCalc.fitImage;
+      previewImage = fullSizeScalePower == 0 ? windowCalc.pixelsImage : windowCalc.fitImage;
+      //previewImage = windowCalc.fitImage;
       previewImageOffsetX = 0;
       previewImageOffsetY = 0;
     }

@@ -177,24 +177,16 @@ document.getElementById("btn-download").addEventListener("click", function() {
   }
   // thanks to https://stackoverflow.com/a/50300880/259456
   let link = document.createElement("a");
-  link.download = "very-plotter-render-" + formatCurrentDateTime() + ".png";
+  link.download = "very-plotter-" + formatCurrentDateTime() + ".png";
   link.href = dCanvas.toDataURL();
   link.click();
 });
 
-// new Date()).toISOString() is close, but i'd like it in the
-//   local timezone and without fractional seconds
 function formatCurrentDateTime() {
-  // thanks to https://stackoverflow.com/a/30272803/259456
-  const now = new Date();
-  const parts = new Array(6);
-  parts[0] = now.getFullYear().toString().padStart(4, "0") + "-";
-  parts[1] = (now.getMonth()+1).toString().padStart(2, "0") + "-";
-  parts[2] = now.getDate().toString().padStart(2, "0") + "-";
-  parts[3] = now.getHours().toString().padStart(2, "0");
-  parts[4] = now.getMinutes().toString().padStart(2, "0");
-  parts[5] = now.getSeconds().toString().padStart(2, "0");
-  return parts.join("");
+  // thanks to https://stackoverflow.com/a/11172083/259456
+  let now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  return now.toJSON().substring(0, 19).replaceAll("T", "-").replaceAll(":", "");
 }
 
 // this is checked each time a key is pressed, so keep it

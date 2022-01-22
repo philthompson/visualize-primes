@@ -248,7 +248,10 @@ const plots = [{
           fnContext.iy[i] = infNumTruncateToLen(fnContext.iy[i], precis);
         }
         fnContext.iter++;
-        // check that exactly 1 edge of the box crosses the positive x (real) axis
+        // check that exactly 1 or 3 edges of the box crosses the positive x (real) axis
+        // (i believe that if the box becomes "twisted" then we could have 3 edges
+        // cross that half of the axis, BUT i don't think the box would "twist" before
+        // the points surround the origin)
         let edgesMeetingCriterion = 0;
         for (let a = 0; a < 4; a++) {
           let b = a == 3 ? 0 : a + 1;
@@ -262,7 +265,7 @@ const plots = [{
             edgesMeetingCriterion++;
           }
         }
-        if (edgesMeetingCriterion == 1) {
+        if (edgesMeetingCriterion == 1 || edgesMeetingCriterion == 3) {
           fnContext.done = true;
           fnContext.period = fnContext.iter;
           return fnContext;

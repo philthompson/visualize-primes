@@ -8,7 +8,9 @@
  *   files in the same directory do, does NOT contain a GPL3+ notice
  */
 
+// remove starting here for minify
 var doUnitTests = false;
+// remove ending here for minify
 
 function createFloatExpFromInfNum(infNum) {
   // for now, use basically same code as infNumExpStringTruncToLen()
@@ -294,6 +296,7 @@ function floatExpToString(n) {
   return n.v + "e" + n.e;
 }
 
+// remove starting here for minify
 if (doUnitTests) {
 
   let a = createFloatExpFromInfNum({v:123n, e:-2n});
@@ -379,3 +382,4 @@ if (doUnitTests) {
   c = floatExpSqrt(a);
   console.log("sqrt(", a, ") =", c, " // sqrt({v:2, e:10}) = {v:Math.sqrt(2), e:5}");
 }
+// remove ending here for minify

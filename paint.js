@@ -702,7 +702,20 @@ function parseUrlParams() {
       params.gradient = urlParams.get("lineColor");
     }
     if (urlParams.has("gradient")) {
-      params.gradient = urlParams.get("gradient");
+      try {
+        let grad = buildGradientObj(urlParams.get("gradient"));
+        // only assign full gradient to params if no error thrown
+        params.gradient = grad;
+        builtGradient = grad;
+        hideGradientError();
+      } catch (e) {
+        // on error, put just parsed gradient into params (the
+        //   default builtGradient will be used)
+        // this allows the user to inspect the URL-provided
+        //   gradient's error message in the controls window
+        params.gradient = parseGradientColorsOptions(urlParams.get("gradient"));
+        displayGradientError(e);
+      }
     }
     if (urlParams.has('bgColor')) {
       const color = urlParams.get('bgColor');
@@ -728,11 +741,9 @@ function parseUrlParams() {
       params.algorithm = urlParams.get("algo");
     }
   }
-  try {
-    buildGradient(params.gradient);
-    hideGradientError();
-  } catch (e) {
-    displayGradientError(e);
+  // build the default gradient if one wasn't provided
+  if (typeof params.gradient == "string") {
+    params.gradient = buildGradient(params.gradient);
   }
   console.log(params);
 
@@ -757,13 +768,13 @@ function setupGradientSelectControl(gradients) {
   let foundSelected = false;
   for (let i = 0; i < gradients.length; i++) {
     let selected = false;
-    if (gradients[i].gradient == historyParams.gradient) {
+    if (gradients[i].colors == historyParams.gradient.colors) {
       selected = true;
       foundSelected = true;
     } else if (!foundSelected && i === gradients.length - 1) {
       selected = true;
     }
-    htmlOptions.push("<option " + (selected ? "selected" : "") + " value=\"" + gradients[i].gradient + "\">" + gradients[i].name + "</option>");
+    htmlOptions.push("<option " + (selected ? "selected" : "") + " value=\"" + gradients[i].colors + "\">" + gradients[i].name + "</option>");
   }
   gradientSelect.innerHTML = htmlOptions.join("");
   updateGradientPreview();
@@ -773,7 +784,12 @@ gradientSelect.addEventListener("change", function(e) {
   if (gradientSelect.value == "") {
     return;
   }
-  inputGradGrad.value = gradientSelect.value;
+  let optionsAlreadyInBox = parseGradientColorsOptions(inputGradGrad.value).options;
+  if (optionsAlreadyInBox.length > 0) {
+    inputGradGrad.value = gradientSelect.value + "-" + optionsAlreadyInBox;
+  } else {
+    inputGradGrad.value = gradientSelect.value;
+  }
   updateGradientPreview();
 });
 
@@ -1050,6 +1066,7 @@ function replaceHistoryWithParams(params) {
   if (isCurrentPlotAWindowPlot()) {
     delete paramsCopy.lineWidth;
   }
+  paramsCopy.gradient = paramsCopy.gradient.str;
   paramsCopy.centerX = infNumExpStringTruncToLen(params.centerX, precision);
   paramsCopy.centerY = infNumExpStringTruncToLen(params.centerY, precision);
   history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
@@ -1074,31 +1091,31 @@ var pushToHistory = function() {
 };
 
 const windowPlotGradients = [
-  {gradient: "Bbgoyw", name:"dark blue-green"},
-  {gradient: "Bpow-repeat2", name:"purple-orange"},
-  {gradient: "Bw-repeat3", name:"black & white"},
-  {gradient: "GBPw-P~250.34.188-G~73.106.3-repeat2", name:"olive-pink"},
-  {gradient: "TGw-G~250.210.22-T~0.255.195-repeat3", name:"teal-gold"},
-  {gradient: "roywB-B~80.80.255", name:"custom"}
+  {colors: "BbgoywBbgoyw",                          name:"dark blue-green"},
+  {colors: "BpowBpowBpow",                          name:"purple-orange"},
+  {colors: "BwBwBwBwBwBw",                          name:"black & white"},
+  {colors: "GBPwGBPwGBPw-P~250.34.188-G~73.106.3",  name:"olive-pink"},
+  {colors: "TGwTGwTGwTGw-G~250.210.22-T~0.255.195", name:"teal-gold"},
+  {colors: "BroywBroywBr-B~80.80.255",              name:"custom"}
 ];
 
 const sequencePlotGradients = [
-  {gradient: "rby", name:"red-blue-yellow"},
-  {gradient: "rbgyo", name:"reverse rainbow"},
-  {gradient: "roygbv", name:"rainbow"},
-  {gradient: "br", name:"blue-red"},
-  {gradient: "by", name:"blue-yellow"},
-  {gradient: "op", name:"orange-purple"},
-  {gradient: "LD-L~220.220.220-D~30.30.30", name:"light gray - dark gray"},
-  {gradient: "LD-L~240.20.20-D~100.0.0", name:"red"},
-  {gradient: "LD-L~250.100.0-D~120.60.0", name:"orange"},
-  {gradient: "LD-L~240.240.0-D~120.120.0", name:"yellow"},
-  {gradient: "LD-L~20.240.20-D~0.100.0", name:"green"},
-  {gradient: "LD-L~20.20.250-D~0.0.120", name:"blue"},
-  {gradient: "LD-L~220.0.220-D~120.0.120", name:"purple"},
-  {gradient: "LD-L~90.90.90-D~30.30.30", name:"dark gray"},
-  {gradient: "LD-L~220.220.220-D~100.100.100", name:"light gray"},
-  {gradient: "roywB-B~80.80.255", name:"custom"}
+  {colors: "rby", name:"red-blue-yellow"},
+  {colors: "rbgyo", name:"reverse rainbow"},
+  {colors: "roygbv", name:"rainbow"},
+  {colors: "br", name:"blue-red"},
+  {colors: "by", name:"blue-yellow"},
+  {colors: "op", name:"orange-purple"},
+  {colors: "LD-L~220.220.220-D~30.30.30", name:"light gray - dark gray"},
+  {colors: "LD-L~240.20.20-D~100.0.0", name:"red"},
+  {colors: "LD-L~250.100.0-D~120.60.0", name:"orange"},
+  {colors: "LD-L~240.240.0-D~120.120.0", name:"yellow"},
+  {colors: "LD-L~20.240.20-D~0.100.0", name:"green"},
+  {colors: "LD-L~20.20.250-D~0.0.120", name:"blue"},
+  {colors: "LD-L~220.0.220-D~120.0.120", name:"purple"},
+  {colors: "LD-L~90.90.90-D~30.30.30", name:"dark gray"},
+  {colors: "LD-L~220.220.220-D~100.100.100", name:"light gray"},
+  {colors: "roywB-B~80.80.255", name:"custom"}
 ];
 
 // match color declaration like "a~1.2.3" or "r~150.30.30"
@@ -1111,9 +1128,30 @@ function buildGradient(gradientString) {
     const grad = buildGradientObj(gradientString);
     builtGradient = grad;
     hideGradientError();
+    return grad;
   } catch (e) {
     displayGradientError(e);
   }
+}
+
+function parseGradientColorsOptions(gradientString) {
+  const split = gradientString.trim().split("-");
+  const colors = [split[0]];
+  const options = [];
+  let colorMatch = null;
+  for (let i = 1; i < split.length; i++) {
+    colorMatch = split[i].match(customColorRegex);
+    if (colorMatch !== null) {
+      colors.push(split[i]);
+    } else {
+      options.push(split[i]);
+    }
+  }
+  return {
+    colors: colors.join("-"),
+    options: options.join("-"),
+    str: gradientString.trim()
+  };
 }
 
 function buildGradientObj(gradientString) {
@@ -1131,15 +1169,22 @@ function buildGradientObj(gradientString) {
     "w": [255,255,255],
     "B": [0,0,0]
   };
-  const grad = {};
+  const grad = {
+    str: gradientString.trim()
+  };
   const args = {};
-  const splitArgs = gradientString.trim().split("-");
+  const splitArgs = grad.str.split("-");
   const colorArgs = splitArgs[0];
+
+  const colorsStr = [splitArgs[0]];
+  const optionsStr = [];
+
   const argNames = ["saturation","brightness","width","offset","repeat","mirror","shift"];
   let colorMatch = null;
   for (let i = 1; i < splitArgs.length; i++) {
     colorMatch = splitArgs[i].match(customColorRegex);
     if (colorMatch !== null) {
+      colorsStr.push(splitArgs[i]);
       let customColorName = colorMatch[0].charAt(0);
       let customRgbValuesSplit = colorMatch[0].substring(2).split("."); // "x~1.2.3" -> ["1","2","3"]
       let customRgbValues = [];
@@ -1150,6 +1195,7 @@ function buildGradientObj(gradientString) {
       }
       colorsByName[customColorName] = customRgbValues;
     } else {
+      optionsStr.push(splitArgs[i]);
       for (let j = 0; j < argNames.length; j++) {
         const argName = argNames[j];
         if (splitArgs[i].startsWith(argName)) {
@@ -1177,6 +1223,12 @@ function buildGradientObj(gradientString) {
       }
     }
   }
+
+  // save the colors without any options
+  grad.colors = colorsStr.join("-");
+  // save the options
+  grad.options = optionsStr.join("-");
+
   const colorsDefault = "roygbv";
   let colors = "";
   for (let i = 0; i < colorArgs.length && i < 20; i++) {
@@ -2016,22 +2068,24 @@ function kickoffWindowWorker() {
 }
 
 var resetGradientInput = function() {
-  inputGradGrad.value = historyParams.gradient;
+  inputGradGrad.value = historyParams.gradient.str;
   updateGradientPreview();
 };
 
 btnGradGo.addEventListener("click", function() {
   try {
-    buildGradient(inputGradGrad.value);
-    historyParams.gradient = inputGradGrad.value;
+    let grad = buildGradientObj(inputGradGrad.value);
+    // only set to historyParams if no errors
+    historyParams.gradient = grad;
+    builtGradient = grad;
     hideGradientError();
     if (isCurrentPlotAWindowPlot()) {
       // save the user's last entered gradient into the "custom" gradient
-      windowPlotGradients[windowPlotGradients.length-1].gradient = historyParams.gradient;
+      windowPlotGradients[windowPlotGradients.length-1].colors = historyParams.gradient.colors;
       setupGradientSelectControl(windowPlotGradients);
       recolor();
     } else {
-      sequencePlotGradients[sequencePlotGradients.length-1].gradient = historyParams.gradient;
+      sequencePlotGradients[sequencePlotGradients.length-1].colors = historyParams.gradient.colors;
       setupGradientSelectControl(sequencePlotGradients);
       redraw();
     }
@@ -2617,7 +2671,7 @@ function drawImageParametersOnContext(context2d) {
     [" magnif", infNumExpString(historyParams.mag)],
     ["  scale", infNumExpString(historyParams.scale)],
     ["   iter", historyParams.n.toString()],
-    ["   grad", historyParams.gradient],
+    ["   grad", historyParams.gradient.str],
     ["  bgclr", historyParams.bgColor],
     ["workers", windowCalc.workersCountRange]
   ];
@@ -2990,10 +3044,10 @@ window.addEventListener("keydown", function(e) {
       start();
     }
   } else if (e.keyCode == 86 || e.key == "v" || e.key == "V") {
-    const gradients = plotsByName[historyParams.plot].calcFrom == "sequence" ? sequencePlotGradients : windowPlotGradients;
+    const gradients = isCurrentPlotAWindowPlot() ? windowPlotGradients : sequencePlotGradients;
     let schemeNum = -1;
     for (let i = 0; i < gradients.length; i++) {
-      if (gradients[i].gradient == historyParams.gradient) {
+      if (gradients[i].colors == historyParams.gradient.colors) {
         schemeNum = i;
         break;
       }
@@ -3002,18 +3056,26 @@ window.addEventListener("keydown", function(e) {
     if (schemeNum >= gradients.length) {
       schemeNum = 0;
     }
-    historyParams.gradient = gradients[schemeNum].gradient;
-    setupGradientSelectControl(gradients);
     try {
-      buildGradient(historyParams.gradient);
+      // create a new gradient from the already-set options and the
+      //   next set of colors from the pre-defined gradients
+      let newGradStr = gradients[schemeNum].colors;
+      if (historyParams.gradient.options.length > 0) {
+        newGradStr += "-" + historyParams.gradient.options;
+      }
+      let grad = buildGradientObj(newGradStr);
+      // only set to historyParams if no errors
+      historyParams.gradient = grad;
+      builtGradient = grad;
+      setupGradientSelectControl(gradients);
       hideGradientError();
+      if (isCurrentPlotAWindowPlot()) {
+        recolor();
+      } else {
+        redraw();
+      }
     } catch (e) {
       displayGradientError(e);
-    }
-    if (plotsByName[historyParams.plot].calcFrom == "window") {
-      recolor();
-    } else {
-      redraw();
     }
   } else if (e.keyCode == 66 || e.key == "b" || e.key == "B") {
     let schemeNum = -1;
@@ -3467,7 +3529,7 @@ function hideFooter() {
 }
 
 // build a gradient here just so the global one isn't left null
-buildGradient("rygb");
+buildGradient("Bw");
 // since scale is determined by magnification, we need to set the
 //   canvas size before parsing URL parameters
 setDScaleVarsNoScale();

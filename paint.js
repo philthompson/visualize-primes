@@ -120,6 +120,8 @@ const windowCalc = {
   referenceOrbit: null,
   referenceBottomLeftDeltaX: null,
   referenceBottomLeftDeltaY: null,
+  putImageSkip: null,
+  putImageSkipSkips: null
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];
@@ -1673,6 +1675,20 @@ function resetWindowCalcContext() {
   windowCalc.workersCountRange = "-";
   windowCalc.saItersSkipped = null;
   windowCalc.plotId++; // int wrapping around is fine
+  windowCalc.putImageSkip = 0;
+  if (useWorkers) {
+    if (windowCalc.algorithm == "basic-float") {
+      windowCalc.putImageSkipSkips = 5; // only do every 6th putImageData()
+    } else {
+      windowCalc.putImageSkipSkips = -1; // do not skip any putImageData(), since they're infrequent
+    }
+  } else {
+    if (windowCalc.algorithm.includes("perturb")) {
+      windowCalc.putImageSkipSkips = 1; // only do every other (every 2nd) putImageData()
+    } else {
+      windowCalc.putImageSkipSkips = 5; // only do every 6th putImageData()
+    }
+  }
 
   const two = infNum(2n, 0n);
 
@@ -1991,6 +2007,7 @@ var calcWorkerOnmessage = function(e) {
 
   // if the pass is complete, the entire image may be complete
   } else {
+    repaintOnly(); // since we skip putImageData(), ensure we always do it when image may be complete
     if (windowLogTiming) {
       const totalPts = e.data.calcStatus.passPoints;
       const cachedPts = e.data.calcStatus.passCachedPoints;
@@ -2344,6 +2361,7 @@ function windowDrawLoop() {
       if (windowCalc.lineWidth > Math.round(historyParams.lineWidth)) {
         windowCalc.stage = windowCalcStages.calculateChunks;
       } else {
+        repaintOnly(); // since we skip putImageData(), ensure we always do it when image may be complete
         if (windowLogTiming) {
           windowLogOverallImage();
           if (windowCalcRepeat > 1) {
@@ -2609,6 +2627,14 @@ function drawColorPoints(windowPoints, pixelSize) {
   //   see the pixelsImage (until downloading it) we don't need to
   //   draw the pixelsImage on the invisible dContext
   //dContext.putImageData(pixelsImage, 0, 0);
+  // since putImageData() is time-consuming for the main thread,
+  //   and it isn't actually necessary to run after every single
+  //   set of points is added to the pixelsImage/fitImage, we
+  //   will only run it every 4th time
+  if (windowCalc.putImageSkip++ < windowCalc.putImageSkipSkips) {
+    return;
+  }
+  windowCalc.putImageSkip = 0;
   if (fullSizeScalePower == 0) {
     fitSizeContext.putImageData(pixelsImage, 0, 0);
   } else {

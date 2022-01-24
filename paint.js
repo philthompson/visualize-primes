@@ -20,7 +20,7 @@ var mouseNoticePosX = infNum(0n, 0n);
 var mouseNoticePosY = infNum(0n, 0n);
 var shiftPressed = false;
 var commandPressed = false;
-var autoResize = true;
+var windowLock = false;
 
 var historyParams = {};
 var replaceStateTimeout = null;
@@ -155,7 +155,7 @@ const detailsWorkersControls = document.getElementById("workers-controls");
 const gradientSelect = document.getElementById("gradient-select");
 const gradControlsDetails = document.getElementById("gradient-controls-details");
 const gradError = document.getElementById("gradient-error");
-const autoResizeCb = document.getElementById("auto-resize-cb");
+const windowLockCb = document.getElementById("window-lock-cb");
 const inputAlgoAlgo = document.getElementById("algo-algo");
 const algoSelect = document.getElementById("algo-select");
 const btnAlgoGo = document.getElementById("algo-go");
@@ -2281,13 +2281,13 @@ function hideGradientError() {
   gradCanvasRow.style.display = "";
 }
 
-autoResizeCb.addEventListener("change", function() {
-  autoResize = autoResizeCb.checked;
-  if (autoResize) {
+windowLockCb.addEventListener("change", function() {
+  windowLock = windowLockCb.checked;
+  if (!windowLock) {
     resizeCanvas();
   }
 });
-autoResizeCb.checked = autoResize;
+windowLockCb.checked = windowLock;
 
 const windowCalcStages = {
   drawCalculatingNotice: "draw-calculating-notice",
@@ -3071,6 +3071,9 @@ window.addEventListener("keyup", function(e) {
 });
 
 var dispatchCorrespondingKeydownEvent = function(e) {
+  if (windowLock) {
+    return;
+  }
   let keyName = e.target.id.substring(4);
   let keyEvent = new KeyboardEvent('keydown', {key: keyName,});
   window.dispatchEvent(keyEvent);
@@ -3088,7 +3091,7 @@ for (let i = 0; i < kbdElements.length; i++) {
 
 // thanks to https://stackoverflow.com/a/3396805/259456
 window.addEventListener("keydown", function(e) {
-  if (textInputHasFocus()) {
+  if (textInputHasFocus() || windowLock) {
     return;
   }
   //console.log(e.type + " - keycode:" + e.keyCode + " key:" + e.key);
@@ -3350,7 +3353,7 @@ window.addEventListener("keydown", function(e) {
 });
 
 function resizeCanvas() {
-  if (!autoResize) {
+  if (!windowLock) {
     return;
   }
   setDScaleVars();
@@ -3362,7 +3365,7 @@ window.addEventListener("resize", function() {
   if (resizeTimeout !== null) {
     window.clearTimeout(resizeTimeout);
   }
-  if (!autoResize) {
+  if (windowLock) {
     console.log("ignoring window resize event");
     return;
   }
@@ -3372,6 +3375,9 @@ window.addEventListener("resize", function() {
 // thanks to https://stackoverflow.com/a/11183333/259456 for
 //   general ideas on pinch detection
 var mouseDownHandler = function(e) {
+  if (windowLock) {
+    return;
+  }
   // this might help prevent strange ios/mobile weirdness
   e.preventDefault();
   // ignore right- and middle-click
@@ -3408,6 +3414,9 @@ fitSizeCanvas.addEventListener("mousedown", mouseDownHandler);
 fitSizeCanvas.addEventListener("touchstart", mouseDownHandler);
 
 var mouseMoveHandler = function(e) {
+  if (windowLock) {
+    return;
+  }
   // this might help prevent strange ios/mobile weirdness
   e.preventDefault();
   if (!mouseDrag) {
@@ -3489,6 +3498,9 @@ fitSizeCanvas.addEventListener("mousemove", mouseMoveHandler);
 fitSizeCanvas.addEventListener("touchmove", mouseMoveHandler);
 
 var mouseUpHandler = function(e) {
+  if (windowLock) {
+    return;
+  }
   // this might help prevent strange ios/mobile weirdness
   e.preventDefault();
   mouseDrag = false;
@@ -3503,6 +3515,9 @@ fitSizeCanvas.addEventListener("mouseup", mouseUpHandler);
 fitSizeCanvas.addEventListener("touchend", mouseUpHandler);
 
 fitSizeCanvas.addEventListener("wheel", function(e) {
+  if (windowLock) {
+    return;
+  }
   // set 48 wheelDeltaY units as 5% zoom (in or out)
   // so -48 is 95% zoom, and +96 is 110% zoom
   const oldScale = historyParams.scale;

@@ -199,6 +199,29 @@ function isCurrentPlotAWindowPlot() {
   return plotsByName[historyParams.plot].calcFrom == "window";
 }
 
+// for plots that require a "pct" gradient, return -1
+//   pct gradients provide a color for a given percentage,
+//   and thus don't require a modulo value
+// for plots that require a "mod" gradient, return n
+//   mod gradients provide a color for a given integer,
+//   to which is applied the modulo function, so some
+//   modulo value is always needed.  if the gradient
+//   itself doesn't have an explicit "mod" option, the
+//   fallback mod value is the value returned here (which
+//   defaults to the N plot parameter)
+function getCurrentPlotGradientMaxN(n = null, plotName = "") {
+  let plot = plotName == "" ? historyParams.plot : plotName;
+  // this will be "mod" or "pct"
+  if (plotsByName[plot].gradientType == "mod") {
+    if (n === null) {
+      n = historyParams.n;
+    }
+    return n;
+  } else {
+    return -1;
+  }
+}
+
 // -||- THIS BELOW SECTION can be removed once all common browsers -||-
 // -vv-   (including Safari) support web workers and subworkers    -vv-
 
@@ -436,7 +459,7 @@ const presets = [{
   "mag": createInfNum("2.8e10"),
   "centerX": createInfNum("-0.74364392705773112"),
   "centerY": createInfNum("0.131825980877688413"),
-  "gradient": "bBgwo-B~20.20.20-repeat9-shift2",
+  "gradient": {str: "bBgwo-B~20.20.20-mod2222-shift2"},
   "bgColor": "b"
 },{
   "plot": "Mandelbrot-set",
@@ -446,7 +469,7 @@ const presets = [{
   "mag": createInfNum("4.07284768207e3"),
   "centerX": createInfNum("2.73260706888e-1"),
   "centerY": createInfNum("-5.89495392784e-3"),
-  "gradient": "roygbv-repeat3",
+  "gradient": {str: "roygbv-repeat3"},
   "bgColor": "b"
 },{
   "plot": "Primes-1-Step-90-turn",
@@ -456,7 +479,7 @@ const presets = [{
   "mag": infNum(1n, 0n),
   "centerX": createInfNum("-240"),
   "centerY": createInfNum("288.4"),
-  "gradient": "rbgyo",
+  "gradient": {str: "rbgyo"},
   "bgColor": "b"
 },{
   "plot": "Trapped-Knight",
@@ -466,7 +489,7 @@ const presets = [{
   "mag": infNum(1n, 0n),
   "centerX": createInfNum("0"),
   "centerY": createInfNum("0"),
-  "gradient": "rbgyo",
+  "gradient": {str: "rbgyo"},
   "bgColor": "b"
 },{
   "plot": "Primes-1-Step-45-turn",
@@ -476,7 +499,7 @@ const presets = [{
   "mag": createInfNum("1.45033112581e1"),
   "centerX": createInfNum("35"),
   "centerY": createInfNum("100"),
-  "gradient": "rbgyo",
+  "gradient": {str: "rbgyo"},
   "bgColor": "b"
 }];
 
@@ -703,7 +726,7 @@ function parseUrlParams() {
     }
     if (urlParams.has("gradient")) {
       try {
-        let grad = buildGradientObj(urlParams.get("gradient"));
+        let grad = buildGradientObj(urlParams.get("gradient"), getCurrentPlotGradientMaxN(params.n, plotName));
         // only assign full gradient to params if no error thrown
         params.gradient = grad;
         builtGradient = grad;
@@ -743,7 +766,7 @@ function parseUrlParams() {
   }
   // build the default gradient if one wasn't provided
   if (typeof params.gradient == "string") {
-    params.gradient = buildGradient(params.gradient);
+    params.gradient = buildGradient(params.gradient, getCurrentPlotGradientMaxN(params.n, params.plot));
   }
   console.log(params);
 
@@ -1123,9 +1146,9 @@ const customColorRegex = /^[a-zA-z]~[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
 
 // build global gradient stops from format:
 //   roygbvx-saturation60-brightness90-width80-offset30-repeat10-mirror2-shift3-x~30.30.30
-function buildGradient(gradientString) {
+function buildGradient(gradientString, maxN = -1) {
   try {
-    const grad = buildGradientObj(gradientString);
+    const grad = buildGradientObj(gradientString, maxN);
     builtGradient = grad;
     hideGradientError();
     return grad;
@@ -1154,7 +1177,7 @@ function parseGradientColorsOptions(gradientString) {
   };
 }
 
-function buildGradientObj(gradientString) {
+function buildGradientObj(gradientString, maxN = -1) {
   if (gradientString.trim().length === 0) {
     throw "gradient must not be empty";
   }
@@ -1179,7 +1202,8 @@ function buildGradientObj(gradientString) {
   const colorsStr = [splitArgs[0]];
   const optionsStr = [];
 
-  const argNames = ["saturation","brightness","width","offset","repeat","mirror","shift"];
+  let version = 1;
+  const argNames = ["saturation","brightness","mod","width","offset","repeat","mirror","shift"];
   let colorMatch = null;
   for (let i = 1; i < splitArgs.length; i++) {
     colorMatch = splitArgs[i].match(customColorRegex);
@@ -1201,28 +1225,57 @@ function buildGradientObj(gradientString) {
         if (splitArgs[i].startsWith(argName)) {
           args[argName] = splitArgs[i].substring(argName.length);
           try {
+            if ("mod" in args && "width" in args) {
+              throw "[mod] and [width] options are incompatible";
+            }
+            if (argName == "mod") {
+              if (maxN < 1) {
+                throw "[mod] option is incompatible with this plot"
+              }
+              version = 2;
+            }
+            if (argName == "width" && maxN > 0) {
+              throw "[width] option is incompatible with this plot"
+            }
             if (args[argName] == "") {
               throw "integer expected as part of option";
             }
-            args[argName] = parseInt(args[argName]);
+            let floatVal = parseFloat(args[argName]);
+            let floatValFloor = Math.floor(floatVal);
+            if (floatVal != floatValFloor) {
+              throw "integer expected as part of option";
+            }
+            args[argName] = floatValFloor;
             if (["shift","saturation","brightness"].includes(argName)) {
               if (args[argName] < -99 || args[argName] > 99) {
                 throw "option must be greater than -100 and less than 100";
               }
-            } else {
+            } else if (argName == "mod") {
+              if (args[argName] <= 0) {
+                throw "option must be greater than 0";
+              }
+            // the offset option can be any integer for "mod" gradients,
+            //   but otherwise must be between 1 and 100
+            } else if (version != 2 || argName != "offset") {
               if (args[argName] <= 0 || args[argName] > 100) {
                 throw "option must be greater than 0 and less than 101";
               }
             }
           } catch (e) {
-            throw "Invalid integer value for gradient option [" + splitArgs[i] + "]: " + e.toString();
-            //delete args[argName];
-            //continue;
+            throw "Invalid gradient option [" + splitArgs[i] + "]: " + e.toString();
           }
         }
       }
     }
   }
+  // for a N-based gradient (as opposed to a percentage-based) if the
+  //   "mod" option is not provided, use the maxN value instead
+  if (!args.hasOwnProperty("mod") && maxN > 0) {
+    version = 2;
+    args.mod = maxN;
+  }
+  grad.version = version;
+  grad.mod = "mod" in args ? args.mod : 0;
 
   // save the colors without any options
   grad.colors = colorsStr.join("-");
@@ -1276,6 +1329,7 @@ function buildGradientObj(gradientString) {
   //  0   255   0
   //  0    0   255
   grad.orderedStops = [];
+
   // apply width arg by scaling all stops
   const totalWidth = "width" in args ? Math.min(1.0, (args.width / 100.0)) : 1.0;
 
@@ -1285,7 +1339,7 @@ function buildGradientObj(gradientString) {
       colorRgb = colorsByName["o"];
     }
     grad.orderedStops.push({
-      lower: 0.0,
+      lower: 0,
       upper: totalWidth,
       rLower: colorRgb[0],
       gLower: colorRgb[1],
@@ -1295,7 +1349,14 @@ function buildGradientObj(gradientString) {
       bRange: 0.0
     });
   } else {
-    let prevStopUpper = 0.0;
+    // for "mod" gradients, 1st color is halved at beginning, and
+    //   another half-wide stop of the same color is added to the end
+    // this avoids a sharp change from the end of the last stop back
+    //   to the beginning of the first stop right around the mod point
+    if (version == 2 && colors.charAt(0) != colors.charAt(colors.length-1)) {
+      colors += colors.charAt(0);
+    }
+    let prevStopUpper = 0;
     for (let i = 0; i < colors.length - 1; i++) {
       // for stop 0, gradient is color[0] -> color[1]
       // for stop 1, gradient is color[1] -> color[2]
@@ -1318,30 +1379,54 @@ function buildGradientObj(gradientString) {
       if (i == colors.length - 2) {
         stop.upper = 1.0;
       } else {
-        // we cannot divide by zero because if there's only one stop, we
-        //   do not even enter this for loop
-        stop.upper = stop.lower + ((1.0 / (colors.length - 1)) * totalWidth);
+        if (version == 1) {
+          // we cannot divide by zero because if there's only one stop, we
+          //   do not even enter this for loop
+          stop.upper = stop.lower + ((1.0 / (colors.length - 1)) * totalWidth);
+        } else if (version == 2) {
+          // for "mod" gradients, the first and last stops are half-wide
+          // this means, in total, we have colors.length - 2 full stops
+          let stopWidth = (1.0 / (colors.length - 2)) * totalWidth;
+          // first and last stops are half-wide, but last stop will go to the
+          //   end, so it doesn't need to be explicitly handled here
+          if (i == 0) {
+            stopWidth /= 2;
+          }
+          stop.upper = stop.lower + stopWidth;
+        }
       }
       grad.orderedStops.push(stop);
       prevStopUpper = stop.upper;
     }
   }
 
-  const maxOffset = 1.0 - totalWidth;
-  const offset = "offset" in args ? Math.min(maxOffset, (args.offset / 100.0)) : 0.0;
-  // even if offset is zero, we still need to set each stop's range
-  for (let i = 0; i < grad.orderedStops.length; i++) {
-    // do not touch the lower bound of the first stop
-    if (offset > 0 && i === 0) {
-      continue;
-    }
-    grad.orderedStops[i].lower += offset;
+  if (version == 1) {
+    const maxOffset = 1.0 - totalWidth;
+    const offset = "offset" in args ? Math.min(maxOffset, (args.offset / 100.0)) : 0.0;
+    // even if offset is zero, we still need to set each stop's range
+    for (let i = 0; i < grad.orderedStops.length; i++) {
+      // do not touch the lower bound of the first stop
+      if (offset > 0 && i === 0) {
+        continue;
+      }
+      grad.orderedStops[i].lower += offset;
 
-    // do not touch the upper bound of the last stop
-    if (i + 1 < grad.orderedStops.length) {
-      grad.orderedStops[i].upper += offset;
+      // do not touch the upper bound of the last stop
+      if (i + 1 < grad.orderedStops.length) {
+        grad.orderedStops[i].upper += offset;
+      }
+      grad.orderedStops[i].range = grad.orderedStops[i].upper - grad.orderedStops[i].lower;
     }
-    grad.orderedStops[i].range = grad.orderedStops[i].upper - grad.orderedStops[i].lower;
+  } else if (version == 2) {
+    // for "mod" gradients, the offset is just added to the value
+    //   before the modulus is taken
+    grad.offset = "offset" in args ? args.offset : 0;
+    // set each stop's lower/upper/range in terms of mod
+    for (let i = 0; i < grad.orderedStops.length; i++) {
+      grad.orderedStops[i].lower = Math.round(grad.orderedStops[i].lower * args.mod);
+      grad.orderedStops[i].upper = Math.round(grad.orderedStops[i].upper * args.mod);
+      grad.orderedStops[i].range = grad.orderedStops[i].upper - grad.orderedStops[i].lower;
+    }
   }
   return grad;
 }
@@ -1369,6 +1454,36 @@ function applyBuiltGradient(gradient, pct, stringFormat = true) {
           b: Math.floor((withinStopPct * stop.bRange) + stop.bLower)
         };
       //}
+      break;
+    }
+  }
+  if (stringFormat) {
+    return "rgba(" + color.r + "," + color.g + "," + color.b + ",1.0)";
+  } else {
+    return color;
+  }
+}
+
+function applyBuiltModGradient(gradient, value, stringFormat = true) {
+  let color = {r:255, g:255, b:255};
+  const modVal = (value + gradient.offset) % gradient.mod;
+  let lo = 0;
+  let hi = gradient.orderedStops.length - 1;
+  let x = null;
+  while (lo <= hi) {
+    x = (lo + hi) >>1;
+    if (modVal < gradient.orderedStops[x].lower) {
+      hi = x - 1;
+    } else if (modVal > gradient.orderedStops[x].upper) {
+      lo = x + 1;
+    } else {
+      let stop = gradient.orderedStops[x];
+      let withinStopPct = (modVal - stop.lower) / stop.range;
+      color = {
+        r: Math.floor((withinStopPct * stop.rRange) + stop.rLower),
+        g: Math.floor((withinStopPct * stop.gRange) + stop.gLower),
+        b: Math.floor((withinStopPct * stop.bRange) + stop.bLower)
+      };
       break;
     }
   }
@@ -1794,7 +1909,20 @@ function applyNIterationsValue() {
   if (newN > 0) {
     historyParams.n = newN;
     resetNIterationsValue();
-    start();
+    // after changing N, we may need to update the gradient object
+    try {
+      if (builtGradient.mod == 0) {
+        start();
+      } else {
+        let grad = buildGradientObj(builtGradient.str, getCurrentPlotGradientMaxN());
+        // only set to historyParams if no errors
+        historyParams.gradient = grad;
+        builtGradient = grad;
+        start();
+      }
+    } catch (e) {
+      displayGradientError(e);
+    }
   }
 }
 
@@ -2074,7 +2202,7 @@ var resetGradientInput = function() {
 
 btnGradGo.addEventListener("click", function() {
   try {
-    let grad = buildGradientObj(inputGradGrad.value);
+    let grad = buildGradientObj(inputGradGrad.value, getCurrentPlotGradientMaxN());
     // only set to historyParams if no errors
     historyParams.gradient = grad;
     builtGradient = grad;
@@ -2102,7 +2230,7 @@ inputGradGrad.addEventListener("paste", updateGradientPreview);
 
 function updateGradientPreview() {
   try {
-    const gradient = buildGradientObj(inputGradGrad.value);
+    const gradient = buildGradientObj(inputGradGrad.value, getCurrentPlotGradientMaxN());
     hideGradientError();
     gradCanvas.width = gradCanvas.offsetWidth;
     gradCanvas.height = gradCanvas.offsetHeight;
@@ -2115,13 +2243,20 @@ function updateGradientPreview() {
     if (w === 0 || h === 0) {
       return;
     }
-    for (let i = 0; i <= w; i++) {
-      gradCtx.fillStyle = applyBuiltGradient(gradient, i/w);
-      // for some reason, when starting with i of 0, we end up
-      //   with a blank (white) pixel on the far left of the
-      //   canvas.  this is fixed by drawing the first vertical
-      //   line at x=-1
-      gradCtx.fillRect(i-1, 0, 1, h);
+    if (gradient.mod == 0) {
+      for (let i = 0; i <= w; i++) {
+        gradCtx.fillStyle = applyBuiltGradient(gradient, i/w);
+        // for some reason, when starting with i of 0, we end up
+        //   with a blank (white) pixel on the far left of the
+        //   canvas.  this is fixed by drawing the first vertical
+        //   line at x=-1
+        gradCtx.fillRect(i-1, 0, 1, h);
+      }
+    } else {
+      for (let i = 0; i <= w; i++) {
+        gradCtx.fillStyle = applyBuiltModGradient(gradient, Math.round((i/w)*gradient.mod));
+        gradCtx.fillRect(i-1, 0, 1, h);
+      }
     }
   } catch (e) {
     displayGradientError(e);
@@ -2351,8 +2486,10 @@ function drawColorPointsFitOnlyNoCache(windowPoints, pixelSize) {
       continue;
     } else if (colorPct == windowCalcBackgroundColor) {
       pointColor = bgColor;
-    } else {
+    } else if (builtGradient.mod == 0) {
       pointColor = applyBuiltGradient(builtGradient, colorPct, false);
+    } else {
+      pointColor = applyBuiltModGradient(builtGradient, colorPct, false);
     }
     let pixelOffsetInImage = 0;
     let pixX, pixY;
@@ -2419,8 +2556,10 @@ function drawColorPoints(windowPoints, pixelSize) {
       continue;
     } else if (colorPct == windowCalcBackgroundColor) {
       pointColor = bgColor;
-    } else {
+    } else if (builtGradient.mod == 0) {
       pointColor = applyBuiltGradient(builtGradient, colorPct, false);
+    } else {
+      pointColor = applyBuiltModGradient(builtGradient, colorPct, false);
     }
     
     //let fitOffsetInImage = 0;
@@ -2503,8 +2642,10 @@ function recolor() {
       }
       if (colorPct == windowCalcBackgroundColor) {
         color = bgColor;
-      } else {
+      } else if (builtGradient.mod == 0) {
         color = applyBuiltGradient(builtGradient, colorPct, false);
+      } else {
+        color = applyBuiltModGradient(builtGradient, colorPct, false);
       }
       pixelOffsetInImage = ((y * width) + x) * 4;
       windowCalc.pixelsImage.data[pixelOffsetInImage+0] = color.r;
@@ -3031,17 +3172,38 @@ window.addEventListener("keydown", function(e) {
     historyParams.centerY = createInfNum("0");
     redraw();
   } else if (e.keyCode == 77 || e.key == "m" || e.key == "M") {
-    if (plotsByName[historyParams.plot].calcFrom == "sequence") {
-      historyParams.n += 500;
-      start();
-    } else {
-      historyParams.n += 100;
-      start();
+    historyParams.n += isCurrentPlotAWindowPlot() ? 100 : 500;
+    // after changing N, we may need to update the gradient object
+    try {
+      if (builtGradient.mod == 0) {
+        start();
+      } else {
+        let grad = buildGradientObj(builtGradient.str, getCurrentPlotGradientMaxN());
+        // only set to historyParams if no errors
+        historyParams.gradient = grad;
+        builtGradient = grad;
+        start();
+      }
+    } catch (e) {
+      displayGradientError(e);
     }
   } else if (e.keyCode == 78  || e.key == "n" || e.key == "N") {
     if (historyParams.n > 100) {
       historyParams.n -= 100;
-      start();
+      // after changing N, we may need to update the gradient object
+      try {
+        if (builtGradient.mod == 0) {
+          start();
+        } else {
+          let grad = buildGradientObj(builtGradient.str, getCurrentPlotGradientMaxN());
+          // only set to historyParams if no errors
+          historyParams.gradient = grad;
+          builtGradient = grad;
+          start();
+        }
+      } catch (e) {
+        displayGradientError(e);
+      }
     }
   } else if (e.keyCode == 86 || e.key == "v" || e.key == "V") {
     const gradients = isCurrentPlotAWindowPlot() ? windowPlotGradients : sequencePlotGradients;
@@ -3063,7 +3225,7 @@ window.addEventListener("keydown", function(e) {
       if (historyParams.gradient.options.length > 0) {
         newGradStr += "-" + historyParams.gradient.options;
       }
-      let grad = buildGradientObj(newGradStr);
+      let grad = buildGradientObj(newGradStr, getCurrentPlotGradientMaxN());
       // only set to historyParams if no errors
       historyParams.gradient = grad;
       builtGradient = grad;

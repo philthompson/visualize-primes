@@ -34,6 +34,7 @@ const plots = [{
     "<br/><br/><b>Tips for using this Mandelbrot set viewer</b>:" +
     "<br/>- When not zoomed in very far, keep the <code>n</code> (iterations) parameter low for faster calculation (use N and M keys to decrease/increase the <code>n</code> value)." +
     "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower.",
+  "gradientType": "mod",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColor": function(n, precis, algorithm, x, y) {
 
@@ -68,7 +69,7 @@ const plots = [{
         return windowCalcBackgroundColor;
       } else {
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        return iter / maxIter;
+        return iter;
       }
     }
 
@@ -102,7 +103,7 @@ const plots = [{
         return windowCalcBackgroundColor;
       } else {
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        return iter / maxIter;
+        return iter;
       }
     } catch (e) {
       console.log("ERROR CAUGHT when processing point (x, y, iter, maxIter): [" + math.toExpString(x) + ", " + math.toExpString(y) + ", " + iter + ", " + maxIter + "]:");
@@ -879,7 +880,7 @@ const plots = [{
         return {colorpct: windowCalcBackgroundColor, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};
       } else {
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        return {colorpct: iter / maxIter, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};
+        return {colorpct: iter, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};
       }
 
     } catch (e) {
@@ -1008,6 +1009,7 @@ const plots = [{
     "If that initial x<sub>0</sub> is negative or zero, we color the pixel the background color.  Otherwise, " +
     "we color the pixel according to the number of iterations until it reaches 1.  If it does not reach " +
     "1 before the maximum number of iterations, we color the pixel the background color.",
+  "gradientType": "pct",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColor": function(n, precis, algorithm, x, y) {
     const maxIter = n;
@@ -1052,6 +1054,7 @@ const plots = [{
   "pageTitle": "Primes",
   "calcFrom": "sequence",
   "desc": "Move 1 step forward per integer, but for primes, turn 90 degrees clockwise before moving.",
+  "gradientType": "pct",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -1115,6 +1118,7 @@ const plots = [{
   "desc": "Move 1 step forward per integer, but for primes, turn 45 degrees clockwise before moving.  " +
           "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
           "moving ~1.414 steps diagonally.",
+  "gradientType": "pct",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -1176,6 +1180,7 @@ const plots = [{
   "pageTitle": "Squares",
   "calcFrom": "sequence",
   "desc": "Move 1 step forward per integer, but for perfect squares, turn 90 degrees clockwise before moving.",
+  "gradientType": "pct",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -1240,6 +1245,7 @@ const plots = [{
   "desc": "Move 1 step forward per integer, but for perfect squares, turn 45 degrees clockwise before moving.  " +
           "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
           "moving ~1.414 steps diagonally.",
+  "gradientType": "pct",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -1311,6 +1317,7 @@ const plots = [{
           "<code>(2,3)&nbsp;&nbsp;→ sum digits = 5&nbsp;&nbsp;mod 3 = 2 → -y → (2,-3)</code><br/>" +
           "<code>(5,7)&nbsp;&nbsp;→ sum digits = 12 mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (5,7)</code><br/>" +
           "<code>(11,13)→ sum digits = 6&nbsp;&nbsp;mod 3 = 0 →&nbsp;&nbsp;&nbsp;&nbsp;→ (11,13)</code>",
+  "gradientType": "pct",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;
@@ -1392,6 +1399,7 @@ const plots = [{
           "<a target='_blank' href='https://oeis.org/A316667'>https://oeis.org/A316667</a><br/>" +
           "and to Numberphile:<br/>" +
           "<a target='_blank' href='https://www.youtube.com/watch?v=RGQe8waGJ4w'>https://www.youtube.com/watch?v=RGQe8waGJ4w</a>",
+  "gradientType": "pct",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
     var resultLength = 0;

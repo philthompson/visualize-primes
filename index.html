@@ -341,11 +341,12 @@
             <b>Options</b>: after the series of color letters are given, zero or more gradient options may be entered.
             Each option must be preceded with a dash "-".<br/>
             <ul>
+                <li>mod# - where # is the modulo to take for the number of values of N (for Mandelbrot, iterations) for each pixel (for example, if a pixel has 10,123 iterations, and mod10000 is used, the pixel will be colored as if it had 123 iterations) (this is incompatible with the "width" option)</li>
                 <li>repeat# - where # is the number of times to repeat the color series</li>
                 <li>shift# - where # is the number of colors to shift off the end of the series and move onto the beginning</li>
                 <li>mirror# - like "repeat" but adds the reverse of the entire series from one repetition to the next</li>
-                <li>width# - where # is the percentage of width the gradient should be squeezed into (if not given, the gradient takes up 100% of the possible colors to draw)</li>
-                <li>offset# - where # is the percentage to move the gradient if squeezed into a smaller width using the "width" option</li>
+                <li>width# - where # is the percentage of width the gradient should be squeezed into (if not given, the gradient takes up 100% of the possible colors to draw) (this is incompatible with the "mod" option)</li>
+                <li>offset# - where # is the percentage to move the gradient if squeezed into a smaller width using the "width" option (for gradients with the mod option, offset is a number to add to the value of the pixel before taking the modulus)</li>
             </ul>
             Examples:<br/>
             <br/>
@@ -355,7 +356,9 @@
             <br/>
             "roygbv-mirror1" creates a gradient with "roygbvbgyor"<br/>
             <br/>
-            "roygbv-width25-offset75" creates a rainbow gradient squeezed down to 25% of the available width, and moved all the way to the top end of the available width
+            "roygbv-width25-offset75" creates a rainbow gradient squeezed down to 25% of the available width, and moved all the way to the top end of the available width<br/>
+            <br/>
+            "roygbv-mod1000" creates a rainbow gradient that repeats every 1000 values of N (for mod plots only, like Mandelbrot set)
           </details>
           <div>
             <table>

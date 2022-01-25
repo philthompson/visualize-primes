@@ -3190,7 +3190,11 @@ for (let i = 0; i < kbdElements.length; i++) {
 
 // thanks to https://stackoverflow.com/a/3396805/259456
 window.addEventListener("keydown", function(e) {
-  if (textInputHasFocus() || windowLock) {
+  if (textInputHasFocus()) {
+    return;
+  }
+  // ONLY the T key works when windowLock is active
+  if (windowLock && !(e.key == "t" || e.key == "T" || e.keyCode == 84)) {
     return;
   }
   //console.log(e.type + " - keycode:" + e.keyCode + " key:" + e.key);

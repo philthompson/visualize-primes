@@ -2319,7 +2319,7 @@ function updateGradientPreview() {
       }
     } else {
       for (let i = 0; i <= w; i++) {
-        gradCtx.fillStyle = applyBuiltModGradient(gradient, Math.round((i/w)*gradient.mod));
+        gradCtx.fillStyle = applyBuiltModGradient(gradient, Math.round((i/w)*(gradient.mod-1)));
         gradCtx.fillRect(i-1, 0, 1, h);
       }
     }

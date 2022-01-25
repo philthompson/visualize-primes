@@ -2376,6 +2376,7 @@ gradAddColorGo.addEventListener("click", function() {
   if (gradAlreadyInBox.options.length > 0) {
     inputGradGrad.value += "-" + gradAlreadyInBox.options;
   }
+  updateGradientPreview();
 });
 
 windowLockCb.addEventListener("change", function() {

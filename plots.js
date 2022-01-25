@@ -1484,7 +1484,7 @@ const plots = [{
     },
     "getSquareNumber": function(privContext, point) {
       const id = point.x + "-" + point.y;
-      if (! id in privContext.boardPoints) {
+      if (!privContext.boardPoints.hasOwnProperty(id)) {
         console.log("MISSING SQUARE - " + id);
       }
       return privContext.boardPoints[id];

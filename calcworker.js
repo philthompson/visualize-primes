@@ -11,11 +11,11 @@ if (!self.Worker) {
 if (!self.structuredClone) {
   // thanks to https://stackoverflow.com/a/70315718/259456
   BigInt.prototype.toJSON = function() {
-      return this.toString()
-  }
+      return this.toString();
+  };
   self.structuredClone = function(obj) {
     return JSON.parse(JSON.stringify(obj));
-  }
+  };
 }
 
 const forceWorkerReloadUrlParam = "force-worker-reload=true";
@@ -224,7 +224,7 @@ function runCalc(msg) {
     }
     windowCalc.timeout = setTimeout(kickoffSetupTasks, 250);
   }
-};
+}
 
 function wipeReferenceOrbitStuff() {
   windowCalc.referenceOrbit = null;
@@ -339,7 +339,7 @@ function setupCheckBlaCoefficients() {
 function setupBlaCoefficients(state) {
   if (state === null || !state.done) {
     if (state === null) {
-      windowCalc.referenceBlaTables === null;
+      windowCalc.referenceBlaTables = null;
       sendStatusMessage("Calculating BLA coefficient tables");
     }
     state = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, windowCalc.referenceOrbit, state);
@@ -386,7 +386,7 @@ function setupCheckSaCoefficients() {
 function setupSaCoefficients(state) {
   if (state === null || !state.done) {
     if (state === null) {
-      windowCalc.saCoefficients === null;
+      windowCalc.saCoefficients = null;
       sendStatusMessage("Calculating and testing SA coefficients");
     }
     state = plotsByName[windowCalc.plot].computeSaCoefficients(windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, windowCalc.edges, state);
@@ -742,7 +742,7 @@ var onSubWorkerMessage = function(msg) {
   } else {
     console.log("worker received unknown message from subworker:", e);
   }
-}
+};
 
 function handleReferenceOrbitRequest(msg) {
   const worker = msg.target;
@@ -830,7 +830,7 @@ function handleSubworkerCompletedChunk(msg) {
       calculatePass();
     }
   }
-};
+}
 
 function settleChunkWithCacheAndPublish(msg) {
   let workersCountToReport = windowCalc.minWorkersCount.toString();
@@ -887,9 +887,9 @@ if (windowCalc.caching) {
     "passCachedPoints": windowCalc.passCachedPoints
   };
   if (windowCalc.saCoefficients !== null) {
-    status["saItersSkipped"] = windowCalc.saCoefficients.itersToSkip;
+    status.saItersSkipped = windowCalc.saCoefficients.itersToSkip;
   }
-  msg.data["calcStatus"] = status;
+  msg.data.calcStatus = status;
   self.postMessage(msg.data);
 }
 

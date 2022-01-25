@@ -75,11 +75,11 @@ function warnAboutWorkers() {
 if (!window.structuredClone) {
   // thanks to https://stackoverflow.com/a/70315718/259456
   BigInt.prototype.toJSON = function() {
-      return this.toString()
-  }
+      return this.toString();
+  };
   window.structuredClone = function(obj) {
     return JSON.parse(JSON.stringify(obj));
-  }
+  };
 }
 
 const startPassNumber = 0;
@@ -898,7 +898,7 @@ function start() {
 
   const params = historyParams;
 
-  if (! params.plot in plotsByName) {
+  if (!plotsByName.hasOwnProperty(params.plot)) {
     console.log("invalid plot parameter: no such plot [" + params.plot + "]");
     return;
   }
@@ -1112,7 +1112,7 @@ function replaceHistoryWithParams(params) {
   var paramsCopy = structuredClone(params);
   // set "algo" in URL from algorithm, if not auto
   if ("algorithm" in paramsCopy && paramsCopy.algorithm != "auto") {
-    paramsCopy["algo"] = paramsCopy.algorithm;
+    paramsCopy.algo = paramsCopy.algorithm;
   }
   delete paramsCopy.algorithm;
   // include magnification in URL, not scale
@@ -1273,12 +1273,12 @@ function buildGradientObj(gradientString, maxN = -1) {
             }
             if (argName == "mod") {
               if (maxN < 1) {
-                throw "[mod] option is incompatible with this plot"
+                throw "[mod] option is incompatible with this plot";
               }
               version = 2;
             }
             if (argName == "width" && maxN > 0) {
-              throw "[width] option is incompatible with this plot"
+              throw "[width] option is incompatible with this plot";
             }
             if (args[argName] == "") {
               throw "integer expected as part of option";
@@ -1379,7 +1379,7 @@ function buildGradientObj(gradientString, maxN = -1) {
   if (colors.length === 1) {
     let colorRgb = colorsByName[colors];
     if (colorRgb === undefined) {
-      colorRgb = colorsByName["o"];
+      colorRgb = colorsByName.o;
     }
     grad.orderedStops.push({
       lower: 0,
@@ -1405,11 +1405,11 @@ function buildGradientObj(gradientString, maxN = -1) {
       // for stop 1, gradient is color[1] -> color[2]
       let colorRgbA = colorsByName[colors.charAt(i)];
       if (colorRgbA === undefined) {
-        colorRgbA = colorsByName["w"];
+        colorRgbA = colorsByName.w;
       }
       let colorRgbB = colorsByName[colors.charAt(i+1)];
       if (colorRgbB === undefined) {
-        colorRgbB = colorsByName["w"];
+        colorRgbB = colorsByName.w;
       }
       const stop = {};
       stop.rLower = colorRgbA[0];
@@ -1669,7 +1669,7 @@ function resetWindowCalcContext() {
 
   // set the plot-specific global precision to use first
   if (historyParams.algorithm != "auto") {
-    let algoPrecis = undefined;
+    let algoPrecis;
     try {
       algoPrecis = parseInt(historyParams.algorithm.split("-").find(e => e.startsWith("sigdig")).substring(6));
     } catch (e) {}
@@ -2560,7 +2560,7 @@ function drawColorPointsFitOnlyNoCache(windowPoints, pixelSize) {
   const height = fitSizeCanvas.height;
   const imageData = fullSizeScalePower == 0 ? windowCalc.pixelsImage : windowCalc.fitImage;
   //const context = fullSizeScalePower == 0 ? dContext : fitSizeContext;
-  const context = fitSizeContext
+  const context = fitSizeContext;
   const fitImage = windowCalc.fitImage;
   const bgColor = getBgColor(false);
   let pointColor = null;
@@ -3033,7 +3033,7 @@ function panPercentOfPixels(isHorizontal, nPercent) {
 }
 
 function applyParamPercent(fieldName, pctStr) {
-  if (! fieldName in historyParams) {
+  if (!historyParams.hasOwnProperty(fieldName)) {
     console.log("unknown params field [" + fieldName + "]");
     return;
   }
@@ -3286,8 +3286,8 @@ window.addEventListener("keydown", function(e) {
         builtGradient = grad;
         start();
       }
-    } catch (e) {
-      displayGradientError(e);
+    } catch (err) {
+      displayGradientError(err);
     }
   } else if (e.keyCode == 78  || e.key == "n" || e.key == "N") {
     if (historyParams.n > 100) {
@@ -3303,8 +3303,8 @@ window.addEventListener("keydown", function(e) {
           builtGradient = grad;
           start();
         }
-      } catch (e) {
-        displayGradientError(e);
+      } catch (err) {
+        displayGradientError(err);
       }
     }
   } else if (e.keyCode == 86 || e.key == "v" || e.key == "V") {
@@ -3338,8 +3338,8 @@ window.addEventListener("keydown", function(e) {
       } else {
         redraw();
       }
-    } catch (e) {
-      displayGradientError(e);
+    } catch (err) {
+      displayGradientError(err);
     }
   } else if (e.keyCode == 66 || e.key == "b" || e.key == "B") {
     let schemeNum = -1;

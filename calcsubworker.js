@@ -3,11 +3,11 @@
 if (!self.structuredClone) {
   // thanks to https://stackoverflow.com/a/70315718/259456
   BigInt.prototype.toJSON = function() {
-      return this.toString()
-  }
+      return this.toString();
+  };
   self.structuredClone = function(obj) {
     return JSON.parse(JSON.stringify(obj));
-  }
+  };
 }
 
 const forceWorkerReloadUrlParam = "force-worker-reload=true";
@@ -121,11 +121,11 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
   // special case for when entire chunk is cached
   if (cachedIndices.length === 1 && cachedIndices[0] === -1) {
     // for this special case, don't allocate the entire results array
-    chunk["results"] = [];
-    chunk["plotId"] = plotId;
-    chunk["blaPixelsCount"] = blaPixelsCount;
-    chunk["blaIterationsSkipped"] = blaIterationsSkipped;
-    chunk["blaSkips"] = blaSkips;
+    chunk.results = [];
+    chunk.plotId = plotId;
+    chunk.blaPixelsCount = blaPixelsCount;
+    chunk.blaIterationsSkipped = blaIterationsSkipped;
+    chunk.blaSkips = blaSkips;
     postMessage({t: "completed-chunk", v:chunk});
     return;
   }
@@ -209,11 +209,11 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       }
     }
   }
-  chunk["results"] = results;
-  chunk["plotId"] = plotId;
-  chunk["blaPixelsCount"] = blaPixelsCount;
-  chunk["blaIterationsSkipped"] = blaIterationsSkipped;
-  chunk["blaSkips"] = blaSkips;
+  chunk.results = results;
+  chunk.plotId = plotId;
+  chunk.blaPixelsCount = blaPixelsCount;
+  chunk.blaIterationsSkipped = blaIterationsSkipped;
+  chunk.blaSkips = blaSkips;
   postMessage({t: "completed-chunk", v:chunk});
   //if (blaPixelsCount > 0 && blaIterationsSkipped > 0) {
   //  console.log("for entire chunk of [" + chunk.chunkLen + "] pixels, [" + (blaPixelsCount).toLocaleString() + "] pixels skipped [" + (blaIterationsSkipped).toLocaleString() + "] iterations with BLA, averaging [" + Math.floor(blaIterationsSkipped / blaPixelsCount) + "] per pixel");

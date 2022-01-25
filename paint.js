@@ -152,6 +152,9 @@ const btnGradReset = document.getElementById("grad-reset");
 const gradCanvas = document.getElementById('gradient-canvas');
 const gradCanvasRow = document.getElementById("gradient-canvas-tr");
 const gradCtx = gradCanvas.getContext('2d');
+const gradAddColorChar = document.getElementById("grad-add-color-char");
+const gradAddColorColor = document.getElementById("grad-add-color-color");
+const gradAddColorGo = document.getElementById("grad-add-color-go");
 const workersSelect = document.getElementById("workers-select");
 const detailsWorkersControls = document.getElementById("workers-controls");
 const gradientSelect = document.getElementById("gradient-select");
@@ -461,7 +464,7 @@ const presets = [{
   "mag": createInfNum("2.8e10"),
   "centerX": createInfNum("-0.74364392705773112"),
   "centerY": createInfNum("0.131825980877688413"),
-  "gradient": {str: "bBgwo-B~20.20.20-mod2222-shift2"},
+  "gradient": {str: "bBgwo-B.141414-mod2222-shift2"},
   "bgColor": "b"
 },{
   "plot": "Mandelbrot-set",
@@ -1116,12 +1119,12 @@ var pushToHistory = function() {
 };
 
 const windowPlotGradients = [
-  {colors: "BbgoywBbgoyw",                          name:"dark blue-green"},
-  {colors: "BpowBpowBpow",                          name:"purple-orange"},
-  {colors: "BwBwBwBwBwBw",                          name:"black & white"},
-  {colors: "GBPwGBPwGBPw-P~250.34.188-G~73.106.3",  name:"olive-pink"},
-  {colors: "TGwTGwTGwTGw-G~250.210.22-T~0.255.195", name:"teal-gold"},
-  {colors: "BroywBroywBr-B~80.80.255",              name:"custom"}
+  {colors: "BbgoywBbgoyw",                   name:"dark blue-green"},
+  {colors: "BpowBpowBpow",                   name:"purple-orange"},
+  {colors: "BwBwBwBwBwBw",                   name:"black & white"},
+  {colors: "GBPwGBPwGBPw-P.FA22BC-G.496A03", name:"olive-pink"},
+  {colors: "TGwTGwTGwTGw-G.FAC416-T.00FFC3", name:"teal-gold"},
+  {colors: "BroywBroywBr-B.5050FF",          name:"custom"}
 ];
 
 const sequencePlotGradients = [
@@ -1131,20 +1134,22 @@ const sequencePlotGradients = [
   {colors: "br", name:"blue-red"},
   {colors: "by", name:"blue-yellow"},
   {colors: "op", name:"orange-purple"},
-  {colors: "LD-L~220.220.220-D~30.30.30", name:"light gray - dark gray"},
-  {colors: "LD-L~240.20.20-D~100.0.0", name:"red"},
-  {colors: "LD-L~250.100.0-D~120.60.0", name:"orange"},
-  {colors: "LD-L~240.240.0-D~120.120.0", name:"yellow"},
-  {colors: "LD-L~20.240.20-D~0.100.0", name:"green"},
-  {colors: "LD-L~20.20.250-D~0.0.120", name:"blue"},
-  {colors: "LD-L~220.0.220-D~120.0.120", name:"purple"},
-  {colors: "LD-L~90.90.90-D~30.30.30", name:"dark gray"},
-  {colors: "LD-L~220.220.220-D~100.100.100", name:"light gray"},
-  {colors: "roywB-B~80.80.255", name:"custom"}
+  {colors: "LD-L.DCDCDC-D.1E1E1E", name:"light gray - dark gray"},
+  {colors: "LD-L.F01414-D.640000", name:"red"},
+  {colors: "LD-L.FA6400-D.662900", name:"orange"},
+  {colors: "LD-L.F0F000-D.787800", name:"yellow"},
+  {colors: "LD-L.14F014-D.006400", name:"green"},
+  {colors: "LD-L.1414FA-D.000078", name:"blue"},
+  {colors: "LD-L.DC00DC-D.780078", name:"purple"},
+  {colors: "LD-L.909090-D.1E1E1E", name:"dark gray"},
+  {colors: "LD-L.DCDCDC-D.646464", name:"light gray"},
+  {colors: "roywB-B.5050FF",  name:"custom"}
 ];
 
-// match color declaration like "a~1.2.3" or "r~150.30.30"
-const customColorRegex = /^[a-zA-z]~[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
+// match rgb color declaration like "a~1.2.3" or "r~150.30.30"
+const customColorRegex = /^[a-zA-z]~([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$/;
+// match hex color declaration like "G.FAC416"
+const customColorHexRegex = /^[a-zA-z]\.([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/;
 
 // build global gradient stops from format:
 //   roygbvx-saturation60-brightness90-width80-offset30-repeat10-mirror2-shift3-x~30.30.30
@@ -1166,6 +1171,9 @@ function parseGradientColorsOptions(gradientString) {
   let colorMatch = null;
   for (let i = 1; i < split.length; i++) {
     colorMatch = split[i].match(customColorRegex);
+    if (colorMatch === null) {
+      colorMatch = split[i].match(customColorHexRegex);
+    }
     if (colorMatch !== null) {
       colors.push(split[i]);
     } else {
@@ -1207,15 +1215,20 @@ function buildGradientObj(gradientString, maxN = -1) {
   let version = 1;
   const argNames = ["saturation","brightness","mod","width","offset","repeat","mirror","shift"];
   let colorMatch = null;
+  let hexColor = false;
   for (let i = 1; i < splitArgs.length; i++) {
-    colorMatch = splitArgs[i].match(customColorRegex);
+    colorMatch = splitArgs[i].match(customColorRegex); // "x~1.2.3" -> ["x~1.2.3","1","2","3"]
+    hexColor = false;
+    if (colorMatch === null) {
+      colorMatch = splitArgs[i].match(customColorHexRegex); // "x.a1b2c3" -> ["x.a1b2c3","1","2","3"]
+      hexColor = true;
+    }
     if (colorMatch !== null) {
       colorsStr.push(splitArgs[i]);
       let customColorName = colorMatch[0].charAt(0);
-      let customRgbValuesSplit = colorMatch[0].substring(2).split("."); // "x~1.2.3" -> ["1","2","3"]
       let customRgbValues = [];
-      for (let i = 0; i < customRgbValuesSplit.length; i++) {
-        let value = parseInt(customRgbValuesSplit[i]);
+      for (let i = 1; i < 4; i++) {
+        let value = hexColor ? parseInt(colorMatch[i], 16) : parseInt(colorMatch[i]);
         value = Math.min(255, Math.max(0, value)); // restrict to 0-255
         customRgbValues.push(value);
       }
@@ -2297,6 +2310,38 @@ function hideGradientError() {
   gradError.style.display = "none";
   gradCanvasRow.style.display = "";
 }
+
+const customColorCharRegex = /^[A-za-z]$/;
+
+function enforceGradCustomColorChar() {
+  if (gradAddColorChar.value == "") {
+    return;
+  }
+  if (gradAddColorChar.value.length > 1) {
+    gradAddColorChar.value = gradAddColorChar.value.slice(-1);
+  }
+  if (gradAddColorChar.value.match(customColorCharRegex) === null) {
+    gradAddColorChar.value = "";
+  }
+}
+
+gradAddColorChar.addEventListener("change", enforceGradCustomColorChar);
+gradAddColorChar.addEventListener("input", enforceGradCustomColorChar);
+gradAddColorChar.addEventListener("propertychange", enforceGradCustomColorChar);
+gradAddColorChar.addEventListener("paste", enforceGradCustomColorChar);
+
+gradAddColorGo.addEventListener("click", function() {
+  if (gradAddColorChar.value == "") {
+    return;
+  }
+  let gradAlreadyInBox = parseGradientColorsOptions(inputGradGrad.value);
+  inputGradGrad.value =
+    gradAlreadyInBox.colors + "-" +
+    gradAddColorChar.value.slice(-1) + "." + gradAddColorColor.value.substring(1);
+  if (gradAlreadyInBox.options.length > 0) {
+    inputGradGrad.value += "-" + gradAlreadyInBox.options;
+  }
+});
 
 windowLockCb.addEventListener("change", function() {
   windowLock = windowLockCb.checked;

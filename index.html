@@ -204,6 +204,12 @@
       width: 100%;
       height: 2.5rem;
     }
+    #grad-add-color-char {
+      text-align: center !important;
+    }
+    #grad-add-color-color {
+      margin: 0 0.2rem 0 0.2rem;
+    }
     </style>
 </head>
 <body>
@@ -339,7 +345,7 @@
               <li>w - white</li>
               <li>B - Black</li>
             </ul>
-            Colors may be defined or re-defined with an <b>option</b> like "G~90.90.90" which defines an rgb gray color for the letter G.  See below about options.<br/>
+            Colors may be defined or re-defined with an <b>option</b> like "o.f1593c" which defines a hex orange color for the letter o, or like "G~90.90.90" which defines an rgb gray color for the letter G.<br/>
             <br/>
             <b>Options</b>: after the series of color letters are given, zero or more gradient options may be entered.
             Each option must be preceded with a dash "-".<br/>
@@ -353,15 +359,15 @@
             </ul>
             Examples:<br/>
             <br/>
+            "roygbv-mod1000" creates a rainbow gradient that repeats every 1000 values of N (for mod plots only, like Mandelbrot set)<br/>
+            <br/>
             "roygbv-repeat2" creates a gradient with "roygbvroygbv"<br/>
             <br/>
             "pBpw-p~240.160.200" creates a gradient with "p" re-defined as pink<br/>
             <br/>
             "roygbv-mirror1" creates a gradient with "roygbvbgyor"<br/>
             <br/>
-            "roygbv-width25-offset75" creates a rainbow gradient squeezed down to 25% of the available width, and moved all the way to the top end of the available width<br/>
-            <br/>
-            "roygbv-mod1000" creates a rainbow gradient that repeats every 1000 values of N (for mod plots only, like Mandelbrot set)
+            "roygbv-width25-offset75" creates a rainbow gradient squeezed down to 25% of the available width, and moved all the way to the top end of the available width
           </details>
           <div>
             <table>
@@ -369,6 +375,7 @@
               <tr><td colspan="2" id="gradient-error"></td></tr>
               <tr><td>gradient:</td><td><textarea rows="4" id="grad-grad"></textarea></td></tr>
               <tr><td>preset:</td><td><select style="font-size:1.2rem;" id="gradient-select"></select></td></tr>
+              <tr><td>add color:</td><td><input id="grad-add-color-char" size="1" maxlength="2" placeholder="A"/><input id="grad-add-color-color" type="color"/><button id="grad-add-color-go">Add</button></td></tr>
             </table>
             <button id="grad-go">Go</button>
             <button id="grad-reset">Reset to Current Gradient</button>

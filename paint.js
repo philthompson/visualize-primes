@@ -178,25 +178,42 @@ const btnAlgoGo = document.getElementById("algo-go");
 const btnAlgoReset = document.getElementById("algo-reset");
 const detailsAlgoControls = document.getElementById("algo-controls");
 const fullSizeSelect = document.getElementById("full-size-select");
+const btnDownload = document.getElementById("btn-download");
 
 const blogLinkMain = document.getElementById("blog-link");
 const blogLinkMandel = document.getElementById("blog-link-mandel");
 
-document.getElementById("btn-download").addEventListener("click", function() {
-  if (isCurrentPlotAWindowPlot()) {
-    dContext.putImageData(windowCalc.pixelsImage, 0, 0);
-  } else {
-    drawPointsFullSize();
-  }
-  if (imageParametersCaption) {
-    drawImageParametersOnContext(dContext);
-  }
-  // thanks to https://stackoverflow.com/a/50300880/259456
-  let link = document.createElement("a");
-  link.download = "very-plotter-" + formatCurrentDateTime() + ".png";
-  link.href = dCanvas.toDataURL();
-  link.click();
+btnDownload.addEventListener("click", function(e) {
+  document.body.style.cursor = "wait"; // this may not actually affect the cursor
+  btnDownload.disabled = true;
+  btnDownload.style.cursor = "wait";
+  // to actually change the cursor and button appearance,
+  //   we need to yield control of the thread back to
+  //   the browser for a brief moment
+  setTimeout(performDownload, 20);
 });
+
+function performDownload() {
+  try {
+    if (isCurrentPlotAWindowPlot()) {
+      dContext.putImageData(windowCalc.pixelsImage, 0, 0);
+    } else {
+      drawPointsFullSize();
+    }
+    if (imageParametersCaption) {
+      drawImageParametersOnContext(dContext);
+    }
+    // thanks to https://stackoverflow.com/a/50300880/259456
+    let link = document.createElement("a");
+    link.download = "very-plotter-" + formatCurrentDateTime() + ".png";
+    link.href = dCanvas.toDataURL();
+    link.click();
+  } finally {
+    document.body.style.cursor = null;
+    btnDownload.disabled = false;
+    btnDownload.style.cursor = null;
+  }
+}
 
 function formatCurrentDateTime() {
   // thanks to https://stackoverflow.com/a/11172083/259456

@@ -1315,7 +1315,7 @@ function buildGradientObj(gradientString, maxN = -1) {
   //   "mod" option is not provided, use the maxN value instead
   if (!args.hasOwnProperty("mod") && maxN > 0) {
     version = 2;
-    args.mod = maxN;
+    args.mod = maxN + 1;
   }
   grad.version = version;
   grad.mod = "mod" in args ? args.mod : 0;
@@ -1396,7 +1396,10 @@ function buildGradientObj(gradientString, maxN = -1) {
     //   another half-wide stop of the same color is added to the end
     // this avoids a sharp change from the end of the last stop back
     //   to the beginning of the first stop right around the mod point
-    if (version == 2 && colors.charAt(0) != colors.charAt(colors.length-1)) {
+    // the exception to this is if the "mod" option is not actually
+    //   in the gradient string -- in this case, we don't need to
+    //   handle the wraparound effect that mod creates
+    if (version == 2 && args.mod != maxN + 1 && colors.charAt(0) != colors.charAt(colors.length-1)) {
       colors += colors.charAt(0);
     }
     let prevStopUpper = 0;
@@ -1422,11 +1425,7 @@ function buildGradientObj(gradientString, maxN = -1) {
       if (i == colors.length - 2) {
         stop.upper = 1.0;
       } else {
-        if (version == 1) {
-          // we cannot divide by zero because if there's only one stop, we
-          //   do not even enter this for loop
-          stop.upper = stop.lower + ((1.0 / (colors.length - 1)) * totalWidth);
-        } else if (version == 2) {
+        if (version == 2 && args.mod != maxN + 1) {
           // for "mod" gradients, the first and last stops are half-wide
           // this means, in total, we have colors.length - 2 full stops
           let stopWidth = (1.0 / (colors.length - 2)) * totalWidth;
@@ -1436,6 +1435,10 @@ function buildGradientObj(gradientString, maxN = -1) {
             stopWidth /= 2;
           }
           stop.upper = stop.lower + stopWidth;
+        } else {
+          // we cannot divide by zero because if there's only one stop, we
+          //   do not even enter this for loop
+          stop.upper = stop.lower + ((1.0 / (colors.length - 1)) * totalWidth);
         }
       }
       grad.orderedStops.push(stop);

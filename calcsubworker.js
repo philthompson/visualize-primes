@@ -1,4 +1,15 @@
 
+// temporary polyfill since Chrome/Safari don't quite yet support this
+if (!self.structuredClone) {
+  // thanks to https://stackoverflow.com/a/70315718/259456
+  BigInt.prototype.toJSON = function() {
+      return this.toString()
+  }
+  self.structuredClone = function(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  }
+}
+
 const forceWorkerReloadUrlParam = "force-worker-reload=true";
 const forceWorkerReload = self.location.toString().includes(forceWorkerReloadUrlParam);
 

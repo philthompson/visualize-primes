@@ -71,6 +71,17 @@ function warnAboutWorkers() {
     "The recommended browsers are desktop Firefox, Chrome, or Edge, or similar.";
 }
 
+// temporary polyfill since Chrome/Safari don't quite yet support this
+if (!window.structuredClone) {
+  // thanks to https://stackoverflow.com/a/70315718/259456
+  BigInt.prototype.toJSON = function() {
+      return this.toString()
+  }
+  window.structuredClone = function(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  }
+}
+
 const startPassNumber = 0;
 
 const windowCalc = {

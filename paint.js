@@ -1479,21 +1479,25 @@ function buildGradientObj(gradientString, maxN = -1) {
 
 
 function applyBuiltGradient(gradient, pct, stringFormat = true) {
+  // floating point inaccuracies in the very least significant
+  //   bits (presumably) can sometimes result in the pct being
+  //   outside the range 0.0-1.0, so enforce that range here
+  const percent = Math.min(1.0, Math.max(0.0, pct));
   let color = {r:255, g:255, b:255};
   let lo = 0;
   let hi = gradient.orderedStops.length - 1;
   let x = null;
   while (lo <= hi) {
     x = (lo + hi) >>1;
-    if (pct < gradient.orderedStops[x].lower) {
+    if (percent < gradient.orderedStops[x].lower) {
       hi = x - 1;
-    } else if (pct > gradient.orderedStops[x].upper) {
+    } else if (percent > gradient.orderedStops[x].upper) {
       lo = x + 1;
     } else {
       let stop = gradient.orderedStops[x];
       // put code elsewhere to avoid needing this
       //if (stop.range > 0) {
-        let withinStopPct = (pct - stop.lower) / stop.range;
+        let withinStopPct = (percent - stop.lower) / stop.range;
         color = {
           r: Math.floor((withinStopPct * stop.rRange) + stop.rLower),
           g: Math.floor((withinStopPct * stop.gRange) + stop.gLower),

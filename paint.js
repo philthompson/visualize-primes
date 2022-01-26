@@ -82,20 +82,6 @@ if (!window.structuredClone) {
   };
 }
 
-// if the user manually changes the page hash in the browser URL bar,
-//   we want to render the plot with those parameters (if different)
-// when automatically setting the hash location as the user moves
-//   around, need to save the save the new hash location before
-//   actually setting it so that we don't re-load the location
-var savedHash = "";
-window.addEventListener('hashchange', function() {
-  if (savedHash != "" && savedHash != document.location.hash) {
-    parseUrlParams();
-    start();
-  }
-  savedHash = document.location.hash;
-});
-
 const startPassNumber = 0;
 
 const windowCalc = {
@@ -698,11 +684,6 @@ function parseUrlParams() {
   //   when actually drawing the thing to ensure the URL is kept
   //   up-to-date with what is being drawn without reloading the page)
   let urlParams = new URLSearchParams(document.location.search);
-  if (!urlParams.has("v")) {
-    urlParams = new URLSearchParams(document.location.hash.substring(1));
-  }
-  // remove URL search params if present, then set hash params
-  history.replaceState("", document.title, document.location.pathname + "#" + urlParams.toString());
 
   if (urlParams.has("repeat")) {
     windowCalcRepeat = parseInt(urlParams.get("repeat"));
@@ -1128,10 +1109,6 @@ function convertMagnificationToScale(magnification, magnificationFactor) {
 // this is separate so that we can call it with only a subset of params,
 //   and the rest will be populated with standard values as part of parseUrlParams()
 function replaceHistoryWithParams(params) {
-  if (replaceStateTimeout != null) {
-    window.clearTimeout(replaceStateTimeout);
-    replaceStateTimeout = null;
-  }
   var paramsCopy = structuredClone(params);
   // set "algo" in URL from algorithm, if not auto
   if ("algorithm" in paramsCopy && paramsCopy.algorithm != "auto") {
@@ -1148,11 +1125,8 @@ function replaceHistoryWithParams(params) {
   paramsCopy.gradient = paramsCopy.gradient.str;
   paramsCopy.centerX = infNumExpStringTruncToLen(params.centerX, precision);
   paramsCopy.centerY = infNumExpStringTruncToLen(params.centerY, precision);
-  // to avoid starting the location twice, if the hash is different,
-  //   save the hash location before actually setting it (this
-  //   allows the window "hashchange" event to ignore it)
-  savedHash = "#" + (new URLSearchParams(paramsCopy)).toString();
-  document.location.hash = savedHash.substring(1);
+  history.replaceState("", document.title, document.location.pathname + "?" + new URLSearchParams(paramsCopy).toString());
+  replaceStateTimeout = null;
 }
 
 var replaceHistory = function() {

@@ -3464,7 +3464,7 @@ window.addEventListener("keydown", function(e) {
 });
 
 function resizeCanvas() {
-  if (!windowLock) {
+  if (windowLock) {
     return;
   }
   setDScaleVars();

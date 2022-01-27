@@ -919,7 +919,7 @@ function start() {
     document.getElementById("workers-warning").style.display = "none";
   }
 
-  setDScaleVars();
+  setDScaleVars(true);
 
   // run the selected plot
   const plot = plotsByName[params.plot];
@@ -1014,13 +1014,18 @@ function setDScaleVarsNoScale() {
     dCanvas.width = canvas.width * fullSizeScaleFactor;
     dCanvas.height = canvas.height * fullSizeScaleFactor;
     fillBg(fitSizeContext);
+    return true;
   }
+  return false;
 }
 
-function setDScaleVars() {
-  setDScaleVarsNoScale();
-  populateRenderSizeOptions();
-  historyParams.scale = convertMagnificationToScale(historyParams.mag, plotsByName[historyParams.plot].magnificationFactor);
+function setDScaleVars(forceSetRenderSizeAndScale = false) {
+  if (setDScaleVarsNoScale() || forceSetRenderSizeAndScale) {
+    populateRenderSizeOptions();
+    historyParams.scale = convertMagnificationToScale(historyParams.mag, plotsByName[historyParams.plot].magnificationFactor);
+    return true;
+  }
+  return false;
 }
 
 function populateRenderSizeOptions() {
@@ -3467,8 +3472,9 @@ function resizeCanvas() {
   if (windowLock) {
     return;
   }
-  setDScaleVars();
-  redraw();
+  if (setDScaleVars()) {
+    redraw();
+  }
 }
 
 // re-draw if there's been a window resize and more than 500ms has elapsed

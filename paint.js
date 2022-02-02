@@ -179,6 +179,10 @@ const btnAlgoReset = document.getElementById("algo-reset");
 const detailsAlgoControls = document.getElementById("algo-controls");
 const fullSizeSelect = document.getElementById("full-size-select");
 const btnDownload = document.getElementById("btn-download");
+const windowLockIcon = document.getElementById("window-lock-icon");
+const windowLockIconKbd = document.getElementById("window-lock-icon-kbd");
+
+var windowLockIconWiggleTimeout = null;
 
 const blogLinkMain = document.getElementById("blog-link");
 const blogLinkMandel = document.getElementById("blog-link-mandel");
@@ -2386,11 +2390,24 @@ gradAddColorGo.addEventListener("click", function() {
 
 windowLockCb.addEventListener("change", function() {
   windowLock = windowLockCb.checked;
-  if (!windowLock) {
+  if (windowLock) {
+    windowLockIcon.style.display = "inline-block";
+  } else {
+    windowLockIcon.style.display = "none";
     resizeCanvas();
   }
 });
 windowLockCb.checked = windowLock;
+
+function wiggleWindowLockIcon() {
+  if (windowLockIconWiggleTimeout != null) {
+    window.clearTimeout(windowLockIconWiggleTimeout);
+  }
+  windowLockIconKbd.classList.add("wiggle");
+  windowLockIconWiggleTimeout = window.setTimeout(function() {
+    windowLockIconKbd.classList.remove("wiggle");
+  }, 1000);
+}
 
 const windowCalcStages = {
   drawCalculatingNotice: "draw-calculating-notice",
@@ -3184,6 +3201,7 @@ window.addEventListener("keyup", function(e) {
 
 var dispatchCorrespondingKeydownEvent = function(e) {
   if (windowLock) {
+    wiggleWindowLockIcon();
     return;
   }
   let keyName = e.target.id.substring(4);
@@ -3208,6 +3226,7 @@ window.addEventListener("keydown", function(e) {
   }
   // ONLY the T key works when windowLock is active
   if (windowLock && !(e.key == "t" || e.key == "T" || e.keyCode == 84)) {
+    wiggleWindowLockIcon();
     return;
   }
   //console.log(e.type + " - keycode:" + e.keyCode + " key:" + e.key);
@@ -3470,6 +3489,7 @@ window.addEventListener("keydown", function(e) {
 
 function resizeCanvas() {
   if (windowLock) {
+    wiggleWindowLockIcon();
     return;
   }
   if (setDScaleVars()) {
@@ -3483,6 +3503,7 @@ window.addEventListener("resize", function() {
     window.clearTimeout(resizeTimeout);
   }
   if (windowLock) {
+    wiggleWindowLockIcon();
     console.log("ignoring window resize event");
     return;
   }
@@ -3493,6 +3514,7 @@ window.addEventListener("resize", function() {
 //   general ideas on pinch detection
 var mouseDownHandler = function(e) {
   if (windowLock) {
+    wiggleWindowLockIcon();
     return;
   }
   // this might help prevent strange ios/mobile weirdness
@@ -3616,6 +3638,7 @@ fitSizeCanvas.addEventListener("touchmove", mouseMoveHandler);
 
 var mouseUpHandler = function(e) {
   if (windowLock) {
+    wiggleWindowLockIcon();
     return;
   }
   // this might help prevent strange ios/mobile weirdness
@@ -3633,6 +3656,7 @@ fitSizeCanvas.addEventListener("touchend", mouseUpHandler);
 
 fitSizeCanvas.addEventListener("wheel", function(e) {
   if (windowLock) {
+    wiggleWindowLockIcon();
     return;
   }
   // set 48 wheelDeltaY units as 5% zoom (in or out)

@@ -1053,7 +1053,8 @@ const plots = [{
   "name": "Primes-1-Step-90-turn",
   "pageTitle": "Primes",
   "calcFrom": "sequence",
-  "desc": "Move 1 step forward per integer, but for primes, turn 90 degrees clockwise before moving.",
+  "desc": "Drawn with a simple <a target=\"blank\" href=\"https://en.wikipedia.org/wiki/Turtle_graphics\">" +
+    "turtle graphics</a> pattern: move 1 step forward per integer, but for primes, turn 90 degrees clockwise before moving.",
   "gradientType": "pct",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
@@ -1115,9 +1116,10 @@ const plots = [{
   "name": "Primes-1-Step-45-turn",
   "pageTitle": "Primes",
   "calcFrom": "sequence",
-  "desc": "Move 1 step forward per integer, but for primes, turn 45 degrees clockwise before moving.  " +
-          "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
-          "moving ~1.414 steps diagonally.",
+  "desc": "Drawn with a simple <a target=\"blank\" href=\"https://en.wikipedia.org/wiki/Turtle_graphics\">" +
+    "turtle graphics</a> pattern: move 1 step forward per integer, but for primes, turn 45 degrees " +
+    "clockwise before moving. When moving diagonally, we move 1 step on both the x and y axes, so we're " +
+    "actually moving ~1.414 steps diagonally.",
   "gradientType": "pct",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
@@ -1179,7 +1181,9 @@ const plots = [{
   "name": "Squares-1-Step-90-turn",
   "pageTitle": "Squares",
   "calcFrom": "sequence",
-  "desc": "Move 1 step forward per integer, but for perfect squares, turn 90 degrees clockwise before moving.",
+  "desc": "Drawn with a simple <a target=\"blank\" href=\"https://en.wikipedia.org/wiki/Turtle_graphics\">" +
+    "turtle graphics</a> pattern: move 1 step forward per integer, but for perfect squares, turn 90 " +
+    "degrees clockwise before moving.",
   "gradientType": "pct",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];
@@ -1242,9 +1246,10 @@ const plots = [{
   "name": "Squares-1-Step-45-turn",
   "pageTitle": "Squares",
   "calcFrom": "sequence",
-  "desc": "Move 1 step forward per integer, but for perfect squares, turn 45 degrees clockwise before moving.  " +
-          "When moving diagonally, we move 1 step on both the x and y axes, so we're actually " +
-          "moving ~1.414 steps diagonally.",
+  "desc": "Drawn with a simple <a target=\"blank\" href=\"https://en.wikipedia.org/wiki/Turtle_graphics\">" +
+    "turtle graphics</a> pattern: move 1 step forward per integer, but for perfect squares, turn 45 " +
+    "degrees clockwise before moving.  When moving diagonally, we move 1 step on both the x and y axes, " +
+    "so we're actually moving ~1.414 steps diagonally.",
   "gradientType": "pct",
   "computePointsAndLength": function(privContext) {
     var resultPoints = [];

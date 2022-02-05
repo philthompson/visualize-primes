@@ -2461,14 +2461,18 @@ gradAddColorGo.addEventListener("click", function() {
   updateGradientPreview();
 });
 
-windowLockCb.addEventListener("change", function() {
-  windowLock = windowLockCb.checked;
+function handleNewWindowLockState() {
   if (windowLock) {
     windowLockIcon.style.display = "inline-block";
   } else {
     windowLockIcon.style.display = "none";
     resizeCanvas();
   }
+}
+
+windowLockCb.addEventListener("change", function() {
+  windowLock = windowLockCb.checked;
+  handleNewWindowLockState();
 });
 windowLockCb.checked = windowLock;
 
@@ -3294,7 +3298,27 @@ for (let i = 0; i < kbdElements.length; i++) {
 
 // thanks to https://stackoverflow.com/a/3396805/259456
 window.addEventListener("keydown", function(e) {
+  //console.log(e.type + " - keycode:" + e.keyCode + " key:" + e.key);
   if (textInputHasFocus()) {
+    return;
+  }
+  // shift and command can be pressed while window lock is active
+  //   (since window lock can be toggled with shift-command-L)
+  if (e.keyCode == 16 || e.key == "Shift") {
+    shiftPressed = true;
+    return;
+  } else if (
+      e.key == "Meta"    || e.keyCode == 224 ||
+      e.key == "Alt"     || e.keyCode == 18 ||
+      e.key == "Control" || e.keyCode == 17) {
+    commandPressed = true;
+    return;
+  }
+  // window lock can be toggled with shift-command-L
+  if (shiftPressed && commandPressed && (e.key == "l" || e.keyCode == 76)) {
+    windowLock = !windowLock;
+    windowLockCb.checked = windowLock;
+    handleNewWindowLockState();
     return;
   }
   // ONLY the T key works when windowLock is active
@@ -3302,21 +3326,13 @@ window.addEventListener("keydown", function(e) {
     wiggleWindowLockIcon();
     return;
   }
-  //console.log(e.type + " - keycode:" + e.keyCode + " key:" + e.key);
 
   // for keys that change the number of points or the position of points, use
   //start();
   // otherwise, use
   //drawPoints(historyParams);
 
-  if (e.keyCode == 16 || e.key == "Shift") {
-    shiftPressed = true;
-  } else if (
-      e.key == "Meta"    || e.keyCode == 224 ||
-      e.key == "Alt"     || e.keyCode == 18 ||
-      e.key == "Control" || e.keyCode == 17) {
-    commandPressed = true;
-  } else if (e.keyCode == 39 || e.key == "ArrowRight") {
+  if (e.keyCode == 39 || e.key == "ArrowRight") {
     panPercentOfPixels(true, 0.01);
     redraw();
   } else if (e.keyCode == 68 || e.key == "d" || e.key == "D") {

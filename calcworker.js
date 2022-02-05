@@ -176,6 +176,7 @@ function runCalc(msg) {
   windowCalc.chunksComplete = 0;
   windowCalc.canvasWidth = msg.canvasWidth;
   windowCalc.canvasHeight = msg.canvasHeight;
+  windowCalc.chunkOrdering = msg.chunkOrdering;
   // since pixel position math is now dependent on algorithm,
   //   the old caching no longer works as-is, so we will just
   //   turn it off for now
@@ -905,6 +906,25 @@ function shuffleArray(array) {
   }
 }
 
+// very slow implementation here of "sort by closest to middle"
+//
+// this answer is the right idea, but we need to sort based on
+//   array index, not value at each index
+//   https://stackoverflow.com/a/56342484/259456
+//
+// (and i'd like it to do an in-place sort)
+function centerOutArray(array) {
+  const newArr = [];
+  while (array.length > 0) {
+    // remove middle element from what remains of the array, and
+    //   add it to the end of the new array
+    newArr.push(array.splice(array.length >> 1, 1)[0]);
+  }
+  while (newArr.length > 0) {
+    array.push(newArr.shift());
+  }
+}
+
 // call the plot's computeBoundPoints function in chunks, to better
 //   allow interuptions for long-running calculations
 var calculateWindowPassChunks = function() {
@@ -1029,12 +1049,16 @@ var calculateWindowPassChunks = function() {
     chunkNum++;
   }
 
-  // it's a fun effect to see the image materialize in a random
-  //   way, as opposed to strictly left-to-right, plus it allows
-  //   the user to get a sense for the final image much sooner,
-  //   allowing the user to decide whether to continue panning or
-  //   zooming
-  shuffleArray(windowCalc.xPixelChunks);
+  if (windowCalc.chunkOrdering == "random") {
+    // it's a fun effect to see the image materialize in a random
+    //   way, as opposed to strictly left-to-right, plus it allows
+    //   the user to get a sense for the final image much sooner,
+    //   allowing the user to decide whether to continue panning or
+    //   zooming
+    shuffleArray(windowCalc.xPixelChunks);
+  } else if (windowCalc.chunkOrdering == "center first") {
+    centerOutArray(windowCalc.xPixelChunks);
+  }
 
   windowCalc.totalChunks = windowCalc.xPixelChunks.length;
 };

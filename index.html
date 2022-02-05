@@ -477,6 +477,20 @@
             <button id="algo-reset">Reset to Current Algorithm</button>
           </div>
         </details>
+        <details id="chunk-ordering-controls">
+          <summary>chunk ordering</summary>
+          <details class="help-text">
+            <summary>?</summary>
+            By default, vertical stripes of pixels (chunks) are drawn in random order.  This helps provide a sense of the overall image earlier than if the chunks were drawn left-to-right.  While exploring very slow locations, enabling "center first" order may allow you to decide more quickly whether to continue zooming in.
+          </details>
+          <div>
+            <table>
+              <tr><td>chunk order:</td><td><select style="font-size:0.9rem;" id="chunk-order-select"></select></td></tr>
+            </table>
+            <button id="chunk-order-go">Go</button>
+            <button id="chunk-order-reset">Reset to Current Chunk Order</button>
+          </div>
+        </details>
     </div>
     <div id="help-menu">
         <span style="position: fixed; left: 1.2rem; top: 1.2rem;" id="help-menu-close">×</span>

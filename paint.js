@@ -82,6 +82,8 @@ if (!window.structuredClone) {
   };
 }
 
+const chunkOrderOptions = ["random", "center first", "left to right"];
+
 const startPassNumber = 0;
 
 const windowCalc = {
@@ -132,7 +134,8 @@ const windowCalc = {
   referenceBottomLeftDeltaX: null,
   referenceBottomLeftDeltaY: null,
   putImageSkip: null,
-  putImageSkipSkips: null
+  putImageSkipSkips: null,
+  chunkOrdering: chunkOrderOptions[0]
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];
@@ -181,6 +184,10 @@ const fullSizeSelect = document.getElementById("full-size-select");
 const btnDownload = document.getElementById("btn-download");
 const windowLockIcon = document.getElementById("window-lock-icon");
 const windowLockIconKbd = document.getElementById("window-lock-icon-kbd");
+const chunkOrderingControls = document.getElementById("chunk-ordering-controls");
+const chunkOrderSelect = document.getElementById("chunk-order-select");
+const btnChunkOrderGo = document.getElementById("chunk-order-go");
+const btnChunkOrderReset = document.getElementById("chunk-order-reset");
 
 var windowLockIconWiggleTimeout = null;
 
@@ -261,6 +268,33 @@ function getCurrentPlotGradientMaxN(n = null, plotName = "") {
 
 // -||- THIS BELOW SECTION can be removed once all common browsers -||-
 // -vv-   (including Safari) support web workers and subworkers    -vv-
+
+// thanks to https://stackoverflow.com/a/12646864/259456
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
+// very slow implementation here of "sort by closest to middle"
+//
+// this answer is the right idea, but we need to sort based on
+//   array index, not value at each index
+//   https://stackoverflow.com/a/56342484/259456
+//
+// (and i'd like it to do an in-place sort)
+function centerOutArray(array) {
+  const newArr = [];
+  while (array.length > 0) {
+    // remove middle element from what remains of the array, and
+    //   add it to the end of the new array
+    newArr.push(array.splice(array.length >> 1, 1)[0]);
+  }
+  while (newArr.length > 0) {
+    array.push(newArr.shift());
+  }
+}
 
 // call the plot's computeBoundPoints function in chunks, to better
 //   allow interuptions for long-running calculations
@@ -356,9 +390,20 @@ function calculateWindowPassChunks() {
   //   allowing the user to decide whether to continue panning or
   //   zooming
   // thanks to https://stackoverflow.com/a/12646864/259456
-  for (let i = windowCalc.xPixelChunks.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [windowCalc.xPixelChunks[i], windowCalc.xPixelChunks[j]] = [windowCalc.xPixelChunks[j], windowCalc.xPixelChunks[i]];
+  //for (let i = windowCalc.xPixelChunks.length - 1; i > 0; i--) {
+  //  const j = Math.floor(Math.random() * (i + 1));
+  //  [windowCalc.xPixelChunks[i], windowCalc.xPixelChunks[j]] = [windowCalc.xPixelChunks[j], windowCalc.xPixelChunks[i]];
+  //}
+
+  if (windowCalc.chunkOrdering == "random") {
+    // it's a fun effect to see the image materialize in a random
+    //   way, as opposed to strictly left-to-right, plus it allows
+    //   the user to get a sense for the final image much sooner,
+    //   allowing the user to decide whether to continue panning or
+    //   zooming
+    shuffleArray(windowCalc.xPixelChunks);
+  } else if (windowCalc.chunkOrdering == "center first") {
+    centerOutArray(windowCalc.xPixelChunks);
   }
 
   windowCalc.totalChunks = windowCalc.xPixelChunks.length;
@@ -891,6 +936,31 @@ btnAlgoGo.addEventListener("click", function() {
 });
 btnAlgoReset.addEventListener("click", resetAlgorithmInput);
 
+chunkOrderSelect.addEventListener("change", function(e) {
+
+});
+
+function setupChunkOrderSelectControl(selected = chunkOrderOptions[0]) {
+  const htmlOptions = [];
+  for (let i = 0; i < chunkOrderOptions.length; i++) {
+    const isSelected = chunkOrderOptions[i] == selected;
+    htmlOptions.push("<option " + (isSelected ? "selected" : "") + " value=\"" + chunkOrderOptions[i] + "\">" + chunkOrderOptions[i] + "</option>");
+  }
+  chunkOrderSelect.innerHTML = htmlOptions.join("");
+}
+
+var resetChunkOrderSelect = function() {
+  chunkOrderSelect.value = windowCalc.chunkOrdering;
+};
+
+btnChunkOrderGo.addEventListener("click", function() {
+  if (windowCalc.chunkOrdering != chunkOrderSelect.value) {
+    windowCalc.chunkOrdering = chunkOrderSelect.value;
+    redraw();
+  }
+});
+btnChunkOrderReset.addEventListener("click", resetChunkOrderSelect);
+
 function start() {
   stopWorkers();
   if (windowCalc.timeout != null) {
@@ -940,6 +1010,7 @@ function start() {
   }
 
   if (plot.calcFrom == "sequence") {
+    chunkOrderingControls.style.display = "none";
     annotateClickPosition = true;
     // if viewing a sequence plot, ensure there's no window
     //   worker left running
@@ -961,6 +1032,7 @@ function start() {
     resetWindowCalcContext();
     drawPointsFitSize();
   } else if (plot.calcFrom == "window") {
+    chunkOrderingControls.style.display = "";
     annotateClickPosition = false;
     setupGradientSelectControl(windowPlotGradients);
     resetWindowCalcCache();
@@ -2265,6 +2337,7 @@ function kickoffWindowWorker() {
   workerCalc.canvasHeight = dContext.canvas.height;
   workerCalc.workers = workersCount;
   workerCalc.plotId = windowCalc.plotId;
+  workerCalc.chunkOrdering = windowCalc.chunkOrdering;
 
   windowCalc.worker.postMessage({"t": "worker-calc", "v": workerCalc});
 }
@@ -3846,6 +3919,7 @@ function hideFooter() {
   document.getElementById('footer').style.display = 'none';
 }
 
+setupChunkOrderSelectControl();
 // build a gradient here just so the global one isn't left null
 buildGradient("Bw");
 // since scale is determined by magnification, we need to set the

@@ -21,6 +21,7 @@ var mouseNoticePosY = infNum(0n, 0n);
 var shiftPressed = false;
 var commandPressed = false;
 var windowLock = false;
+var zoomBoxSave = {active:false};
 
 var historyParams = {};
 var replaceStateTimeout = null;
@@ -1708,6 +1709,7 @@ function drawPoints(params, ctx, scaleFactor, lineWidthFactor) {
     lastX = x;
     lastY = y;
   }
+  drawLastZoomBox();
 }
 
 // since the cache lives in the main worker, we can wipe the
@@ -1911,6 +1913,22 @@ function resetNIterationsValue() {
   inputNIterations.value = (historyParams.n).toLocaleString();
 }
 
+function goToZoomBox(aCornerX, aCornerY, bCornerX, bCornerY) {
+  let leftX = aCornerX;
+  let rightX = bCornerX;
+  if (infNumLt(rightX, leftX)) {
+    leftX = bCornerX;
+    rightX = aCornerX;
+  }
+  let topY = aCornerY;
+  let bottomY = bCornerY;
+  if (infNumLt(topY, bottomY)) {
+    topY = bCornerY;
+    bottomY = aCornerY;
+  }
+  goToBounds(leftX, rightX, topY, bottomY);
+}
+
 function applyGoToBoundsValues() {
   let leftX, rightX, topY, bottomY;
   try {
@@ -1945,6 +1963,10 @@ function applyGoToBoundsValues() {
     alert("Bottom left y value must be less than top left y value");
     return;
   }
+  goToBounds(leftX, rightX, topY, bottomY);
+}
+// must be previously-sanity-checked args
+function goToBounds(leftX, rightX, topY, bottomY) {
   const diffX = infNumSub(rightX,   leftX);
   const diffY = infNumSub(  topY, bottomY);
   const newCenterX = infNumAdd(  leftX, infNumDiv(diffX, infNum(2n, 0n), precision));
@@ -2716,6 +2738,7 @@ function drawColorPointsFitOnlyNoCache(windowPoints, pixelSize) {
     }
   }
   context.putImageData(imageData, 0, 0);
+  drawLastZoomBox();
 }
 
 function drawColorPoints(windowPoints, pixelSize) {
@@ -2820,6 +2843,7 @@ function drawColorPoints(windowPoints, pixelSize) {
   } else {
     fitSizeContext.putImageData(fitImage, 0, 0);
   }
+  drawLastZoomBox();
 }
 
 function recolor() {
@@ -2885,6 +2909,34 @@ function recolor() {
   } else {
     fitSizeContext.putImageData(windowCalc.fitImage, 0, 0);
   }
+  // would users change colors (V/B keys) while holding the mouse
+  //   down for a zoom box?  who knows
+  drawLastZoomBox();
+}
+
+function drawZoomBox(aPixX, aPixY, bPixX, bPixY) {
+  let topLeftX = Math.min(aPixX, bPixX);
+  let topLeftY = Math.min(aPixY, bPixY);
+  let width = Math.abs(aPixX - bPixX);
+  let height = Math.abs(aPixY - bPixY);
+  zoomBoxSave = {active:true, x:topLeftX, y:topLeftY, w:width, h:height};
+  // overwrite any previous zoom box
+  repaintOnly();
+  drawLastZoomBox();
+}
+
+// this is also used after painting new chunks, so it doesn't do
+//   repaintOnly()
+function drawLastZoomBox() {
+  if (!commandPressed || !mouseDrag || !zoomBoxSave.active) {
+    return;
+  }
+  fitSizeContext.lineWidth = 3.0;
+  fitSizeContext.strokeStyle = "rgb(0,0,0)";
+  fitSizeContext.strokeRect(zoomBoxSave.x, zoomBoxSave.y, zoomBoxSave.w, zoomBoxSave.h);
+  fitSizeContext.lineWidth = 1.0;
+  fitSizeContext.strokeStyle = "rgb(255,255,255)";
+  fitSizeContext.strokeRect(zoomBoxSave.x, zoomBoxSave.y, zoomBoxSave.w, zoomBoxSave.h);
 }
 
 function repaintOnly() {
@@ -3272,6 +3324,10 @@ window.addEventListener("keyup", function(e) {
       e.key == "Meta"    || e.keyCode == 224 ||
       e.key == "Alt"     || e.keyCode == 18 ||
       e.key == "Control" || e.keyCode == 17) {
+    // deactivate zoom box
+    //if (commandPressed && mouseDrag) {
+    //  mouseDrag = false;
+    //}
     commandPressed = false;
   }
 });
@@ -3612,6 +3668,7 @@ var mouseDownHandler = function(e) {
   if ("button" in e && e.button != 0) {
     return;
   }
+  // shift-click to center the window at that point
   if (shiftPressed) {
     let pixXFloat = Math.round(e.pageX - (fitSizeCanvas.width / 2));
     let pixYFloat = Math.round((fitSizeCanvas.height - e.pageY) - (fitSizeCanvas.height / 2));
@@ -3627,6 +3684,15 @@ var mouseDownHandler = function(e) {
     previewImageOffsetY += pixYFloat;
     drawPreviewImage();
     redraw();
+    return;
+  // alt-drag (command-drag) to draw zoom box
+  } else if (commandPressed) {
+    if (!mouseDrag) {
+      mouseDrag = true;
+    }
+    // reset "start" of zoom box if a drag was already underway
+    mouseDragX = e.pageX;
+    mouseDragY = e.pageY;
     return;
   }
   // if 2 or more fingers touched
@@ -3652,6 +3718,11 @@ var mouseMoveHandler = function(e) {
       let pos = convertPixelPosToPlanePos(e.pageX, e.pageY);
       drawMousePosNotice(pos.x, pos.y);
     }
+    return;
+  }
+  if (commandPressed && mouseDrag) {
+    // draw zoom box
+    drawZoomBox(mouseDragX, mouseDragY, e.pageX, e.pageY);
     return;
   }
 
@@ -3729,6 +3800,15 @@ var mouseUpHandler = function(e) {
   if (windowLock) {
     wiggleWindowLockIcon();
     return;
+  }
+  if (commandPressed && mouseDrag && mouseDragX != e.pageX && mouseDragY != e.pageY) {
+    // zoom into zoom box
+    let firstCorner = convertPixelPosToPlanePos(mouseDragX, mouseDragY);
+    let lastCorner = convertPixelPosToPlanePos(e.pageX, e.pageY);
+    mouseDrag = false;
+    zoomBoxSave.active = false;
+    goToZoomBox(firstCorner.x, firstCorner.y, lastCorner.x, lastCorner.y);
+    // continue into below lines to turn drag/pinch off
   }
   // this might help prevent strange ios/mobile weirdness
   e.preventDefault();

@@ -35,6 +35,7 @@ const windowLogTiming = true;
 const forceWorkerReloadUrlParam = "force-worker-reload=true";
 const forceWorkerReload = window.location.toString().includes(forceWorkerReloadUrlParam);
 var precision = 24;
+const magMaxPrecision = 12;
 var builtGradient = null;
 
 var activePlotAlgorithms = null;
@@ -1151,8 +1152,8 @@ function setRenderSize() {
 function convertScaleToMagnification(scale, magnificationFactor) {
   const smallDimensionPixels = infNum(BigInt(Math.min(dCanvas.width, dCanvas.height)), 0n);
   // magnificationFactor * scale / windowPixels 
-  // 24 significant digits is always enough for magnification, right?
-  return infNumDiv(infNumMul(scale, magnificationFactor), smallDimensionPixels, Math.min(precision, 24));
+  // 12 significant digits is always enough for magnification, right?
+  return infNumDiv(infNumMul(scale, magnificationFactor), smallDimensionPixels, Math.min(precision, magMaxPrecision));
 }
 
 // if the given magnification is very close to the scale, leave it alone
@@ -1173,8 +1174,8 @@ function convertScaleToMagnificationIfNeeded(scale, mag, magnificationFactor) {
   const converted = convertScaleToMagnification(scale, magnificationFactor);
   let needToConvert = true;
   if (mag !== null && "v" in mag && "e" in mag) {
-    // 24 significant digits is always enough for magnification, right?
-    let divPrecis = Math.min(precision, 24);
+    // 12 significant digits is always enough for magnification, right?
+    let divPrecis = Math.min(precision, magMaxPrecision);
     let ratio = infNumGt(converted, mag) ? infNumDiv(converted, mag, divPrecis) : infNumDiv(mag, converted, divPrecis);
     needToConvert = infNumGt(ratio, createInfNum("1.0001"));
   }
@@ -1184,8 +1185,8 @@ function convertScaleToMagnificationIfNeeded(scale, mag, magnificationFactor) {
 function convertMagnificationToScale(magnification, magnificationFactor) {
   const smallDimensionPixels = infNum(BigInt(Math.min(dCanvas.width, dCanvas.height)), 0n);
   // magnifiction * windowPixels / magnificationFactor
-  // 24 significant digits is always enough for scale, right?
-  return infNumDiv(infNumMul(magnification, smallDimensionPixels), magnificationFactor, Math.min(precision, 24));
+  // 12 significant digits is always enough for scale, right?
+  return infNumDiv(infNumMul(magnification, smallDimensionPixels), magnificationFactor, Math.min(precision, magMaxPrecision));
 }
 
 // this is separate so that we can call it with only a subset of params,
@@ -1926,7 +1927,10 @@ function goToZoomBox(aCornerX, aCornerY, bCornerX, bCornerY) {
     topY = bCornerY;
     bottomY = aCornerY;
   }
-  goToBounds(leftX, rightX, topY, bottomY);
+  // for zoom box, restrict to 5 digits of precision because that's plenty for
+  //   scale/magnification and we don't want those values to grow to huge
+  //   precision values as we keep zooming in
+  goToBounds(leftX, rightX, topY, bottomY, 5);
 }
 
 function applyGoToBoundsValues() {
@@ -1966,7 +1970,7 @@ function applyGoToBoundsValues() {
   goToBounds(leftX, rightX, topY, bottomY);
 }
 // must be previously-sanity-checked args
-function goToBounds(leftX, rightX, topY, bottomY) {
+function goToBounds(leftX, rightX, topY, bottomY, restrictPrecision = 0) {
   const diffX = infNumSub(rightX,   leftX);
   const diffY = infNumSub(  topY, bottomY);
   const newCenterX = infNumAdd(  leftX, infNumDiv(diffX, infNum(2n, 0n), precision));
@@ -1975,15 +1979,44 @@ function goToBounds(leftX, rightX, topY, bottomY) {
   const scaleX = infNumDiv(createInfNum(dCanvas.width.toString()), diffX, precision);
   const scaleY = infNumDiv(createInfNum(dCanvas.height.toString()), diffY, precision);
 
-  console.log("X spans [" + infNumToString(diffX) + "] units, thus [" + infNumToString(scaleX) + "] pixels/unit");
-  console.log("Y spans [" + infNumToString(diffY) + "] units, thus [" + infNumToString(scaleY) + "] pixels/unit");
+  //console.log("X spans [" + infNumToString(diffX) + "] units, thus [" + infNumToString(scaleX) + "] pixels/unit");
+  //console.log("Y spans [" + infNumToString(diffY) + "] units, thus [" + infNumToString(scaleY) + "] pixels/unit");
 
   var smaller = scaleX;
   if (infNumLt(scaleY, scaleX)) {
     smaller = scaleY;
   }
 
-  console.log("going with scale of [" + infNumToString(smaller) + "]");
+  //console.log("going with scale of [" + infNumToString(smaller) + "]");
+
+  // for new scale, we may have a new precision value to use (number
+  //   of significant digits) so we'll need to re-do the scale
+  //   calculation
+
+  // use current precision as the default
+  let settings = {precision:precision};
+  const plot = plotsByName[historyParams.plot];
+
+  // if the plot specifies a precision value to use, use that
+  if ("adjustPrecision" in plot.privContext) {
+    settings = plot.privContext.adjustPrecision(smaller, useWorkers);
+  }
+
+  // if this function was called with a restriction on precision,
+  //   use that instead
+  if (restrictPrecision > 0) {
+    settings.precision = restrictPrecision;
+  }
+
+  // if the new precision is not the one we already used in the scale
+  //   calculation, re-calculate it
+  if (settings.precision != precision) {
+    if (infNumEq(smaller, scaleX)) {
+      smaller = infNumDiv(createInfNum(dCanvas.width.toString()), diffX, settings.precision);
+    } else {
+      smaller = infNumDiv(createInfNum(dCanvas.height.toString()), diffY, settings.precision);
+    }
+  }
 
   historyParams.centerX = newCenterX;
   historyParams.centerY = newCenterY;

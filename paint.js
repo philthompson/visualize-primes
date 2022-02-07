@@ -38,6 +38,12 @@ var precision = 24;
 const magMaxPrecision = 12;
 var builtGradient = null;
 
+const animateIntervals = [2, 5, 25, 50, 100, 250, 500, 1000];
+var animationRunning = false;
+var doAnimateLoop = false;
+var animateIntervalMs = 25;
+var animateFrameN = 0;
+
 var activePlotAlgorithms = null;
 
 // since user machines and user needs are different, the number of
@@ -190,6 +196,15 @@ const chunkOrderingControls = document.getElementById("chunk-ordering-controls")
 const chunkOrderSelect = document.getElementById("chunk-order-select");
 const btnChunkOrderGo = document.getElementById("chunk-order-go");
 const btnChunkOrderReset = document.getElementById("chunk-order-reset");
+const animateControls = document.getElementById("animation-controls");
+const animateLoopCb = document.getElementById("animate-loop-cb");
+const animateIntervalSelect = document.getElementById("animate-interval-select");
+const animatePlayPause = document.getElementById("animate-playpause");
+const animateRestart = document.getElementById("animate-restart");
+const animatePlayPausePlay = document.getElementById("animate-playpause-play");
+const animatePlayPausePause = document.getElementById("animate-playpause-pause");
+const animateRestartReset = document.getElementById("animate-restart-reset");
+const animateRestartRewind = document.getElementById("animate-restart-rewind");
 
 var windowLockIconWiggleTimeout = null;
 
@@ -938,10 +953,6 @@ btnAlgoGo.addEventListener("click", function() {
 });
 btnAlgoReset.addEventListener("click", resetAlgorithmInput);
 
-chunkOrderSelect.addEventListener("change", function(e) {
-
-});
-
 function setupChunkOrderSelectControl(selected = chunkOrderOptions[0]) {
   const htmlOptions = [];
   for (let i = 0; i < chunkOrderOptions.length; i++) {
@@ -962,6 +973,75 @@ btnChunkOrderGo.addEventListener("click", function() {
   }
 });
 btnChunkOrderReset.addEventListener("click", resetChunkOrderSelect);
+
+function setupAnimateIntervalSelectControl() {
+  const htmlOptions = [];
+  for (let i = 0; i < animateIntervals.length; i++) {
+    let selected = animateIntervals[i] == animateIntervalMs;
+    htmlOptions.push("<option " + (selected ? "selected" : "") + " value=\"" + animateIntervals[i] + "\">" + animateIntervals[i] + "ms</option>");
+  }
+  animateIntervalSelect.innerHTML = htmlOptions.join("");
+}
+
+animateIntervalSelect.addEventListener("change", function(e) {
+  animateIntervalMs = parseInt(animateIntervalSelect.value);
+  if (animationRunning) {
+    kickoffSequenceAnimation(animateFrameN);
+  }
+});
+
+function toggleAnimateButtonsVisibility(shouldBeVisible) {
+  if (shouldBeVisible) {
+    animatePlayPause.style.display = "block";
+    animateRestart.style.display = "block";
+  } else {
+    animatePlayPause.style.display = "none";
+    animateRestart.style.display = "none";
+  }
+}
+
+animateLoopCb.addEventListener("change", function(e) {
+  doAnimateLoop = animateLoopCb.checked;
+});
+
+animatePlayPause.addEventListener("click", function() {
+  animationRunning = !animationRunning;
+  setPlayPauseIconVisibility();
+  if (animationRunning) {
+    kickoffSequenceAnimation(animateFrameN);
+  } else {
+    window.clearTimeout(windowCalc.timeout);
+  }
+});
+
+function setPlayPauseIconVisibility() {
+  if (animationRunning) {
+    animatePlayPausePlay.style.display = "none";
+    animatePlayPausePause.style.display = "inline";
+    animateRestartRewind.style.display = "inline";
+    animateRestartReset.style.display = "none";
+  } else {
+    animatePlayPausePlay.style.display = "inline";
+    animatePlayPausePause.style.display = "none";
+    if (animateFrameN == 0) {
+      animateRestartRewind.style.display = "none";
+      animateRestartReset.style.display = "inline";
+    } else {
+      animateRestartRewind.style.display = "inline";
+      animateRestartReset.style.display = "none";
+    }
+  }
+}
+
+animateRestart.addEventListener("click", function() {
+  if (animateFrameN > 0) {
+    animateFrameN = 0;
+    fillBg(fitSizeContext);
+  } else {
+    repaintOnly();
+  }
+  setPlayPauseIconVisibility();
+});
 
 function start() {
   stopWorkers();
@@ -1013,6 +1093,8 @@ function start() {
 
   if (plot.calcFrom == "sequence") {
     chunkOrderingControls.style.display = "none";
+    animateControls.style.display = "";
+    toggleAnimateButtonsVisibility(true);
     annotateClickPosition = true;
     // if viewing a sequence plot, ensure there's no window
     //   worker left running
@@ -1032,9 +1114,26 @@ function start() {
     }
 
     resetWindowCalcContext();
-    drawPointsFitSize();
+    setPlayPauseIconVisibility();
+    // restart animation: even if increasing N, we need to restart
+    //   because the line color for each previously-drawn segment
+    //   may not be the same with the new N
+    animateFrameN = 0;
+    if (animationRunning) {
+      // restart animation
+      kickoffSequenceAnimation();
+    } else {
+      drawPointsFitSize();
+    }
   } else if (plot.calcFrom == "window") {
+    // cancel any running animation
+    animationRunning = false;
+    if (windowCalc.timeout !== null) {
+      window.clearTimeout(windowCalc.timeout);
+    }
     chunkOrderingControls.style.display = "";
+    animateControls.style.display = "none";
+    toggleAnimateButtonsVisibility(false);
     annotateClickPosition = false;
     setupGradientSelectControl(windowPlotGradients);
     resetWindowCalcCache();
@@ -1638,7 +1737,14 @@ function redraw() {
       windowCalc.worker = null;
     }
     annotateClickPosition = true;
-    drawPointsFitSize();
+    if (animationRunning) {
+      // re-draw all already drawn points in the animation
+      drawPoints(historyParams, fitSizeContext, fullSizeScaleFactor, 1, 0, animateFrameN+1);
+      // resume animation
+      kickoffSequenceAnimation(animateFrameN);
+    } else {
+      drawPointsFitSize();
+    }
   } else if (plot.calcFrom == "window") {
     annotateClickPosition = false;
     calculateAndDrawWindow();
@@ -1657,7 +1763,7 @@ function drawPointsFullSize() {
   drawPoints(historyParams, dContext, 1, fullSizeScaleFactor);
 }
 
-function drawPoints(params, ctx, scaleFactor, lineWidthFactor) {
+function drawPoints(params, ctx, scaleFactor, lineWidthFactor, pointIndex = 0, numPoints = -1) {
   // change URL bar to reflect current params, only if no params change
   //   for 1/4 second
   if (replaceStateTimeout != null) {
@@ -1671,19 +1777,30 @@ function drawPoints(params, ctx, scaleFactor, lineWidthFactor) {
   // convert scale to float, and below use float version of left/top edges
   const scale = infNumToFloat(params.scale) / scaleFactor;
 
-  fillBg(ctx);
-  console.log("drawing [" + points.length + "] points with a total length of [" + totalLength + "]");
+  if (numPoints != 1) {
+    fillBg(ctx);
+    console.log("drawing [" + points.length + "] points with a total length of [" + totalLength + "]");
+  }
 
   var drawnLength = 0.0;
   var totalLengthScaled = totalLength * scale;
   var lastX = (0.0 - windowCalc.leftEdgeFloat) * scale;
   var lastY = (windowCalc.topEdgeFloat - 0.0) * scale;
+  //if (pointIndex > 0) {
+  //  lastX = (points[pointIndex-1].x - windowCalc.leftEdgeFloat) * scale;
+  //  lastY = (windowCalc.topEdgeFloat - points[pointIndex-1].y) * scale;
+  //}
   var segmentX = 0.0;
   var segmentY = 0.0;
   ctx.lineWidth = lineWidth;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  for (var i = 0; i < points.length; i++) {
+  // when numPoints is -1 (default) draw all points
+  const endIndex = numPoints < 0 ? points.length : pointIndex + numPoints;
+  for (var i = 0; i < endIndex; i++) {
+    if (i >= points.length) {
+      let hey = "now";
+    }
     var x = (points[i].x - windowCalc.leftEdgeFloat) * scale;
     var y = (windowCalc.topEdgeFloat - points[i].y) * scale;
     // use previous point to determine how much of the overall length
@@ -1700,17 +1817,53 @@ function drawPoints(params, ctx, scaleFactor, lineWidthFactor) {
         drawnLength += Math.hypot(segmentX, segmentY);
       }
     }
-    ctx.beginPath();
-    ctx.moveTo(lastX, lastY);
-    //ctx.strokeStyle = getLineColor(drawnLength / totalLengthScaled, params.lineColor);
-    ctx.strokeStyle = applyBuiltGradient(builtGradient, drawnLength / totalLengthScaled);
-    ctx.lineTo(x, y);
-    // stroke every line individually in order to do gradual color gradient
-    ctx.stroke();
+    if (numPoints < 0 || i >= pointIndex) {
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      //ctx.strokeStyle = getLineColor(drawnLength / totalLengthScaled, params.lineColor);
+      ctx.strokeStyle = applyBuiltGradient(builtGradient, drawnLength / totalLengthScaled);
+      ctx.lineTo(x, y);
+      // stroke every line individually in order to do gradual color gradient
+      ctx.stroke();
+    }
     lastX = x;
     lastY = y;
   }
   drawLastZoomBox();
+}
+
+function kickoffSequenceAnimation(startN = 0) {
+  if (windowCalc.timeout != null) {
+    window.clearTimeout(windowCalc.timeout);
+  }
+  if (startN == 0) {
+    fillBg(fitSizeContext);
+  }
+  animateFrameN = startN;
+  windowCalc.timeout = window.setInterval(drawSequenceAnimationFrame, animateIntervalMs);
+}
+
+function drawSequenceAnimationFrame() {
+  if (doAnimateLoop && animateFrameN == 0) {
+    fillBg(fitSizeContext);
+  }
+  // drawing for fit size (not scaling the line width up)
+  drawPoints(historyParams, fitSizeContext, fullSizeScaleFactor, 1, animateFrameN, 1);
+  animateFrameN++;
+  // the number of points to draw is not necessarily equal to N!
+  //   (for example, for primes plot, N=60 means only 20 points
+  //   will exist because there are 20 primes in the first 60
+  //   integers)
+  // so we need to stop/restart animating when we go past the
+  //   number of points, not N
+  if (animateFrameN >= points.length) {
+    animateFrameN = 0;
+    if (!doAnimateLoop && windowCalc.timeout != null) {
+      animationRunning = false;
+      window.clearTimeout(windowCalc.timeout);
+      setPlayPauseIconVisibility();
+    }
+  }
 }
 
 // since the cache lives in the main worker, we can wipe the
@@ -3300,7 +3453,8 @@ function findClosestSequencePoints(x, y) {
   //   need to take the square roots (don't use Math.hypot())
   let closestPointDist = Math.pow(closestPoint.x - x, 2) + Math.pow(closestPoint.y - y, 2);
   let pointDist = null;
-  for (let i = 2; i < points.length; i++) {
+  const pointsToSearch = animationRunning ? animateFrameN : points.length;
+  for (let i = 2; i < pointsToSearch; i++) {
     // square the x distance (for most points, we can skip squaring the y entirely)
     pointDist = Math.pow(points[i].x-x, 2);
     // if the x distance squared is small, add the y distance squared
@@ -3340,7 +3494,14 @@ function drawAnnotationAtPixelPosition(x, y) {
     //   here without calling a full "redraw()"
     // even if we have no closestPoints, we still want to re-draw
     //   because we might be clearing away an old annotation
-    drawPointsFitSize();
+    if (animationRunning) {
+      // re-draw all already drawn points in the animation
+      drawPoints(historyParams, fitSizeContext, fullSizeScaleFactor, 1, 0, animateFrameN+1);
+      // resume animation
+      kickoffSequenceAnimation(animateFrameN);
+    } else {
+      drawPointsFitSize();
+    }
     if (closestPoints.length === 0) {
       return;
     }
@@ -4049,6 +4210,9 @@ function hideFooter() {
 }
 
 setupChunkOrderSelectControl();
+setupAnimateIntervalSelectControl();
+animateLoopCb.checked = doAnimateLoop;
+setPlayPauseIconVisibility();
 // build a gradient here just so the global one isn't left null
 buildGradient("Bw");
 // since scale is determined by magnification, we need to set the

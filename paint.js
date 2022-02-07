@@ -1018,17 +1018,22 @@ function setPlayPauseIconVisibility() {
   if (animationRunning) {
     animatePlayPausePlay.style.display = "none";
     animatePlayPausePause.style.display = "inline";
+    animatePlayPause.title = "pause the animation";
     animateRestartRewind.style.display = "inline";
     animateRestartReset.style.display = "none";
+    animateRestart.title = "restart the animation from the beginning";
   } else {
     animatePlayPausePlay.style.display = "inline";
     animatePlayPausePause.style.display = "none";
+    animatePlayPause.title = "run the animation";
     if (animateFrameN == 0) {
       animateRestartRewind.style.display = "none";
       animateRestartReset.style.display = "inline";
+      animateRestart.title = "redraw the entire plot";
     } else {
       animateRestartRewind.style.display = "inline";
       animateRestartReset.style.display = "none";
+      animateRestart.title = "restart the animation from the beginning";
     }
   }
 }

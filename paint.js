@@ -1742,11 +1742,13 @@ function redraw() {
       windowCalc.worker = null;
     }
     annotateClickPosition = true;
-    if (animationRunning) {
+    if (animateFrameN > 0) {
       // re-draw all already drawn points in the animation
       drawPoints(historyParams, fitSizeContext, fullSizeScaleFactor, 1, 0, animateFrameN+1);
-      // resume animation
-      kickoffSequenceAnimation(animateFrameN);
+      if (animationRunning) {
+        // resume animation
+        kickoffSequenceAnimation(animateFrameN);
+      }
     } else {
       drawPointsFitSize();
     }
@@ -3499,11 +3501,13 @@ function drawAnnotationAtPixelPosition(x, y) {
     //   here without calling a full "redraw()"
     // even if we have no closestPoints, we still want to re-draw
     //   because we might be clearing away an old annotation
-    if (animationRunning) {
+    if (animateFrameN > 0) {
       // re-draw all already drawn points in the animation
       drawPoints(historyParams, fitSizeContext, fullSizeScaleFactor, 1, 0, animateFrameN+1);
-      // resume animation
-      kickoffSequenceAnimation(animateFrameN);
+      if (animationRunning) {
+        // resume animation
+        kickoffSequenceAnimation(animateFrameN);
+      }
     } else {
       drawPointsFitSize();
     }

@@ -3169,6 +3169,14 @@ function recolorSlopeBody(heightFactor = 64, neighborSteps = 1, lightSource = sl
       let hiHeight = colorPct;
       let add = 0;
       for (let sx = -1 * neighborSteps; sx <= neighborSteps; sx++) {
+        if (colorPct == windowCalcBackgroundColor) {
+          // if the pixel is the background color, we don't want to add anything
+          //   to the color's r/g/b
+          // set this so that below (hiHeight - loHeight) -> 1, thus adding 0 to
+          //   each r/g/b
+          loHeight = -2;
+          break;
+        }
         for (let sy = -1 * neighborSteps; sy <= neighborSteps; sy++) {
           if (sx == 0 && sy == 0) {
             continue;

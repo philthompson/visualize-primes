@@ -66,6 +66,10 @@ const floatMath = {
   // do nothing for float here
   truncateToSigDig: function(a, precision = 0) {
     return a;
+  },
+  // returns a float
+  log: function(a) {
+    return Math.log(a);
   }
 };
 
@@ -128,6 +132,10 @@ const floatExpMath = {
   // do nothing for floatexp here
   truncateToSigDig: function(a, precision = 0) {
     return structuredClone(a);
+  },
+  // returns a float
+  log: function(a) {
+    return parseFloat(floatExpToString(floatExpLn(a)));
   }
 };
 

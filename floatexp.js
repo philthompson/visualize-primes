@@ -296,6 +296,53 @@ function floatExpToString(n) {
   return n.v + "e" + n.e;
 }
 
+var FLOATEXP_LN10 = createFloatExpFromNumber(Math.LN10);
+function floatExpLn(a) {
+  const epsilon = floatExpAlign({
+    v: 1,
+    e: -20
+  });
+  // ensure mantissa is in range [1-10)
+  let aligned = floatExpAlign(a);
+  // divide mantissa by 10 to ensure it is in range [0-1)
+  aligned.v /= 10;
+  aligned.e += 1;
+
+  // because ln(xy) = ln(x) + ln(y)
+  //   and our aligned value is now v * 10^e
+  //   (where 0 <= v < 1)
+  // we can add ln(v) + ln(10^e) to find the ln of the given
+  //   floatExp value
+  // since ln(10^e) = log_10(10^e) * ln(10)
+  // therefore
+  // ln(10^e) = e * ln(10)
+  // therefore the ln of the given floatExp value is
+  // ln(v) + e * ln(10)
+
+  // since the mantissa (v) is in the range [0-1) we can calculate
+  //   it using a power series (from wikipedia)
+  // https://en.wikipedia.org/wiki/Logarithm#Power_series
+  const one = createFloatExpFromNumber(1);
+  const two = createFloatExpFromNumber(2);
+  const kLimit = createFloatExpFromNumber(1000);
+  const aMinusOne = floatExpSub(createFloatExpFromNumber(aligned.v), one);
+  let aMinusOnePower = one;
+  let kthTerm = one;
+  let ln = createFloatExpFromNumber(0);
+  let doAdd = false;
+  for (let k = one; floatExpGt(kthTerm, epsilon) && floatExpLt(k, kLimit); k = floatExpAdd(k, one)) {
+    doAdd = !doAdd;
+    aMinusOnePower = floatExpMul(aMinusOnePower, aMinusOne);
+    let kthTerm = floatExpDiv(aMinusOnePower, k);
+    if (doAdd) {
+      ln = floatExpAdd(ln, kthTerm);
+    } else {
+      ln = floatExpSub(ln, kthTerm);
+    }
+  }
+  return floatExpAdd(ln, floatExpMul(createFloatExpFromNumber(aligned.e), FLOATEXP_LN10));
+}
+
 // remove starting here for minify
 if (doUnitTests) {
 

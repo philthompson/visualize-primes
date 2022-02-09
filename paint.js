@@ -2451,7 +2451,7 @@ function calculateAndDrawWindowSync(pixelSize) {
 }
 
 function calculateAndDrawWindow() {
-  if (windowCalc.algorithm == "basic-float") {
+  if (windowCalc.algorithm.includes("basic") && windowCalc.algorithm.includes("float")) {
     // since we are just starting a new image, calculate and draw the first
     //   pass synchronously, so that as the user drags a mouse/finger, or
     //   zooms, the canvas is updated as rapidly as possible
@@ -3105,6 +3105,158 @@ function recolor() {
   // would users change colors (V/B keys) while holding the mouse
   //   down for a zoom box?  who knows
   drawLastZoomBox();
+}
+
+const slopeColorLightTopLeft = 0;
+const slopeColorLightTopRight = 1;
+const slopeColorLightBottomRight = 2;
+const slopeColorLightBottomLeft = 3;
+
+function recolorSlope(heightFactor = 64, neighborSteps = 1, lightSource = "top-left") {
+  let light = slopeColorLightTopLeft;
+  if (lightSource == "top-right") {
+    light = slopeColorLightTopRight;
+  } else if (lightSource == "bottom-right") {
+    light = slopeColorLightBottomRight;
+  } else if (lightSource == "bottom-left") {
+    light = slopeColorLightBottomLeft;
+  }
+  drawStatusNotice(fitSizeContext, "Calculating slope effect for all pixels...");
+  if (windowCalc.timeout !== null) {
+    window.clearTimeout(windowCalc.timeout);
+  }
+  windowCalc.timeout = window.setTimeout(function() {
+    recolorSlopeBody(heightFactor, neighborSteps, light);
+  }, 25);
+}
+
+function recolorSlopeBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeColorLightTopLeft) {
+  if (replaceStateTimeout != null) {
+    window.clearTimeout(replaceStateTimeout);
+  }
+  // ensure this gradient is inserted into the URL bar
+  replaceStateTimeout = window.setTimeout(replaceHistory, 250);
+  resetGradientInput();
+  const fitWidth = fitSizeCanvas.width;
+  const width = dCanvas.width;
+  const height = dCanvas.height;
+  const bgColor = getBgColor(false);
+  let colorPct = -2;
+  let color = null;
+  let pixelOffsetInImage = null;
+  let fitOffset, fitX, fitY;
+  let lastFitY = 31 << 26;
+  let lastFitX = 31 << 26;
+  for (let x = 0; x < width; x++) {
+    fitX = x >> fullSizeScalePower;
+    for (let y = 0; y < height; y++) {
+      colorPct = windowCalc.pixelCache[x][y];
+      if (colorPct === undefined || colorPct == windowCalcIgnorePointColor) {
+        continue;
+      }
+      if (colorPct == windowCalcBackgroundColor) {
+        color = bgColor;
+      } else if (builtGradient.mod == 0) {
+        color = applyBuiltGradient(builtGradient, colorPct, false);
+      } else {
+        color = applyBuiltModGradient(builtGradient, colorPct, false);
+      }
+      // modify color based on surrounding 8 pixels' colorPct
+      // the colorPct (location in gradient BEFORE mod is taken) serves
+      //   as the "height" for 3d-esque "slope" coloring
+      // based on https://fractalforums.org/index.php?topic=3357.msg20215#msg20215
+      let loHeight = colorPct;
+      let hiHeight = colorPct;
+      let add = 0;
+      for (let sx = -1 * neighborSteps; sx <= neighborSteps; sx++) {
+        for (let sy = -1 * neighborSteps; sy <= neighborSteps; sy++) {
+          if (sx == 0 && sy == 0) {
+            continue;
+          }
+          let neighborX = x+sx;
+          let neighborY = y+sy;
+          if (neighborX < 0 || neighborX >= width || neighborY < 0 || neighborY >= height) {
+            continue;
+          }
+          // color/height of surrounding pixel
+          //if ((! (neighborX in windowCalc.pixelCache)) || (! (neighborY in windowCalc.pixelCache[neighborX]))) {
+          //  continue;
+          //}
+          let sColorPct = windowCalc.pixelCache[neighborX][neighborY];
+          if (sColorPct === undefined || sColorPct == windowCalcIgnorePointColor) {
+            continue;
+          }
+          if (sColorPct < loHeight) {
+            loHeight = sColorPct;
+          }
+          if (sColorPct > hiHeight) {
+            hiHeight = sColorPct;
+          }
+          let hd = colorPct - sColorPct; // NOT SURE ON THIS
+          if (lightSource == slopeColorLightBottomLeft || lightSource == slopeColorLightBottomRight) {
+            hd *= -1;
+          }
+          let hdlr = hd;
+          if (lightSource == slopeColorLightTopRight || lightSource == slopeColorLightBottomLeft) {
+            hdlr *= -1;
+          }
+          if (hd > 0) {
+            //const distanceFactor = Math.hypot(sx, sy);
+            //hd /= distanceFactor;
+            if (sx > 0) {
+              add -= hdlr;
+            } else {
+              add += hdlr;
+            }
+            if (sy > 0) {
+              add -= hd;
+            } else {
+              add += hd;
+            }
+          }
+        }
+      }
+      add = add * heightFactor / (hiHeight - loHeight);
+      color.r = Math.min(255, Math.max(0, color.r + add));
+      color.g = Math.min(255, Math.max(0, color.g + add));
+      color.b = Math.min(255, Math.max(0, color.b + add));
+
+      pixelOffsetInImage = ((y * width) + x) * 4;
+      windowCalc.pixelsImage.data[pixelOffsetInImage+0] = color.r;
+      windowCalc.pixelsImage.data[pixelOffsetInImage+1] = color.g;
+      windowCalc.pixelsImage.data[pixelOffsetInImage+2] = color.b;
+      windowCalc.pixelsImage.data[pixelOffsetInImage+3] = 255; // alpha
+      if (fullSizeScalePower == 0) {
+        continue;
+      }
+      fitY = y >> fullSizeScalePower;
+      if (fitY == lastFitY && fitX == lastFitX) {
+        continue;
+      }
+      lastFitX = fitX;
+      lastFitY = fitY;
+      fitOffset = ((fitY * fitWidth) + fitX) * 4;
+      windowCalc.fitImage.data[fitOffset+0] = color.r;
+      windowCalc.fitImage.data[fitOffset+1] = color.g;
+      windowCalc.fitImage.data[fitOffset+2] = color.b;
+      windowCalc.fitImage.data[fitOffset+3] = 255; // alpha
+    }
+  }
+  // doing putImageData() on both images is too time-consuming,
+  //   and especially since the pixelsImage may be several times
+  //   larger than the fitImage, and since the user doesn't actually
+  //   see the pixelsImage (until downloading it) we don't need to
+  //   draw the pixelsImage on the invisible dContext
+  //dContext.putImageData(windowCalc.pixelsImage, 0, 0);
+  if (fullSizeScalePower == 0) {
+    fitSizeContext.putImageData(windowCalc.pixelsImage, 0, 0);
+  } else {
+    fitSizeContext.putImageData(windowCalc.fitImage, 0, 0);
+  }
+  // would users change colors (V/B keys) while holding the mouse
+  //   down for a zoom box?  who knows
+  drawLastZoomBox();
+  console.log("done with recolorSlope");
 }
 
 function drawZoomBox(aPixX, aPixY, bPixX, bPixY) {

@@ -39,10 +39,16 @@ const plots = [{
   "computeBoundPointColor": function(n, precis, algorithm, x, y) {
 
     const maxIter = n;
+    const useSmooth = algorithm.includes("smooth");
 
     // for absolute fastest speed, we'll keep a separate version of the
     //   regular floating point basic algorithm
-    if (algorithm == "basic-float") {
+    if (algorithm.includes("basic") && algorithm.includes("float")) {
+      // a squared bailout of 16 or 32 looks ok for smooth coloring, but
+      //   when slope coloring is then applied, banding occurs.  using
+      //   even larger squared bailout (64? 128? higher?) seems to
+      //   reduce banding artifacts for smooth+slope coloring
+      const bailoutSquared = useSmooth ? (24*24) : 4;
       // truncating to 15 decimal digits here is equivalent to truncating
       //   to 16 significant digits, but it's more efficient to do both at once
       //let xFloat = typeof x == "number" ? x : parseFloat(infNumExpStringTruncToLen(x, 18));
@@ -56,7 +62,7 @@ const plots = [{
       while (iter < maxIter) {
         ixSq = ix * ix;
         iySq = iy * iy;
-        if (ixSq + iySq > 4) {
+        if (ixSq + iySq > bailoutSquared) {
           break;
         }
         ixTemp = x + (ixSq - iySq);
@@ -65,9 +71,18 @@ const plots = [{
         iter++;
       }
 
-      if (iter == maxIter) {
+
+      if (iter >= maxIter) {
         return windowCalcBackgroundColor;
       } else {
+        // smooth coloring (adding fractional component to integer iteration count)
+        //   based on pseudocode on wikipedia:
+        //   https://en.wikipedia.org/wiki/Plotting_algorithms_for_the_Mandelbrot_set#Continuous_(smooth)_coloring
+        if (useSmooth) {
+          let fracIter = Math.log(ixSq + iySq) / 2;
+          fracIter = Math.log(fracIter / Math.LN2) / Math.LN2;
+          iter += 1 - fracIter; 
+        }
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
         return iter;
       }
@@ -117,6 +132,8 @@ const plots = [{
     const outputMath = selectMathInterfaceFromAlgorithm(algorithm);
     const outputIsFloatExp = outputMath.name == "floatexp";
 
+    const useSmooth = algorithm.includes("smooth");
+
     const periodLessThanN = period !== null && period > 0 && period < n;
     const maxIter = periodLessThanN ? period : n;
     const two = infNum(2n, 0n);
@@ -125,7 +142,7 @@ const plots = [{
     // try using slightly larger bailout (4) for ref orbit
     //   than for perturb orbit (which uses smallest possible
     //   bailout of 2)
-    const bailoutSquared = sixteen;
+    const bailoutSquared = useSmooth ? infNum(24n*24n*2n, 0n) : sixteen;
 
     // fnContext allows the loop to be done piecemeal
     if (fnContext === null) {
@@ -718,6 +735,10 @@ const plots = [{
 
     const math = selectMathInterfaceFromAlgorithm(algorithm);
 
+    const useSmooth = algorithm.includes("smooth");
+
+    const bailoutSquared = useSmooth ? math.createFromNumber(64) : math.four;
+
     // this function is used for both:
     //   "bla-float"    : BLA+perturb, and for
     //   "perturb-float": perturb only
@@ -820,7 +841,7 @@ const plots = [{
 
         z = math.complexAdd(referenceOrbit[referenceIter], deltaZ);
         zAbs = math.complexAbsSquared(z);
-        if (math.gt(zAbs, math.four)) {
+        if (math.gt(zAbs, bailoutSquared)) {
           iter--;
           break;
         }
@@ -879,6 +900,17 @@ const plots = [{
       if (iter == maxIter) {
         return {colorpct: windowCalcBackgroundColor, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};
       } else {
+        // smooth coloring (adding fractional component to integer iteration count)
+        //   based on pseudocode on wikipedia:
+        //   https://en.wikipedia.org/wiki/Plotting_algorithms_for_the_Mandelbrot_set#Continuous_(smooth)_coloring
+        if (useSmooth) {
+          // math.log() always return the natural log as a floating point value,
+          //   so we can use regular floating point math to find the fractional
+          //   part to add to the iteration count
+          let fracIter = math.log(math.complexAbsSquared(z)) / 2;
+          fracIter = Math.log(fracIter / Math.LN2) / Math.LN2;
+          iter += 1 - fracIter;
+        }
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
         return {colorpct: iter, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};
       }

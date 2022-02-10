@@ -3168,7 +3168,7 @@ function recolorSlopeBody(heightFactor = 64, neighborSteps = 1, lightSource = sl
       let loHeight = colorPct;
       let hiHeight = colorPct;
       let add = 0;
-      for (let sx = -1 * neighborSteps; sx <= neighborSteps; sx++) {
+      for (let sx = 0; sx <= neighborSteps; sx++) {
         if (colorPct == windowCalcBackgroundColor) {
           // if the pixel is the background color, we don't want to add anything
           //   to the color's r/g/b
@@ -3177,7 +3177,7 @@ function recolorSlopeBody(heightFactor = 64, neighborSteps = 1, lightSource = sl
           loHeight = -2;
           break;
         }
-        for (let sy = -1 * neighborSteps; sy <= neighborSteps; sy++) {
+        for (let sy = 0; sy <= neighborSteps; sy++) {
           if (sx == 0 && sy == 0) {
             continue;
           }
@@ -3208,7 +3208,7 @@ function recolorSlopeBody(heightFactor = 64, neighborSteps = 1, lightSource = sl
           if (lightSource == slopeColorLightTopRight || lightSource == slopeColorLightBottomLeft) {
             hdlr *= -1;
           }
-          if (hd > 0) {
+          //if (hd > 0) {
             //const distanceFactor = Math.hypot(sx, sy);
             //hd /= distanceFactor;
             if (sx > 0) {
@@ -3221,7 +3221,7 @@ function recolorSlopeBody(heightFactor = 64, neighborSteps = 1, lightSource = sl
             } else {
               add += hd;
             }
-          }
+          //}
         }
       }
       add = add * heightFactor / (hiHeight - loHeight);
@@ -3264,7 +3264,7 @@ function recolorSlopeBody(heightFactor = 64, neighborSteps = 1, lightSource = sl
   // would users change colors (V/B keys) while holding the mouse
   //   down for a zoom box?  who knows
   drawLastZoomBox();
-  console.log("done with recolorSlope");
+  console.log("done with recolorSlopeBody");
 }
 
 function drawZoomBox(aPixX, aPixY, bPixX, bPixY) {

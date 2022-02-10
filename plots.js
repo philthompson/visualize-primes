@@ -48,7 +48,7 @@ const plots = [{
       //   when slope coloring is then applied, banding occurs.  using
       //   even larger squared bailout (64? 128? higher?) seems to
       //   reduce banding artifacts for smooth+slope coloring
-      const bailoutSquared = useSmooth ? (24*24) : 4;
+      const bailoutSquared = useSmooth ? (32*32) : 4;
       // truncating to 15 decimal digits here is equivalent to truncating
       //   to 16 significant digits, but it's more efficient to do both at once
       //let xFloat = typeof x == "number" ? x : parseFloat(infNumExpStringTruncToLen(x, 18));
@@ -142,7 +142,9 @@ const plots = [{
     // try using slightly larger bailout (4) for ref orbit
     //   than for perturb orbit (which uses smallest possible
     //   bailout of 2)
-    const bailoutSquared = useSmooth ? infNum(24n*24n*2n, 0n) : sixteen;
+    // for smooth coloring, our bailout is much larger (32*32)
+    //   so our ref orbit bailout must be larger than than (32*32*2)
+    const bailoutSquared = useSmooth ? infNum(32n*32n*2n, 0n) : sixteen;
 
     // fnContext allows the loop to be done piecemeal
     if (fnContext === null) {
@@ -737,7 +739,7 @@ const plots = [{
 
     const useSmooth = algorithm.includes("smooth");
 
-    const bailoutSquared = useSmooth ? math.createFromNumber(64) : math.four;
+    const bailoutSquared = useSmooth ? math.createFromNumber(32*32) : math.four;
 
     // this function is used for both:
     //   "bla-float"    : BLA+perturb, and for

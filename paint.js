@@ -187,6 +187,7 @@ const gradCtx = gradCanvas.getContext('2d');
 const gradAddColorChar = document.getElementById("grad-add-color-char");
 const gradAddColorColor = document.getElementById("grad-add-color-color");
 const gradAddColorGo = document.getElementById("grad-add-color-go");
+const smoothSlopeControls = document.getElementById("smooth-slope-controls");
 const gradSmoothCb = document.getElementById("grad-smooth-cb");
 const gradSlopeSelect = document.getElementById("grad-slope-select");
 const gradSlopeDepth = document.getElementById("grad-slope-depth");
@@ -1094,15 +1095,9 @@ function start() {
   if (params.plot.startsWith("Mandelbrot")) {
     blogLinkMain.style.display = "none";
     blogLinkMandel.style.display = "";
-    detailsWorkersControls.style.display = "";
-    if (!useWorkers) {
-      document.getElementById("workers-warning").style.display = "";
-    }
   } else {
     blogLinkMain.style.display = "";
     blogLinkMandel.style.display = "none";
-    detailsWorkersControls.style.display = "none";
-    document.getElementById("workers-warning").style.display = "none";
   }
 
   setDScaleVars(true);
@@ -1122,8 +1117,11 @@ function start() {
   }
 
   if (plot.calcFrom == "sequence") {
+    detailsWorkersControls.style.display = "none";
+    document.getElementById("workers-warning").style.display = "none";
     chunkOrderingControls.style.display = "none";
     animateControls.style.display = "";
+    smoothSlopeControls.style.display = "none";
     toggleAnimateButtonsVisibility(true);
     annotateClickPosition = true;
     // if viewing a sequence plot, ensure there's no window
@@ -1161,8 +1159,13 @@ function start() {
     if (windowCalc.timeout !== null) {
       window.clearTimeout(windowCalc.timeout);
     }
+    detailsWorkersControls.style.display = "";
+    if (!useWorkers) {
+      document.getElementById("workers-warning").style.display = "";
+    }
     chunkOrderingControls.style.display = "";
     animateControls.style.display = "none";
+    smoothSlopeControls.style.display = "";
     toggleAnimateButtonsVisibility(false);
     annotateClickPosition = false;
     setupGradientSelectControl(windowPlotGradients);

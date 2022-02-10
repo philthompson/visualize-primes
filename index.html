@@ -487,11 +487,7 @@
             <br/>
             "roygbv-mirror1" creates a gradient with "roygbvbgyor"<br/>
             <br/>
-            "roygbv-width25-offset75" creates a rainbow gradient squeezed down to 25% of the available width, and moved all the way to the top end of the available width<br/>
-            <br/>
-            The "smooth" option creates smooth transitions between colors, and is especially useful with the "slope shading" options.<br/>
-            <br/>
-            The "slope shading" option uses the final image to compute a local slope value for each pixel based on its neighboring pixels, and uses that information to add highlights and shadows.  This creates a 3D shading effect similar to relief carving.  Choose the location of the light source, and a depth value between 1 and 64.
+            "roygbv-width25-offset75" creates a rainbow gradient squeezed down to 25% of the available width, and moved all the way to the top end of the available width
           </details>
           <div>
             <table>
@@ -500,12 +496,25 @@
               <tr><td>gradient:</td><td><textarea rows="4" id="grad-grad"></textarea></td></tr>
               <tr><td>preset:</td><td><select style="font-size:1.2rem;" id="gradient-select"></select></td></tr>
               <tr><td>add color:</td><td><input id="grad-add-color-char" size="1" maxlength="2" placeholder="A"/><input id="grad-add-color-color" type="color"/><button id="grad-add-color-go">Add</button></td></tr>
+            </table>
+            <button id="grad-go">Go</button>
+            <button id="grad-reset">Reset to Current Gradient</button>
+          </div>
+        </details>
+        <details id="smooth-slope-controls">
+          <summary>smooth and slope</summary>
+          <details class="help-text">
+            <summary>?</summary>
+            The "smooth" option creates smooth transitions between colors, and is especially useful with the "slope shading" options.<br/>
+            <br/>
+            The "slope shading" option uses the final image to compute a local slope value for each pixel based on its neighboring pixels, and uses that information to add highlights and shadows.  This creates a 3D shading effect similar to relief carving.  Choose the location of the light source, and a depth value between 1 and 64.
+          </details>
+          <div>
+            <table>
               <tr><td>smooth:</td><td><input id="grad-smooth-cb" type="checkbox" /><small>&nbsp;(changing causes full re-render)</small></td></tr>
               <tr><td>slope shading:</td><td><select style="font-size:0.9rem;" id="grad-slope-select"></select>&nbsp;<small>(smooth recommended)</small></td></tr>
               <tr><td>slope depth:</td><td><input size="4" id="grad-slope-depth"/>&nbsp;<small>1-64</small></td></tr>
             </table>
-            <button id="grad-go">Go</button>
-            <button id="grad-reset">Reset to Current Gradient</button>
           </div>
         </details>
         <details id="workers-controls">

@@ -36,10 +36,9 @@ const plots = [{
     "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower.",
   "gradientType": "mod",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeBoundPointColor": function(n, precis, algorithm, x, y) {
+  "computeBoundPointColor": function(n, precis, algorithm, x, y, useSmooth) {
 
     const maxIter = n;
-    const useSmooth = algorithm.includes("smooth");
 
     // for absolute fastest speed, we'll keep a separate version of the
     //   regular floating point basic algorithm
@@ -127,12 +126,10 @@ const plots = [{
     }
   },
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeReferenceOrbit": function(n, precis, algorithm, x, y, period, fnContext) {
+  "computeReferenceOrbit": function(n, precis, algorithm, x, y, period, useSmooth, fnContext) {
 
     const outputMath = selectMathInterfaceFromAlgorithm(algorithm);
     const outputIsFloatExp = outputMath.name == "floatexp";
-
-    const useSmooth = algorithm.includes("smooth");
 
     const periodLessThanN = period !== null && period > 0 && period < n;
     const maxIter = periodLessThanN ? period : n;
@@ -733,11 +730,9 @@ const plots = [{
 
   },
   // x, y, referenceX, and referenceY must be infNum objects of a coordinate in the abstract plane being computed upon
-  "computeBoundPointColorPerturbOrBla": function(n, precis, dx, dy, algorithm, referenceX, referenceY, referenceOrbit, blaTables, saCoefficients) {
+  "computeBoundPointColorPerturbOrBla": function(n, precis, dx, dy, algorithm, referenceX, referenceY, referenceOrbit, blaTables, saCoefficients, useSmooth) {
 
     const math = selectMathInterfaceFromAlgorithm(algorithm);
-
-    const useSmooth = algorithm.includes("smooth");
 
     const bailoutSquared = useSmooth ? math.createFromNumber(32*32) : math.four;
 

@@ -91,6 +91,15 @@ if (!window.structuredClone) {
 }
 
 const chunkOrderOptions = ["random", "center first", "left to right"];
+const slopeLightDirOptions = [
+  {name: "Off", value: "off"},
+  {name: "Top Left", value: "tl"},
+  {name: "Top Right", value: "tr"},
+  {name: "Bottom Left", value: "bl"},
+  {name: "Bottom Right", value: "br"}
+];
+var slopeLightDir = "off";
+var slopeDepth = 12;
 
 const startPassNumber = 0;
 
@@ -143,7 +152,8 @@ const windowCalc = {
   referenceBottomLeftDeltaY: null,
   putImageSkip: null,
   putImageSkipSkips: null,
-  chunkOrdering: chunkOrderOptions[0]
+  chunkOrdering: chunkOrderOptions[0],
+  smooth: false
 };
 var windowCalcRepeat = -1;
 var windowCalcTimes = [];
@@ -177,6 +187,9 @@ const gradCtx = gradCanvas.getContext('2d');
 const gradAddColorChar = document.getElementById("grad-add-color-char");
 const gradAddColorColor = document.getElementById("grad-add-color-color");
 const gradAddColorGo = document.getElementById("grad-add-color-go");
+const gradSmoothCb = document.getElementById("grad-smooth-cb");
+const gradSlopeSelect = document.getElementById("grad-slope-select");
+const gradSlopeDepth = document.getElementById("grad-slope-depth");
 const workersSelect = document.getElementById("workers-select");
 const detailsWorkersControls = document.getElementById("workers-controls");
 const gradientSelect = document.getElementById("gradient-select");
@@ -862,6 +875,18 @@ function parseUrlParams() {
     if (urlParams.has("algo")) {
       params.algorithm = urlParams.get("algo");
     }
+    if (urlParams.has("smooth")) {
+      windowCalc.smooth = urlParams.get("smooth") == "1";
+    }
+    if (urlParams.has("slopeLightDir") && ["tl","tr","bl","br"].includes(urlParams.get("slopeLightDir"))) {
+      slopeLightDir = urlParams.get("slopeLightDir");
+    }
+    if (urlParams.has("slopeDepth")) {
+      let depth = parseInt(urlParams.get("slopeDepth"));
+      if (depth > 0 && depth < 65) {
+        slopeDepth = depth;
+      }
+    }
   }
   // build the default gradient if one wasn't provided
   if (typeof params.gradient == "string") {
@@ -1308,6 +1333,13 @@ function replaceHistoryWithParams(params) {
   // do not include lineWidth for window plots
   if (isCurrentPlotAWindowPlot()) {
     delete paramsCopy.lineWidth;
+  }
+  if (windowCalc.smooth) {
+    paramsCopy.smooth = "1";
+  }
+  if (slopeLightDir != "off") {
+    paramsCopy.slopeLightDir = slopeLightDir;
+    paramsCopy.slopeDepth = slopeDepth;
   }
   paramsCopy.gradient = paramsCopy.gradient.str;
   paramsCopy.centerX = infNumExpStringTruncToLen(params.centerX, precision);
@@ -2361,6 +2393,9 @@ var calcWorkerOnmessage = function(e) {
     if (e.data.calcStatus.running) {
       drawStartingPassNotice();
     } else {
+      if (slopeLightDir !== "off") {
+        recolorSlope(slopeDepth, 1, slopeLightDir);
+      }
       if (windowLogTiming) {
         windowLogOverallImage();
         if (windowCalcRepeat > 1) {
@@ -2553,6 +2588,7 @@ function kickoffWindowWorker() {
   workerCalc.workers = workersCount;
   workerCalc.plotId = windowCalc.plotId;
   workerCalc.chunkOrdering = windowCalc.chunkOrdering;
+  workerCalc.smooth = windowCalc.smooth;
 
   windowCalc.worker.postMessage({"t": "worker-calc", "v": workerCalc});
 }
@@ -2675,6 +2711,61 @@ gradAddColorGo.addEventListener("click", function() {
   }
   updateGradientPreview();
 });
+
+function setupGradSlopeSelectControl() {
+  const htmlOptions = [];
+  for (let i = 0; i < slopeLightDirOptions.length; i++) {
+    const isSelected = slopeLightDir == slopeLightDirOptions[i].value;
+    htmlOptions.push("<option " + (isSelected ? "selected" : "") + " value=\"" + slopeLightDirOptions[i].value + "\">" + slopeLightDirOptions[i].name + "</option>");
+  }
+  gradSlopeSelect.innerHTML = htmlOptions.join("");
+}
+
+gradSlopeSelect.addEventListener("change", function() {
+  slopeLightDir = gradSlopeSelect.value;
+//  if (slopeLightDir !== "off") {
+//    recolorSlope(slopeDepth, 1, slopeLightDir);
+//  } else {
+  recolor();
+//  }
+});
+
+gradSmoothCb.addEventListener("change", function() {
+  windowCalc.smooth = gradSmoothCb.checked;
+  redraw();
+});
+
+const digitRegex = /[0-9]/;
+function enforceGradSlopeDepth() {
+  if (gradSlopeDepth.value == "") {
+    return;
+  }
+  let fixed = "";
+  for (let i = 0; i < gradSlopeDepth.value.length && i < 10; i++) {
+    if (gradSlopeDepth.value.charAt(i).match(digitRegex) !== null) {
+      fixed += gradSlopeDepth.value.charAt(i);
+    }
+  }
+  gradSlopeDepth.value = fixed;
+  let parsed = parseInt(gradSlopeDepth.value);
+  if (parsed > 0 && parsed < 65) {
+    slopeDepth = gradSlopeDepth.value;
+    gradSlopeDepth.placeholder = "";
+    //if (slopeLightDir !== "off") {
+    //  recolorSlope(slopeDepth, 1, slopeLightDir);
+    //} else {
+    recolor();
+    //}
+  } else {
+    gradSlopeDepth.placeholder = "invalid";
+    gradSlopeDepth.value = "";
+  }
+}
+
+gradSlopeDepth.addEventListener("change", enforceGradSlopeDepth);
+gradSlopeDepth.addEventListener("input", enforceGradSlopeDepth);
+gradSlopeDepth.addEventListener("propertychange", enforceGradSlopeDepth);
+gradSlopeDepth.addEventListener("paste", enforceGradSlopeDepth);
 
 function handleNewWindowLockState() {
   if (windowLock) {
@@ -3040,71 +3131,13 @@ function drawColorPoints(windowPoints, pixelSize) {
 }
 
 function recolor() {
-  if (replaceStateTimeout != null) {
-    window.clearTimeout(replaceStateTimeout);
-  }
-  // ensure this gradient is inserted into the URL bar
-  replaceStateTimeout = window.setTimeout(replaceHistory, 250);
-  resetGradientInput();
-  const fitWidth = fitSizeCanvas.width;
-  const width = dCanvas.width;
-  const height = dCanvas.height;
-  const bgColor = getBgColor(false);
-  let colorPct = -2;
-  let color = null;
-  let pixelOffsetInImage = null;
-  let fitOffset, fitX, fitY;
-  let lastFitY = 31 << 26;
-  let lastFitX = 31 << 26;
-  for (let x = 0; x < width; x++) {
-    fitX = x >> fullSizeScalePower;
-    for (let y = 0; y < height; y++) {
-      colorPct = windowCalc.pixelCache[x][y];
-      if (colorPct === undefined || colorPct == windowCalcIgnorePointColor) {
-        continue;
-      }
-      if (colorPct == windowCalcBackgroundColor) {
-        color = bgColor;
-      } else if (builtGradient.mod == 0) {
-        color = applyBuiltGradient(builtGradient, colorPct, false);
-      } else {
-        color = applyBuiltModGradient(builtGradient, colorPct, false);
-      }
-      pixelOffsetInImage = ((y * width) + x) * 4;
-      windowCalc.pixelsImage.data[pixelOffsetInImage+0] = color.r;
-      windowCalc.pixelsImage.data[pixelOffsetInImage+1] = color.g;
-      windowCalc.pixelsImage.data[pixelOffsetInImage+2] = color.b;
-      windowCalc.pixelsImage.data[pixelOffsetInImage+3] = 255; // alpha
-      if (fullSizeScalePower == 0) {
-        continue;
-      }
-      fitY = y >> fullSizeScalePower;
-      if (fitY == lastFitY && fitX == lastFitX) {
-        continue;
-      }
-      lastFitX = fitX;
-      lastFitY = fitY;
-      fitOffset = ((fitY * fitWidth) + fitX) * 4;
-      windowCalc.fitImage.data[fitOffset+0] = color.r;
-      windowCalc.fitImage.data[fitOffset+1] = color.g;
-      windowCalc.fitImage.data[fitOffset+2] = color.b;
-      windowCalc.fitImage.data[fitOffset+3] = 255; // alpha
-    }
-  }
-  // doing putImageData() on both images is too time-consuming,
-  //   and especially since the pixelsImage may be several times
-  //   larger than the fitImage, and since the user doesn't actually
-  //   see the pixelsImage (until downloading it) we don't need to
-  //   draw the pixelsImage on the invisible dContext
-  //dContext.putImageData(windowCalc.pixelsImage, 0, 0);
-  if (fullSizeScalePower == 0) {
-    fitSizeContext.putImageData(windowCalc.pixelsImage, 0, 0);
+  if (slopeLightDir !== "off" && windowCalc.endTimeMs > 0) {
+    // color with slope shading, after slight delay so we can
+    //   paint a message on screen
+    recolorSlope(slopeDepth, 1, slopeLightDir);
   } else {
-    fitSizeContext.putImageData(windowCalc.fitImage, 0, 0);
+    recolorBody(0, 0); // color without slope, immediately
   }
-  // would users change colors (V/B keys) while holding the mouse
-  //   down for a zoom box?  who knows
-  drawLastZoomBox();
 }
 
 const slopeColorLightTopLeft = 0;
@@ -3112,13 +3145,13 @@ const slopeColorLightTopRight = 1;
 const slopeColorLightBottomRight = 2;
 const slopeColorLightBottomLeft = 3;
 
-function recolorSlope(heightFactor = 64, neighborSteps = 1, lightSource = "top-left") {
+function recolorSlope(heightFactor = 64, neighborSteps = 1, lightSource = "tl") {
   let light = slopeColorLightTopLeft;
-  if (lightSource == "top-right") {
+  if (lightSource == "tr") {
     light = slopeColorLightTopRight;
-  } else if (lightSource == "bottom-right") {
+  } else if (lightSource == "br") {
     light = slopeColorLightBottomRight;
-  } else if (lightSource == "bottom-left") {
+  } else if (lightSource == "bl") {
     light = slopeColorLightBottomLeft;
   }
   drawStatusNotice(fitSizeContext, "Calculating slope effect for all pixels...");
@@ -3126,11 +3159,11 @@ function recolorSlope(heightFactor = 64, neighborSteps = 1, lightSource = "top-l
     window.clearTimeout(windowCalc.timeout);
   }
   windowCalc.timeout = window.setTimeout(function() {
-    recolorSlopeBody(heightFactor, neighborSteps, light);
+    recolorBody(heightFactor, neighborSteps, light);
   }, 25);
 }
 
-function recolorSlopeBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeColorLightTopLeft) {
+function recolorBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeColorLightTopLeft) {
   if (replaceStateTimeout != null) {
     window.clearTimeout(replaceStateTimeout);
   }
@@ -3161,73 +3194,75 @@ function recolorSlopeBody(heightFactor = 64, neighborSteps = 1, lightSource = sl
       } else {
         color = applyBuiltModGradient(builtGradient, colorPct, false);
       }
-      // modify color based on surrounding 8 pixels' colorPct
-      // the colorPct (location in gradient BEFORE mod is taken) serves
-      //   as the "height" for 3d-esque "slope" coloring
-      // based on https://fractalforums.org/index.php?topic=3357.msg20215#msg20215
-      let loHeight = colorPct;
-      let hiHeight = colorPct;
-      let add = 0;
-      for (let sx = 0; sx <= neighborSteps; sx++) {
-        if (colorPct == windowCalcBackgroundColor) {
-          // if the pixel is the background color, we don't want to add anything
-          //   to the color's r/g/b
-          // set this so that below (hiHeight - loHeight) -> 1, thus adding 0 to
-          //   each r/g/b
-          loHeight = -2;
-          break;
-        }
-        for (let sy = 0; sy <= neighborSteps; sy++) {
-          if (sx == 0 && sy == 0) {
-            continue;
+      if (neighborSteps > 0) {
+        // modify color based on neighboring pixels' colorPct
+        // the colorPct (location in gradient BEFORE mod is taken) serves
+        //   as the "height" for 3d-esque "slope" shading
+        // based on https://fractalforums.org/index.php?topic=3357.msg20215#msg20215
+        let loHeight = colorPct;
+        let hiHeight = colorPct;
+        let add = 0;
+        for (let sx = 0; sx <= neighborSteps; sx++) {
+          if (colorPct == windowCalcBackgroundColor) {
+            // if the pixel is the background color, we don't want to add anything
+            //   to the color's r/g/b
+            // set this so that below (hiHeight - loHeight) -> 1, thus adding 0 to
+            //   each r/g/b, so we set it to -2 here
+            loHeight = -2;
+            break;
           }
-          let neighborX = x+sx;
-          let neighborY = y+sy;
-          if (neighborX < 0 || neighborX >= width || neighborY < 0 || neighborY >= height) {
-            continue;
-          }
-          // color/height of surrounding pixel
-          //if ((! (neighborX in windowCalc.pixelCache)) || (! (neighborY in windowCalc.pixelCache[neighborX]))) {
-          //  continue;
-          //}
-          let sColorPct = windowCalc.pixelCache[neighborX][neighborY];
-          if (sColorPct === undefined || sColorPct == windowCalcIgnorePointColor) {
-            continue;
-          }
-          if (sColorPct < loHeight) {
-            loHeight = sColorPct;
-          }
-          if (sColorPct > hiHeight) {
-            hiHeight = sColorPct;
-          }
-          let hd = colorPct - sColorPct; // NOT SURE ON THIS
-          if (lightSource == slopeColorLightBottomLeft || lightSource == slopeColorLightBottomRight) {
-            hd *= -1;
-          }
-          let hdlr = hd;
-          if (lightSource == slopeColorLightTopRight || lightSource == slopeColorLightBottomLeft) {
-            hdlr *= -1;
-          }
-          //if (hd > 0) {
-            //const distanceFactor = Math.hypot(sx, sy);
-            //hd /= distanceFactor;
-            if (sx > 0) {
-              add -= hdlr;
-            } else {
-              add += hdlr;
+          for (let sy = 0; sy <= neighborSteps; sy++) {
+            if (sx == 0 && sy == 0) {
+              continue;
             }
-            if (sy > 0) {
-              add -= hd;
-            } else {
-              add += hd;
+            let neighborX = x+sx;
+            let neighborY = y+sy;
+            if (neighborX < 0 || neighborX >= width || neighborY < 0 || neighborY >= height) {
+              continue;
             }
-          //}
+            // color/height of surrounding pixel
+            //if ((! (neighborX in windowCalc.pixelCache)) || (! (neighborY in windowCalc.pixelCache[neighborX]))) {
+            //  continue;
+            //}
+            let sColorPct = windowCalc.pixelCache[neighborX][neighborY];
+            if (sColorPct === undefined || sColorPct == windowCalcIgnorePointColor) {
+              continue;
+            }
+            if (sColorPct < loHeight) {
+              loHeight = sColorPct;
+            }
+            if (sColorPct > hiHeight) {
+              hiHeight = sColorPct;
+            }
+            let hd = colorPct - sColorPct; // NOT SURE ON THIS
+            if (lightSource == slopeColorLightBottomLeft || lightSource == slopeColorLightBottomRight) {
+              hd *= -1;
+            }
+            let hdlr = hd;
+            if (lightSource == slopeColorLightTopRight || lightSource == slopeColorLightBottomLeft) {
+              hdlr *= -1;
+            }
+            //if (hd > 0) {
+              //const distanceFactor = Math.hypot(sx, sy);
+              //hd /= distanceFactor;
+              if (sx > 0) {
+                add -= hdlr;
+              } else {
+                add += hdlr;
+              }
+              if (sy > 0) {
+                add -= hd;
+              } else {
+                add += hd;
+              }
+            //}
+          }
         }
+        add = add * heightFactor / (hiHeight - loHeight);
+        color.r = Math.min(255, Math.max(0, color.r + add));
+        color.g = Math.min(255, Math.max(0, color.g + add));
+        color.b = Math.min(255, Math.max(0, color.b + add));
       }
-      add = add * heightFactor / (hiHeight - loHeight);
-      color.r = Math.min(255, Math.max(0, color.r + add));
-      color.g = Math.min(255, Math.max(0, color.g + add));
-      color.b = Math.min(255, Math.max(0, color.b + add));
 
       pixelOffsetInImage = ((y * width) + x) * 4;
       windowCalc.pixelsImage.data[pixelOffsetInImage+0] = color.r;
@@ -4388,4 +4423,7 @@ buildGradient("Bw");
 //   canvas size before parsing URL parameters
 setDScaleVarsNoScale();
 parseUrlParams();
+gradSmoothCb.checked = windowCalc.smooth;
+gradSlopeDepth.value = slopeDepth;
+setupGradSlopeSelectControl();
 start();

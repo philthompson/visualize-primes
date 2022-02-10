@@ -43,12 +43,14 @@ var saCoefficients = null;
 var mathPlotId = null;
 var math = null;
 var algorithm = null;
+var smooth = null;
 
 self.onmessage = function(e) {
   if (e.data.t == "compute-chunk") {
     lastComputeChunkMsg = e.data.v;
-    // this is always set to whatever is in the last chunk message
+    // these are always set to whatever is in the last chunk message
     algorithm = lastComputeChunkMsg.algorithm;
+    smooth = lastComputeChunkMsg.smooth;
 
     if (referencePlotId !== null && lastComputeChunkMsg.chunk.plotId !== referencePlotId) {
       referenceOrbit = null;
@@ -156,7 +158,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
 
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, algorithm, px, py);
+          results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, algorithm, px, py, smooth);
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result
@@ -200,7 +202,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          let pixelResult = blaFn(chunk.chunkN, chunk.chunkPrecision, dx, dy, algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients);
+          let pixelResult = blaFn(chunk.chunkN, chunk.chunkPrecision, dx, dy, algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients, smooth);
           results[i] = pixelResult.colorpct;
           blaPixelsCount++;
           blaIterationsSkipped += pixelResult.blaItersSkipped;

@@ -90,6 +90,7 @@ const windowCalc = {
   "referenceOrbit": null,
   "referenceOrbitPrecision": null,
   "referenceOrbitN": null,
+  "referenceOrbitSmooth": null,
   "referenceBlaTables": null,
   "referenceBlaN": null,
   "referenceBottomLeftDeltaX": null,
@@ -105,7 +106,8 @@ const windowCalc = {
   "setupStageState": null,
   "setupStageIsStarted": null,
   "setupStageIsFinished": null,
-  "caching" : null
+  "caching" : null,
+  "smooth": null
 };
 
 // long-running setup tasks are split in chunks, and we use the state
@@ -177,6 +179,7 @@ function runCalc(msg) {
   windowCalc.canvasWidth = msg.canvasWidth;
   windowCalc.canvasHeight = msg.canvasHeight;
   windowCalc.chunkOrdering = msg.chunkOrdering;
+  windowCalc.smooth = msg.smooth;
   // since pixel position math is now dependent on algorithm,
   //   the old caching no longer works as-is, so we will just
   //   turn it off for now
@@ -268,6 +271,7 @@ function setupCheckReferenceOrbit() {
 
   if (windowCalc.referenceOrbitN === null || windowCalc.referenceOrbitN < windowCalc.n ||
       windowCalc.referenceOrbitPrecision === null || windowCalc.referenceOrbitPrecision / windowCalc.precision < 0.98 ||
+      windowCalc.referenceOrbitSmooth !== windowCalc.smooth ||
       windowCalc.referenceOrbit === null || refPointHasMoved) {
     windowCalc.referencePx = newReferencePx;
     windowCalc.referencePy = newReferencePy;
@@ -306,13 +310,14 @@ function setupReferenceOrbit(state) {
       windowCalc.referencePeriod = refPeriodState.period;
     }
 
-    state = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referencePeriod, state);
+    state = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referencePeriod, windowCalc.smooth, state);
     sendStatusMessage(state.status);
   }
   if (state.done) {
     windowCalc.referenceOrbit = state.orbit;
     windowCalc.referenceOrbitN = windowCalc.n;
     windowCalc.referenceOrbitPrecision = windowCalc.precision;
+    windowCalc.referenceOrbitSmooth = windowCalc.smooth;
     console.log("calculated new middle reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
     console.log("referencePx: " + infNumToString(windowCalc.referencePx));
     console.log("referencePy: " + infNumToString(windowCalc.referencePy));
@@ -603,7 +608,8 @@ var assignChunkToWorker = function(worker) {
       "plotId": windowCalc.plotId,
       "chunk": nextChunk,
       "cachedIndices": [],
-      "algorithm": windowCalc.algorithm
+      "algorithm": windowCalc.algorithm,
+      "smooth": windowCalc.smooth
     };
 
     worker.postMessage({

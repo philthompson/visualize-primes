@@ -602,7 +602,8 @@ var assignChunkToWorker = function(worker) {
     let subWorkerMsg = {
       "plotId": windowCalc.plotId,
       "chunk": nextChunk,
-      "cachedIndices": []
+      "cachedIndices": [],
+      "algorithm": windowCalc.algorithm
     };
 
     worker.postMessage({
@@ -1013,8 +1014,7 @@ var calculateWindowPassChunks = function() {
     let chunk = {
       "plot": windowCalc.plot,
       "chunkN": windowCalc.n,
-      "chunkPrecision": windowCalc.precision,
-      "algorithm": windowCalc.algorithm
+      "chunkPrecision": windowCalc.precision
     };
     if (skipPrevPixels && chunkNum % 2 == 0) {
       Object.assign(chunk, {

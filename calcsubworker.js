@@ -42,10 +42,13 @@ var referenceBlaTables = null;
 var saCoefficients = null;
 var mathPlotId = null;
 var math = null;
+var algorithm = null;
 
 self.onmessage = function(e) {
   if (e.data.t == "compute-chunk") {
     lastComputeChunkMsg = e.data.v;
+    // this is always set to whatever is in the last chunk message
+    algorithm = lastComputeChunkMsg.algorithm;
 
     if (referencePlotId !== null && lastComputeChunkMsg.chunk.plotId !== referencePlotId) {
       referenceOrbit = null;
@@ -55,7 +58,7 @@ self.onmessage = function(e) {
 
     // once per plot, ensure the correct math interface is used
     if (math === null || lastComputeChunkMsg.chunk.plotId !== mathPlotId) {
-      math = selectMathInterfaceFromAlgorithm(lastComputeChunkMsg.chunk.algorithm);
+      math = selectMathInterfaceFromAlgorithm(lastComputeChunkMsg.algorithm);
       mathPlotId = lastComputeChunkMsg.referencePlotId;
     }
   } else if (e.data.t == "reference-orbit") {
@@ -80,14 +83,14 @@ self.onmessage = function(e) {
     return;
   }
   if (referenceOrbit === null && (
-        lastComputeChunkMsg.chunk.algorithm.includes("perturb-") ||
-        lastComputeChunkMsg.chunk.algorithm.includes("bla-") ||
-        lastComputeChunkMsg.chunk.algorithm.includes("sapx")
+        lastComputeChunkMsg.algorithm.includes("perturb-") ||
+        lastComputeChunkMsg.algorithm.includes("bla-") ||
+        lastComputeChunkMsg.algorithm.includes("sapx")
       )) {
     postMessage({t: "send-reference-orbit", v:0});
-  } else if (referenceBlaTables === null && lastComputeChunkMsg.chunk.algorithm.includes("bla-")) {
+  } else if (referenceBlaTables === null && lastComputeChunkMsg.algorithm.includes("bla-")) {
     postMessage({t: "send-bla-tables", v:0});
-  } else if (saCoefficients === null && lastComputeChunkMsg.chunk.algorithm.includes("sapx")) {
+  } else if (saCoefficients === null && lastComputeChunkMsg.algorithm.includes("sapx")) {
     postMessage({t: "send-sa-coefficients", v:0});
   } else {
     let chunk = lastComputeChunkMsg;
@@ -136,7 +139,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
   // if entire chunk is cached, we don't have to do anything
   if (cachedIndices.length < chunk.chunkLen) {
 
-    if (chunk.algorithm.includes("basic-")) {
+    if (algorithm.includes("basic-")) {
       const computeFn = plotsByName[chunk.plot].computeBoundPointColor;
 
       const px = chunk.chunkPos.x;
@@ -153,7 +156,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
 
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, chunk.algorithm, px, py);
+          results[i] = computeFn(chunk.chunkN, chunk.chunkPrecision, algorithm, px, py);
         }
         // since we want to start at the given starting position, increment
         //   the position AFTER computing each result
@@ -162,7 +165,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
 
     // if not calculating with straightforward algorithm, we will use
     //   the perturbation theory algorithm
-    } else if (chunk.algorithm.includes("perturb-")) {
+    } else if (algorithm.includes("perturb-")) {
       const perturbFn = plotsByName[chunk.plot].computeBoundPointColorPerturbOrBla;
 
       //if (infNumEq(chunk.chunkPos.x, referencePx) && infNumEq(chunk.chunkPos.y, referencePy)) {
@@ -178,14 +181,14 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, dx, dy, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients).colorpct;
+          results[i] = perturbFn(chunk.chunkN, chunk.chunkPrecision, dx, dy, algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients, smooth).colorpct;
         }
         // since we want to start at the given starting position, increment
         //   the delta AFTER computing each result
         dy = math.add(dy, incY);
       }
 
-    } else if (chunk.algorithm.includes("bla-")) {
+    } else if (algorithm.includes("bla-")) {
       const blaFn = plotsByName[chunk.plot].computeBoundPointColorPerturbOrBla;
 
       // for perturb, the chunk positions are actually deltas relative to
@@ -197,7 +200,7 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
       // assuming chunks are all moving along the y axis, for single px
       for (let i = 0; i < chunk.chunkLen; i++) {
         if (!binarySearchIncludesNumber(cachedIndices, i)) {
-          let pixelResult = blaFn(chunk.chunkN, chunk.chunkPrecision, dx, dy, chunk.algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients);
+          let pixelResult = blaFn(chunk.chunkN, chunk.chunkPrecision, dx, dy, algorithm, referencePx, referencePy, referenceOrbit, referenceBlaTables, saCoefficients);
           results[i] = pixelResult.colorpct;
           blaPixelsCount++;
           blaIterationsSkipped += pixelResult.blaItersSkipped;

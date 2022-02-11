@@ -1189,6 +1189,9 @@ function start() {
       kickoffSequenceAnimation();
     } else {
       drawPointsFitSize();
+      if (imageParametersCaption) {
+        drawImageParameters();
+      }
     }
   } else if (plot.calcFrom == "window") {
     // cancel any running animation
@@ -1827,6 +1830,9 @@ function redraw() {
       }
     } else {
       drawPointsFitSize();
+    }
+    if (imageParametersCaption) {
+      drawImageParameters();
     }
   } else if (plot.calcFrom == "window") {
     annotateClickPosition = false;
@@ -3807,6 +3813,9 @@ function drawAnnotationAtPixelPosition(x, y) {
       return;
     }
     drawSequencePointsData(closestPoints, x, y);
+    if (imageParametersCaption) {
+      drawImageParameters();
+    }
   } else {
     // we may want to annotate each pixel in window plots as well
   }
@@ -4090,10 +4099,14 @@ window.addEventListener("keydown", function(e) {
     }
   } else if (e.key == "t" || e.key == "T" || e.keyCode == 84) {
     imageParametersCaption = !imageParametersCaption;
-    if (imageParametersCaption) {
-      drawImageParameters();
+    if (isCurrentPlotAWindowPlot()) {
+      if (imageParametersCaption) {
+        drawImageParameters();
+      } else {
+        repaintOnly();
+      }
     } else {
-      repaintOnly();
+      redraw();
     }
   } else if (e.key == "y" || e.key == "Y" || e.keyCode == 89) {
     if (workersCount > 1) {

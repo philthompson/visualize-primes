@@ -3274,17 +3274,19 @@ function recolorBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeCo
         let hiHeight = colorPct;
         let add = 0;
         // from each pixel X, we incorporate the "height" (iterations) difference
-        //   from neighboring pixels A and B (see diagram below)
-        // if we initialize sx/sy in the loops below at 0, we use only the "B"
+        //   from neighboring pixels A, B, C, and D (see diagram below)
+        // if we initialize sx/sy in the loops below at 0, we use only the C and D
         //   neighbors and this results in a softer-looking overall image (may be desirable)
-        // if we initialize sx/sy in the loops below at -1, we use both the "A"
-        //   and "B" neighboring pixels and this results in a sharper-looking image
-        // the relative highlights/shadows look equivalent between B-only and
-        //   A-B shading if A-B shading uses 2/3 the height of B-only shading)
+        // if we initialize sx/sy in the loops below at -1, we use all the A, B, C,
+        //   and D neighboring pixels and this results in a sharper-looking image
+        // the relative highlights/shadows look equivalent between CD-only and
+        //   A-D shading if A-D shading uses 2/3 the height of CD-only shading)
+        // another option is B and D only, which results in an image somewhere between
+        //   A-D and C-D in terms of sharpness, but it is faster than A-D
         //
-        // A B B
-        // A X B
-        // A A A
+        // B C D
+        // A X C
+        // B A B
         for (let sx = -1 * neighborSteps; sx <= neighborSteps; sx++) {
           if (colorPct == windowCalcBackgroundColor) {
             // if the pixel is the background color, we don't want to add anything

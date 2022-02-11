@@ -3219,7 +3219,7 @@ function recolorSlope(heightFactor = 64, neighborSteps = 1, lightSource = "tl") 
   } else if (lightSource == "bl") {
     light = slopeColorLightBottomLeft;
   }
-  drawStatusNotice(fitSizeContext, "Calculating slope effect for all pixels...");
+  drawStatusNotice(fitSizeContext, "Calculating slope shading for all pixels");
   if (windowCalc.timeout !== null) {
     window.clearTimeout(windowCalc.timeout);
   }
@@ -3264,6 +3264,7 @@ function recolorBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeCo
       } else {
         color = applyBuiltModGradient(builtGradient, colorPct, false);
       }
+      // slope shading
       if (neighborSteps > 0) {
         // modify color based on neighboring pixels' colorPct
         // the colorPct (location in gradient BEFORE mod is taken) serves
@@ -3281,10 +3282,12 @@ function recolorBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeCo
             loHeight = -2;
             break;
           }
+          sx *= historyParams.lineWidth;
           for (let sy = 0; sy <= neighborSteps; sy++) {
             if (sx == 0 && sy == 0) {
               continue;
             }
+            sy *= historyParams.lineWidth;
             let neighborX = x+sx;
             let neighborY = y+sy;
             if (neighborX < 0 || neighborX >= width || neighborY < 0 || neighborY >= height) {

@@ -782,7 +782,7 @@ function parseUrlParams() {
     "mag": infNum(1n, 0n),
     "centerX": createInfNum("-0.65"),
     "centerY": infNum(0n, 0n),
-    "gradient": "Bbgoyw-mod100",
+    "gradient": "Bbgoyw", // do not include -mod option, which would break sequence plots
     "bgColor": "b",
     "smooth": "on-show"
   };

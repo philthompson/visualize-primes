@@ -100,6 +100,7 @@ const slopeLightDirOptions = [
 ];
 var slopeLightDir = "off";
 var slopeDepth = 12;
+var showSmooth = true;
 
 const startPassNumber = 0;
 
@@ -189,6 +190,7 @@ const gradAddColorColor = document.getElementById("grad-add-color-color");
 const gradAddColorGo = document.getElementById("grad-add-color-go");
 const smoothSlopeControls = document.getElementById("smooth-slope-controls");
 const gradSmoothCb = document.getElementById("grad-smooth-cb");
+const gradShowSmoothCb = document.getElementById("grad-showsmooth-cb");
 const gradSlopeSelect = document.getElementById("grad-slope-select");
 const gradSlopeDepth = document.getElementById("grad-slope-depth");
 const workersSelect = document.getElementById("workers-select");
@@ -773,23 +775,24 @@ function parseUrlParams() {
   var params = {
     "plot": "Mandelbrot-set",
     "algorithm": "auto",
-    "v": 4,
+    "v": 5,
     "lineWidth": 1,
     "n": 60,
     //"scale": infNum(400n, 0n),
     "mag": infNum(1n, 0n),
     "centerX": createInfNum("-0.65"),
     "centerY": infNum(0n, 0n),
-    "gradient": "Bbgoyw",
-    "bgColor": "b"
+    "gradient": "Bbgoyw-mod100",
+    "bgColor": "b",
+    "smooth": "on-show"
   };
 
   // only change default settings if a known version of settings is given
-  if (urlParams.has('v') && ["1","2","3","4"].includes(urlParams.get('v'))) {
+  if (urlParams.has('v') && ["1","2","3","4","5"].includes(urlParams.get('v'))) {
     let plotName = params.plot;
     if (["1","2","3"].includes(urlParams.get('v')) && urlParams.has('seq')) {
       plotName = urlParams.get('seq');
-    } else if (["4"].includes(urlParams.get('v')) && urlParams.has('plot')) {
+    } else if (parseInt(urlParams.get('v')) >= 4 && urlParams.has('plot')) {
       plotName = urlParams.get('plot');
     }
     if (plotName in plotsByName) {
@@ -876,9 +879,24 @@ function parseUrlParams() {
     if (urlParams.has("algo")) {
       params.algorithm = urlParams.get("algo");
     }
-    if (urlParams.has("smooth")) {
-      windowCalc.smooth = urlParams.get("smooth") == "1";
+    // valid settings are "on-show", "on-hide", and "off-hide" (but any "off-..." is accepted)
+    if (urlParams.has("smooth") &&
+        (urlParams.get("smooth").startsWith("on-") || urlParams.get("smooth").startsWith("off-"))) {
+      if (urlParams.get("smooth").startsWith("on-")) {
+        params.smooth = "on-" + (urlParams.get("smooth").includes("-show") ? "show" : "hide");
+      } else {
+        params.smooth = "off-hide";
+      }
+
+    // for v=5 URLs, smooth is on by default
+    } else if (parseInt(urlParams.get('v')) >= 5) {
+      params.smooth = "on-show";
+
+    // for v=4 (and earlier) URLs, smooth is off by default
+    } else {
+      params.smooth = "off-hide";
     }
+
     if (urlParams.has("slopeLightDir") && ["tl","tr","bl","br"].includes(urlParams.get("slopeLightDir"))) {
       slopeLightDir = urlParams.get("slopeLightDir");
     }
@@ -893,6 +911,15 @@ function parseUrlParams() {
   if (typeof params.gradient == "string") {
     params.gradient = buildGradient(params.gradient, getCurrentPlotGradientMaxN(params.n, params.plot));
   }
+
+  if (params.smooth.startsWith("on-")) {
+    windowCalc.smooth = true;
+    showSmooth = params.smooth.includes("-show");
+  } else {
+    windowCalc.smooth = false;
+    showSmooth = false;
+  }
+
   console.log(params);
 
   historyParams = params;
@@ -1095,9 +1122,11 @@ function start() {
   if (params.plot.startsWith("Mandelbrot")) {
     blogLinkMain.style.display = "none";
     blogLinkMandel.style.display = "";
+    Array.prototype.forEach.call(document.getElementsByClassName("large-bailout-ui"), e => e.style.display = "");
   } else {
     blogLinkMain.style.display = "";
     blogLinkMandel.style.display = "none";
+    Array.prototype.forEach.call(document.getElementsByClassName("large-bailout-ui"), e => e.style.display = "none");
   }
 
   setDScaleVars(true);
@@ -1115,6 +1144,14 @@ function start() {
   } else {
     detailsAlgoControls.style.display = "none";
   }
+
+  setupChunkOrderSelectControl();
+  setupAnimateIntervalSelectControl();
+  animateLoopCb.checked = doAnimateLoop;
+  setPlayPauseIconVisibility();
+  gradSmoothCb.checked = windowCalc.smooth;
+  gradShowSmoothCb.checked = showSmooth;
+  gradSlopeDepth.value = slopeDepth;
 
   if (plot.calcFrom == "sequence") {
     detailsWorkersControls.style.display = "none";
@@ -1333,16 +1370,20 @@ function replaceHistoryWithParams(params) {
   // include magnification in URL, not scale
   paramsCopy.mag = infNumExpStringTruncToLen(params.mag, precision);
   delete paramsCopy.scale;
-  // do not include lineWidth for window plots
+
   if (isCurrentPlotAWindowPlot()) {
+    // do not include lineWidth for window plots
     delete paramsCopy.lineWidth;
-  }
-  if (windowCalc.smooth) {
-    paramsCopy.smooth = "1";
-  }
-  if (slopeLightDir != "off") {
-    paramsCopy.slopeLightDir = slopeLightDir;
-    paramsCopy.slopeDepth = slopeDepth;
+    // add smooth and slope shading options for window plots only
+    if (windowCalc.smooth) {
+      paramsCopy.smooth = "on-" + (showSmooth ? "show" : "hide");
+    } else {
+      paramsCopy.smooth = "off-hide";
+    }
+    if (slopeLightDir != "off") {
+      paramsCopy.slopeLightDir = slopeLightDir;
+      paramsCopy.slopeDepth = slopeDepth;
+    }
   }
   paramsCopy.gradient = paramsCopy.gradient.str;
   paramsCopy.centerX = infNumExpStringTruncToLen(params.centerX, precision);
@@ -2735,7 +2776,25 @@ gradSlopeSelect.addEventListener("change", function() {
 
 gradSmoothCb.addEventListener("change", function() {
   windowCalc.smooth = gradSmoothCb.checked;
+  // when the smooth checkbox is unchecked (labled "large bailout"
+  //   in the UI) we cannot show smooth coloring, so we must
+  //   ensure that is turned off and unchecked
+  if (!windowCalc.smooth) {
+    showSmooth = false;
+    gradShowSmoothCb.checked = false;
+  }
   redraw();
+});
+
+gradShowSmoothCb.addEventListener("change", function() {
+  showSmooth = gradShowSmoothCb.checked;
+  if (windowCalc.smooth) {
+    recolor();
+  } else {
+    windowCalc.smooth = true;
+    gradSmoothCb.checked = true;
+    redraw();
+  }
 });
 
 const digitRegex = /[0-9]/;
@@ -3058,7 +3117,10 @@ function drawColorPoints(windowPoints, pixelSize) {
     let lastFitPixX = 31 << 26;
     let lastFitPixY = 31 << 26;
     //let lastFitPixOffset = 31 << 26;
-    const colorPct = windowPoints[i].px.c;
+    const colorPctOrig = windowPoints[i].px.c;
+    // to show regular (non-smooth) coloring (albeit with a higher bailout)
+    //   we just need to truncate each iteration count back to an integer
+    const colorPct = showSmooth ? colorPctOrig : Math.floor(colorPctOrig);
     // just completely skip points with this special color "value"
     if (colorPct == windowCalcIgnorePointColor) {
       continue;
@@ -3093,7 +3155,7 @@ function drawColorPoints(windowPoints, pixelSize) {
         pixelsImage.data[pixelOffsetInImage+1] = pointColor.g;
         pixelsImage.data[pixelOffsetInImage+2] = pointColor.b;
         pixelsImage.data[pixelOffsetInImage+3] = 255; // alpha
-        windowCalc.pixelCache[pixX][pixY] = colorPct;
+        windowCalc.pixelCache[pixX][pixY] = colorPctOrig; // store non-truncted iterations count so we can toggle showSmooth
         if (fullSizeScalePower == 0) {
           continue;
         }
@@ -3189,6 +3251,11 @@ function recolorBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeCo
       colorPct = windowCalc.pixelCache[x][y];
       if (colorPct === undefined || colorPct == windowCalcIgnorePointColor) {
         continue;
+      }
+      // to show regular (non-smooth) coloring (albeit with a higher bailout)
+      //   we just need to truncate each iteration count back to an integer
+      if (!showSmooth) {
+        colorPct = Math.floor(colorPct);
       }
       if (colorPct == windowCalcBackgroundColor) {
         color = bgColor;
@@ -4416,17 +4483,11 @@ function hideFooter() {
   document.getElementById('footer').style.display = 'none';
 }
 
-setupChunkOrderSelectControl();
-setupAnimateIntervalSelectControl();
-animateLoopCb.checked = doAnimateLoop;
-setPlayPauseIconVisibility();
 // build a gradient here just so the global one isn't left null
 buildGradient("Bw");
 // since scale is determined by magnification, we need to set the
 //   canvas size before parsing URL parameters
 setDScaleVarsNoScale();
 parseUrlParams();
-gradSmoothCb.checked = windowCalc.smooth;
-gradSlopeDepth.value = slopeDepth;
 setupGradSlopeSelectControl();
 start();

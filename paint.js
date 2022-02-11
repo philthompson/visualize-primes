@@ -99,7 +99,7 @@ const slopeLightDirOptions = [
   {name: "Bottom Right", value: "br"}
 ];
 var slopeLightDir = "off";
-var slopeDepth = 12;
+var slopeDepth = 8;
 var showSmooth = true;
 
 const startPassNumber = 0;
@@ -3273,7 +3273,19 @@ function recolorBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeCo
         let loHeight = colorPct;
         let hiHeight = colorPct;
         let add = 0;
-        for (let sx = 0; sx <= neighborSteps; sx++) {
+        // from each pixel X, we incorporate the "height" (iterations) difference
+        //   from neighboring pixels A and B (see diagram below)
+        // if we initialize sx/sy in the loops below at 0, we use only the "B"
+        //   neighbors and this results in a softer-looking overall image (may be desirable)
+        // if we initialize sx/sy in the loops below at -1, we use both the "A"
+        //   and "B" neighboring pixels and this results in a sharper-looking image
+        // the relative highlights/shadows look equivalent between B-only and
+        //   A-B shading if A-B shading uses 2/3 the height of B-only shading)
+        //
+        // A B B
+        // A X B
+        // A A A
+        for (let sx = -1 * neighborSteps; sx <= neighborSteps; sx++) {
           if (colorPct == windowCalcBackgroundColor) {
             // if the pixel is the background color, we don't want to add anything
             //   to the color's r/g/b
@@ -3282,22 +3294,20 @@ function recolorBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeCo
             loHeight = -2;
             break;
           }
-          sx *= historyParams.lineWidth;
-          for (let sy = 0; sy <= neighborSteps; sy++) {
+          const adjustedSx = sx * historyParams.lineWidth;
+          for (let sy = -1 * neighborSteps; sy <= neighborSteps; sy++) {
             if (sx == 0 && sy == 0) {
               continue;
             }
-            sy *= historyParams.lineWidth;
-            let neighborX = x+sx;
-            let neighborY = y+sy;
+            const neighborX = x + adjustedSx;
+            const neighborY = y + (sy * historyParams.lineWidth);
             if (neighborX < 0 || neighborX >= width || neighborY < 0 || neighborY >= height) {
               continue;
             }
             // color/height of surrounding pixel
-            //if ((! (neighborX in windowCalc.pixelCache)) || (! (neighborY in windowCalc.pixelCache[neighborX]))) {
-            //  continue;
-            //}
             let sColorPct = windowCalc.pixelCache[neighborX][neighborY];
+            // if the pixel computation failed, the pixel will be undefined, so
+            //   we must check for that
             if (sColorPct === undefined || sColorPct == windowCalcIgnorePointColor) {
               continue;
             }

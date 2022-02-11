@@ -3385,6 +3385,9 @@ function recolorBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeCo
   //   down for a zoom box?  who knows
   drawLastZoomBox();
   console.log("done with recolorSlopeBody");
+  if (imageParametersCaption) {
+    drawImageParameters();
+  }
 }
 
 function drawZoomBox(aPixX, aPixY, bPixX, bPixY) {
@@ -3539,17 +3542,26 @@ function drawImageParametersOnContext(context2d) {
   const textHeight = Math.round(noticeHeight * 0.6);
   const noticeWidth = Math.max(200, textHeight * lineValLengthLimit * 0.9);
   const lines = [];
+  const labelForN = historyParams.plot.startsWith("Mandelbrot") ? "   iter" : "      N";
   let entries = [
     [" magnif", infNumExpString(historyParams.mag)],
     ["  scale", infNumExpString(historyParams.scale)],
-    ["   iter", historyParams.n.toString()],
+    [labelForN, historyParams.n.toString()],
     ["   grad", historyParams.gradient.str],
-    ["  bgclr", historyParams.bgColor],
-    ["workers", windowCalc.workersCountRange]
+    ["  bgclr", historyParams.bgColor]
   ];
   if (historyParams.plot.startsWith("Mandelbrot")) {
     entries.unshift([" y (im)", infNumToString(historyParams.centerY)]);
     entries.unshift([" x (re)", infNumToString(historyParams.centerX)]);
+    if (slopeLightDir != "off") {
+      entries.push( ["shading", slopeLightDir + " (depth " + slopeDepth + ")"]);
+    }
+    entries.push(   [" smooth", showSmooth ? "yes" : "no"]);
+    // it would be nice to parameterize the bailout...
+    entries.push(   ["bailout", windowCalc.smooth ? "32" : "4"]);
+    if (windowCalc.saItersSkipped !== null) {
+      entries.push(["sa skip", windowCalc.saItersSkipped.toString()]);
+    }
   } else {
     if (imaginaryCoordinates) {
       entries.unshift([" y (im)", infNumExpString(historyParams.centerY)]);
@@ -3559,16 +3571,16 @@ function drawImageParametersOnContext(context2d) {
       entries.unshift(["      x", infNumExpString(historyParams.centerX)]);
     }
   }
-  entries.push(["   algo", windowCalc.algorithm]);
-  entries.push(["sig dig", precision.toString()]);
-  if (windowCalc.saItersSkipped !== null) {
-    entries.push(["sa skip", windowCalc.saItersSkipped.toString()]);
-  }
-  if (windowCalc.runtimeMs > 0) {
-    entries.push([" run ms", windowCalc.runtimeMs.toString()]);
-  }
-  if (windowCalc.avgRuntimeMs > 0) {
-    entries.push([" avg ms", windowCalc.avgRuntimeMs.toString()]);
+  if (isCurrentPlotAWindowPlot()) {
+    entries.push(["workers", windowCalc.workersCountRange]);
+    entries.push(["   algo", windowCalc.algorithm]);
+    entries.push(["sig dig", precision.toString()]);
+    if (windowCalc.runtimeMs > 0) {
+      entries.push([" run ms", windowCalc.runtimeMs.toString()]);
+    }
+    if (windowCalc.avgRuntimeMs > 0) {
+      entries.push([" avg ms", windowCalc.avgRuntimeMs.toString()]);
+    }
   }
   for (let i = 0; i < entries.length; i++) {
     const entryLabel = entries[i][0];

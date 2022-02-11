@@ -3560,7 +3560,9 @@ function drawImageParametersOnContext(context2d) {
     entries.unshift([" y (im)", infNumToString(historyParams.centerY)]);
     entries.unshift([" x (re)", infNumToString(historyParams.centerX)]);
     if (slopeLightDir != "off") {
-      entries.push( ["shading", slopeLightDir + " (depth " + slopeDepth + ")"]);
+      let lightOpt = slopeLightDirOptions.find(e => e.value == slopeLightDir);
+      let light = lightOpt === undefined ? "unk" : lightOpt.name.toLowerCase();
+      entries.push( ["shading", light + " (depth " + slopeDepth + ")"]);
     }
     entries.push(   [" smooth", showSmooth ? "yes" : "no"]);
     // it would be nice to parameterize the bailout...

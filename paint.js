@@ -193,6 +193,8 @@ const gradSmoothCb = document.getElementById("grad-smooth-cb");
 const gradShowSmoothCb = document.getElementById("grad-showsmooth-cb");
 const gradSlopeSelect = document.getElementById("grad-slope-select");
 const gradSlopeDepth = document.getElementById("grad-slope-depth");
+const smoothSlopeGo = document.getElementById("smooth-slope-go");
+const smoothSlopeReset = document.getElementById("smooth-slope-reset");
 const workersSelect = document.getElementById("workers-select");
 const detailsWorkersControls = document.getElementById("workers-controls");
 const gradientSelect = document.getElementById("gradient-select");
@@ -1206,6 +1208,8 @@ function start() {
     chunkOrderingControls.style.display = "";
     animateControls.style.display = "none";
     smoothSlopeControls.style.display = "";
+    resetSmoothSlopeControls();
+    smoothSlopeGo.disabled = false;
     toggleAnimateButtonsVisibility(false);
     annotateClickPosition = false;
     setupGradientSelectControl(windowPlotGradients);
@@ -2771,35 +2775,17 @@ function setupGradSlopeSelectControl() {
   gradSlopeSelect.innerHTML = htmlOptions.join("");
 }
 
-gradSlopeSelect.addEventListener("change", function() {
-  slopeLightDir = gradSlopeSelect.value;
-//  if (slopeLightDir !== "off") {
-//    recolorSlope(slopeDepth, 1, slopeLightDir);
-//  } else {
-  recolor();
-//  }
-});
-
 gradSmoothCb.addEventListener("change", function() {
-  windowCalc.smooth = gradSmoothCb.checked;
-  // when the smooth checkbox is unchecked (labled "large bailout"
-  //   in the UI) we cannot show smooth coloring, so we must
-  //   ensure that is turned off and unchecked
-  if (!windowCalc.smooth) {
-    showSmooth = false;
+  if (!gradSmoothCb.checked) {
     gradShowSmoothCb.checked = false;
   }
-  redraw();
 });
 
 gradShowSmoothCb.addEventListener("change", function() {
-  showSmooth = gradShowSmoothCb.checked;
-  if (windowCalc.smooth) {
-    recolor();
-  } else {
-    windowCalc.smooth = true;
+  // we can't showSmooth if the image isn't calculated with
+  //   large bailouts, so ensure that box is checked
+  if (gradShowSmoothCb.checked && !gradSmoothCb.checked) {
     gradSmoothCb.checked = true;
-    redraw();
   }
 });
 
@@ -2816,14 +2802,8 @@ function enforceGradSlopeDepth() {
   }
   gradSlopeDepth.value = fixed;
   let parsed = parseInt(gradSlopeDepth.value);
-  if (parsed > 0 && parsed < 65) {
-    slopeDepth = gradSlopeDepth.value;
+  if (!isNaN(parsed) && parsed > 0 && parsed < 65) {
     gradSlopeDepth.placeholder = "";
-    //if (slopeLightDir !== "off") {
-    //  recolorSlope(slopeDepth, 1, slopeLightDir);
-    //} else {
-    recolor();
-    //}
   } else {
     gradSlopeDepth.placeholder = "invalid";
     gradSlopeDepth.value = "";
@@ -2834,6 +2814,34 @@ gradSlopeDepth.addEventListener("change", enforceGradSlopeDepth);
 gradSlopeDepth.addEventListener("input", enforceGradSlopeDepth);
 gradSlopeDepth.addEventListener("propertychange", enforceGradSlopeDepth);
 gradSlopeDepth.addEventListener("paste", enforceGradSlopeDepth);
+
+smoothSlopeGo.addEventListener("click", function() {
+  let parsedDepth = parseInt(gradSlopeDepth.value);
+  if (isNaN(parsedDepth) || parsedDepth < 1 ||  parsedDepth > 64) {
+    return;
+  }
+  // if the "large bailout" checkbox has been changed, we must do
+  //   a full redraw
+  const doFullRedraw = windowCalc.smooth != gradSmoothCb.checked;
+  windowCalc.smooth = gradSmoothCb.checked;
+  showSmooth = gradShowSmoothCb.checked;
+  slopeLightDir = gradSlopeSelect.value;
+  slopeDepth = parsedDepth;
+  if (doFullRedraw) {
+    redraw();
+  } else {
+    recolor();
+  }
+});
+
+function resetSmoothSlopeControls() {
+  gradSmoothCb.checked = windowCalc.smooth;
+  gradShowSmoothCb.checked = showSmooth;
+  gradSlopeSelect.value = slopeLightDir;
+  gradSlopeDepth.value = slopeDepth.toString();
+}
+
+smoothSlopeReset.addEventListener("click", resetSmoothSlopeControls);
 
 function handleNewWindowLockState() {
   if (windowLock) {
@@ -3203,8 +3211,9 @@ function drawColorPoints(windowPoints, pixelSize) {
 
 function recolor() {
   if (slopeLightDir !== "off" && windowCalc.endTimeMs > 0) {
+    smoothSlopeGo.disabled = true;
     // color with slope shading, after slight delay so we can
-    //   paint a message on screen
+    //   paint a message on screen and disable the "go" button
     recolorSlope(slopeDepth, 1, slopeLightDir);
   } else {
     recolorBody(0, 0); // color without slope, immediately
@@ -3394,6 +3403,7 @@ function recolorBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeCo
   if (imageParametersCaption) {
     drawImageParameters();
   }
+  smoothSlopeGo.disabled = false;
 }
 
 function drawZoomBox(aPixX, aPixY, bPixX, bPixY) {

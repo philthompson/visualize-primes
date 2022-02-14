@@ -3334,7 +3334,7 @@ function recolorBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeCo
             if (sColorPct > hiHeight) {
               hiHeight = sColorPct;
             }
-            let hd = colorPct - sColorPct; // NOT SURE ON THIS
+            let hd = colorPct - sColorPct;
             if (lightSource == slopeColorLightBottomLeft || lightSource == slopeColorLightBottomRight) {
               hd *= -1;
             }
@@ -3342,26 +3342,24 @@ function recolorBody(heightFactor = 64, neighborSteps = 1, lightSource = slopeCo
             if (lightSource == slopeColorLightTopRight || lightSource == slopeColorLightBottomLeft) {
               hdlr *= -1;
             }
-            //if (hd > 0) {
-              //const distanceFactor = Math.hypot(sx, sy);
-              //hd /= distanceFactor;
-              if (sx > 0) {
-                add -= hdlr;
-              } else {
-                add += hdlr;
-              }
-              if (sy > 0) {
-                add -= hd;
-              } else {
-                add += hd;
-              }
-            //}
+            if (sx > 0) {
+              add -= hdlr;
+            } else {
+              add += hdlr;
+            }
+            if (sy > 0) {
+              add -= hd;
+            } else {
+              add += hd;
+            }
           }
         }
-        add = add * heightFactor / (hiHeight - loHeight);
-        color.r = Math.min(255, Math.max(0, color.r + add));
-        color.g = Math.min(255, Math.max(0, color.g + add));
-        color.b = Math.min(255, Math.max(0, color.b + add));
+        if (hiHeight > loHeight) {
+          add = add * heightFactor / (hiHeight - loHeight);
+          color.r = Math.min(255, Math.max(0, color.r + add));
+          color.g = Math.min(255, Math.max(0, color.g + add));
+          color.b = Math.min(255, Math.max(0, color.b + add));
+        }
       }
 
       pixelOffsetInImage = ((y * width) + x) * 4;

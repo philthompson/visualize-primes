@@ -297,11 +297,13 @@ function floatExpToString(n) {
 }
 
 var FLOATEXP_LN10 = createFloatExpFromNumber(Math.LN10);
+var FLOATEXP_LN_EPSILON = floatExpAlign({
+  v: 1,
+  e: -20
+});
+var FLOATEXP_ONE = createFloatExpFromNumber(1);
+var FLOATEXP_KLIMIT = createFloatExpFromNumber(1000);
 function floatExpLn(a) {
-  const epsilon = floatExpAlign({
-    v: 1,
-    e: -20
-  });
   // ensure mantissa is in range [1-10)
   let aligned = floatExpAlign(a);
   // divide mantissa by 10 to ensure it is in range [0-1)
@@ -323,14 +325,12 @@ function floatExpLn(a) {
   //   it using a power series (from wikipedia)
   // https://en.wikipedia.org/wiki/Logarithm#Power_series
   const one = createFloatExpFromNumber(1);
-  const two = createFloatExpFromNumber(2);
-  const kLimit = createFloatExpFromNumber(1000);
   const aMinusOne = floatExpSub(createFloatExpFromNumber(aligned.v), one);
   let aMinusOnePower = one;
   let kthTerm = one;
   let ln = createFloatExpFromNumber(0);
   let doAdd = false;
-  for (let k = one; floatExpGt(kthTerm, epsilon) && floatExpLt(k, kLimit); k = floatExpAdd(k, one)) {
+  for (let k = one; floatExpGt(kthTerm, FLOATEXP_LN_EPSILON) && floatExpLt(k, FLOATEXP_KLIMIT); k = floatExpAdd(k, FLOATEXP_ONE)) {
     doAdd = !doAdd;
     aMinusOnePower = floatExpMul(aMinusOnePower, aMinusOne);
     let kthTerm = floatExpDiv(aMinusOnePower, k);

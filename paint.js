@@ -451,7 +451,7 @@ function calculateReferenceOrbit() {
   windowCalc.referencePy = infNumAdd(windowCalc.bottomEdge, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(dCanvas.height/2)), 0n)));
   let refOrbitCalcContext = null;
   while (refOrbitCalcContext === null || !refOrbitCalcContext.done) {
-    refOrbitCalcContext = plotsByName[historyParams.plot].computeReferenceOrbit(windowCalc.n, precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, -1, refOrbitCalcContext);
+    refOrbitCalcContext = plotsByName[historyParams.plot].computeReferenceOrbit(windowCalc.n, precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, -1, windowCalc.smooth, refOrbitCalcContext);
     drawStatusNotice(fitSizeContext, refOrbitCalcContext.status);
   }
   windowCalc.referenceOrbit = refOrbitCalcContext.orbit;
@@ -494,7 +494,7 @@ function computeBoundPointsChunk(chunk) {
     }
 
     for (let i = 0; i < chunk.chunkLen; i++) {
-      const pointResult = computeFn(windowCalc.n, precision, windowCalc.algorithm, px, py);
+      const pointResult = computeFn(windowCalc.n, precision, windowCalc.algorithm, px, py, windowCalc.smooth);
       // create a wrappedPoint
       // px -- the pixel "color point"
       // pt -- the abstract coordinate on the plane (not needed since we are not caching)
@@ -517,7 +517,7 @@ function computeBoundPointsChunk(chunk) {
     const incY = chunk.chunkInc.y;
 
     for (let i = 0; i < chunk.chunkLen; i++) {
-      const pointResult = perturbFn(windowCalc.n, precision, dx, dy, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, null, null).colorpct;
+      const pointResult = perturbFn(windowCalc.n, precision, dx, dy, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, null, null, windowCalc.smooth).colorpct;
       // create a wrappedPoint
       // px -- the pixel "color point"
       // pt -- the abstract coordinate on the plane (not needed since we are not caching)
@@ -2923,7 +2923,11 @@ function windowDrawLoop() {
       if (windowCalc.lineWidth > Math.round(historyParams.lineWidth)) {
         windowCalc.stage = windowCalcStages.calculateChunks;
       } else {
-        repaintOnly(); // since we skip putImageData(), ensure we always do it when image may be complete
+        if (slopeLightDir !== "off") {
+          recolorSlope(slopeDepth, 1, slopeLightDir);
+        } else {
+          repaintOnly(); // since we skip putImageData(), ensure we always do it when image may be complete
+        }
         if (windowLogTiming) {
           windowLogOverallImage();
           if (windowCalcRepeat > 1) {

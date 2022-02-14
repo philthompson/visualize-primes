@@ -12,6 +12,8 @@ var fullSizeScaleFactor = 2 ** fullSizeScalePower;
 var mouseDrag = false;
 var mouseDragX = 0;
 var mouseDragY = 0;
+var mouseDownX = 0;
+var mouseDownY = 0;
 var pinch = false;
 var pinchStartDist = 0;
 var showMousePosition = false;
@@ -4225,6 +4227,10 @@ var mouseDownHandler = function(e) {
   mouseDrag = true;
   mouseDragX = e.pageX;
   mouseDragY = e.pageY;
+  // save the original mouse down location so that once the mouse
+  //   is released, we can tell if the mouse was actually dragged
+  mouseDownX = e.pageX;
+  mouseDownY = e.pageY;
 };
 fitSizeCanvas.addEventListener("mousedown", mouseDownHandler);
 fitSizeCanvas.addEventListener("touchstart", mouseDownHandler);
@@ -4338,7 +4344,8 @@ var mouseUpHandler = function(e) {
   // apparently pinch zoom gestures don't really use touchend event, but it's
   //   a good time to end a pinch gesture
   pinch = false;
-  if (annotateClickPosition) {
+  const wasMouseDragMoved = mouseDownX != e.pageX || mouseDownY != e.pageY;
+  if (!wasMouseDragMoved && annotateClickPosition) {
     drawAnnotationAtPixelPosition(e.pageX, e.pageY);
   }
 };

@@ -398,6 +398,7 @@
           <button id="btn-download">Save Image</button><br>
           <small>Adjust image size under "window options" below.</small>
         </p>
+        <p id="workers-warning"></p>
         <details>
           <summary>go to location by center and scale</summary>
           <details class="help-text">
@@ -530,10 +531,10 @@
             <summary>?</summary>
               Increase workers to increase computation speed, depending on your computer/device.<br/><br/>
               Increasing the number of workers will cause your computer/device to consume more power/battery, but the computation will be completed faster.<br/><br/>
-              Increasing the number of workers beyond a certain point will have no effect depending on the number of cores/threads your computer or browser can devote to this page.
+              Increasing the number of workers beyond a certain point will have no effect depending on the number of cores/threads your computer or browser can devote to this page.<br/><br/>
+              Very Plotter uses one thread for the user interface and one for worker management.  Therefore if you want maximum performance, I recommend running one or two fewer workers than your computer core/thread count.  For example, if your computer has 8 high-performance cores/threads, I recommend using 6 or 7 workers.  If your computer has 4 high-performance cores and 4 efficiency cores, I recommend using 4 workers.  But of course, your results may vary depending on many factors.
           </details>
         </details>
-        <p id="workers-warning"></p>
         <details>
           <summary>window options</summary>
           <details class="help-text">

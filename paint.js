@@ -61,8 +61,10 @@ if (!window.Worker) {
   useWorkers = false;
 }
 if (useWorkers) {
-  warnAboutWorkers();
   document.getElementById("workers-warning").style.display = "none";
+} else {
+  warnAboutWorkers();
+  document.getElementById("workers-controls").style.display = "none";
 }
 
 const appVersion = (function(scriptElement) {
@@ -1203,7 +1205,9 @@ function start() {
     if (windowCalc.timeout !== null) {
       window.clearTimeout(windowCalc.timeout);
     }
-    detailsWorkersControls.style.display = "";
+    if (useWorkers) {
+      detailsWorkersControls.style.display = "";
+    }
     if (!useWorkers) {
       document.getElementById("workers-warning").style.display = "";
     }

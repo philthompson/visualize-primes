@@ -39,6 +39,7 @@ const forceWorkerReload = window.location.toString().includes(forceWorkerReloadU
 var precision = 24;
 const magMaxPrecision = 12;
 var builtGradient = null;
+var setAsideGradient = null;
 
 const animateIntervals = [2, 5, 25, 50, 100, 250, 500, 1000];
 var animationRunning = false;
@@ -655,6 +656,7 @@ var activatePlotHandler = function(e) {
   }
   var defaults = Object.assign(historyParams, plots[clickedId].forcedDefaults);
   defaults.plot = newPlot;
+  swapSetAsideGradientIfNeeded(newPlot);
   replaceHistoryWithParams(defaults);
   parseUrlParams();
   start();
@@ -665,6 +667,7 @@ for (var i = 0; i < viewButtons.length; i++) {
 
 function activatePreset(presetParams) {
   replaceHistoryWithParams(presetParams);
+  swapSetAsideGradientIfNeeded();
   parseUrlParams();
   start();
 }
@@ -1158,6 +1161,8 @@ function start() {
   gradSmoothCb.checked = windowCalc.smooth;
   gradShowSmoothCb.checked = showSmooth;
   gradSlopeDepth.value = slopeDepth;
+
+  swapSetAsideGradientIfNeeded();
 
   if (plot.calcFrom == "sequence") {
     detailsWorkersControls.style.display = "none";
@@ -1817,6 +1822,37 @@ function applyBuiltModGradient(gradient, value, stringFormat = true) {
     return "rgba(" + color.r + "," + color.g + "," + color.b + ",1.0)";
   } else {
     return color;
+  }
+}
+
+// there are two gradient types, "pct" and "mod"
+//
+// each plot specifies a gradientType it requires
+//
+// if the current gradient type doesn't match the current plot's,
+//   then we must swap the current built/historyParams gradient
+//   for the "set aside" gradient
+function swapSetAsideGradientIfNeeded(newPlot = "") {
+  const plotName = newPlot == "" ? historyParams.plot : newPlot;
+  // this will be "mod" or "pct"
+  const gradientType = plotsByName[plotName].gradientType;
+  let swap = false;
+  if (gradientType == "mod" && builtGradient.mod == 0) {
+    if (setAsideGradient === null) {
+      const firstGradient = windowPlotGradients[0].colors;
+      setAsideGradient = buildGradientObj(firstGradient, getCurrentPlotGradientMaxN());
+    }
+    swap = true;
+  } else if (gradientType == "pct" && builtGradient.mod > 0) {
+    if (setAsideGradient === null) {
+      const firstGradient = sequencePlotGradients[0].colors;
+      setAsideGradient = buildGradientObj(firstGradient, getCurrentPlotGradientMaxN());
+    }
+    swap = true;
+  }
+  if (swap) {
+    [builtGradient, setAsideGradient] = [setAsideGradient, builtGradient];
+    historyParams.gradient = builtGradient;
   }
 }
 
@@ -4079,6 +4115,7 @@ window.addEventListener("keydown", function(e) {
     historyParams.plot = plots[plotNum].name;
     // for all plots, force application of their defaults
     let defaults = Object.assign(historyParams, plots[plotNum].forcedDefaults);
+    swapSetAsideGradientIfNeeded();
     replaceHistoryWithParams(defaults);
     parseUrlParams();
     start();

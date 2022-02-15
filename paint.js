@@ -65,7 +65,6 @@ if (useWorkers) {
   document.getElementById("workers-warning").style.display = "none";
 } else {
   warnAboutWorkers();
-  document.getElementById("workers-controls").style.display = "none";
 }
 
 const appVersion = (function(scriptElement) {
@@ -82,6 +81,8 @@ function warnAboutWorkers() {
     "deeper zooming, with web workers and subworkers.<br/><br/>" +
     "Subworkers currently do not function in Safari and some mobile browsers, for example.<br/><br/>" +
     "The recommended browsers are desktop Firefox, Chrome, or Edge, or similar.";
+  document.getElementById("workers-warning").style.display = "";
+  document.getElementById("workers-controls").style.display = "none";
 }
 
 // temporary polyfill since Chrome/Safari don't quite yet support this

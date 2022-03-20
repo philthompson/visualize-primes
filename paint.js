@@ -1434,6 +1434,10 @@ const windowPlotGradients = [
   {colors: "BwBwBwBwBwBw",                   name:"black & white"},
   {colors: "GBPwGBPwGBPw-P.FA22BC-G.496A03", name:"olive-pink"},
   {colors: "TGwTGwTGwTGw-G.FAC416-T.00FFC3", name:"teal-gold"},
+  {colors: "GBPwGBPwGBPw-G.1affb4-P.ff665b", name:"quasar"},
+  {colors: "wBGwBGwBGwBG-G.2a5726",          name:"black, white, green"},
+  {colors: "BGwBGwBGwBGw-B.141414-G.D4AF37", name:"new year"},
+  {colors: "GBswGBswGBsw-P.FA22BC-G.496A03-s.d9af70", name:"mitosis"},
   {colors: "BroywBroywBr-B.5050FF",          name:"custom"}
 ];
 

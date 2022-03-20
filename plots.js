@@ -796,7 +796,7 @@ const plots = [{
 
     // saCoefficients: {itersToSkip:itersToSkip, coefficients:terms};
     // always use floatexp math for SA
-    if (useSa && saCoefficients.itersToSkip > 0) {
+    if (useSa && saCoefficients !== null && saCoefficients.itersToSkip > 0) {
       // since series approximation math is always done with floatexp, we
       //   may have to convert the delta
       let deltaCFloatExp = {

@@ -3595,6 +3595,7 @@ function drawImageParameters() {
   drawImageParametersOnContext(dContext);
 }
 
+var useSmallTextForLegend = false;
 function drawImageParametersOnContext(context2d) {
   let imaginaryCoordinates = false;
   if ("usesImaginaryCoordinates" in plotsByName[historyParams.plot].privContext) {
@@ -3602,8 +3603,8 @@ function drawImageParametersOnContext(context2d) {
   }
   const ctx = context2d;
   const canvas = ctx.canvas;
-  const lineValLengthLimit = 26;
-  const noticeHeight = Math.max(16, canvas.height * 0.01);
+  const lineValLengthLimit = useSmallTextForLegend ? 42 : 26;
+  const noticeHeight = useSmallTextForLegend ? Math.max(14, canvas.height * 0.0085) : Math.max(16, canvas.height * 0.01);
   const textHeight = Math.round(noticeHeight * 0.6);
   const noticeWidth = Math.max(200, textHeight * lineValLengthLimit * 0.9);
   const lines = [];

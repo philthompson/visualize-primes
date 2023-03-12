@@ -921,7 +921,7 @@ const plots = [{
   },
   // these settings are auto-applied when this plot is activated
   "forcedDefaults": {
-    "n": 40,
+    "n": 100,
     "mag": infNum(1n, 0n),
     "centerX": createInfNum("-0.65"),
     "centerY": infNum(0n, 0n)

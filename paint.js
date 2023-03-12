@@ -792,7 +792,12 @@ function parseUrlParams() {
     "mag": infNum(1n, 0n),
     "centerX": createInfNum("-0.65"),
     "centerY": infNum(0n, 0n),
-    "gradient": "Bbgoyw", // do not include -mod option, which would break sequence plots
+    // for default mandelbrot set plot, include -mod100 by default to allow
+    //   more zooming for default mandelbrot plot
+    // if a sequence plot is specified by the URL params, without a
+    //   gradient, a different default gradient will be used below
+    //   since sequence plots cannot use -mod gradients
+    "gradient": "Bbgoyw-mod100",
     "bgColor": "b",
     "smooth": "on-show"
   };
@@ -811,6 +816,13 @@ function parseUrlParams() {
       alert("no such plot [" + plotName + "]");
     }
     const plot = plotsByName[plotName];
+    // set a different default gradient for sequence plots
+    if (plot.calcFrom != "window") {
+      params.gradient = "Bbgoyw"; // do not include -mod option, which would break sequence plots
+    }
+    // override the default params above (which are mandelbrot defaults)
+    //   with any "forcedDefaults" specified by the plot
+    params = Object.assign(params, plot.forcedDefaults);
     if (urlParams.has('n')) {
       params.n = parseInt(urlParams.get('n').replaceAll(",", ""));
       if (params.n < 0) {

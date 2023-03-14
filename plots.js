@@ -42,7 +42,7 @@ const plots = [{
 
     // for absolute fastest speed, we'll keep a separate version of the
     //   regular floating point basic algorithm
-    if (algorithm.includes("basic") && algorithm.includes("float")) {
+    if (algorithm.includes("basic") && algorithm.includes("float") && !algorithm.includes("floatexp")) {
       // a squared bailout of 16 or 32 looks ok for smooth coloring, but
       //   when slope coloring is then applied, banding occurs.  using
       //   even larger squared bailout (64? 128? higher?) seems to
@@ -126,10 +126,187 @@ const plots = [{
     }
   },
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
+  "computeBoundPointColorStripes": function(n, precis, algorithm, x, y, useSmooth) {
+
+    // odd stripeDensity values create the artifacts!
+    // things that worked (without weird swooping artifacts) (ALL use 64*64 bailoutSquared):
+    // - these show long "stripes"
+    //   - stripeDensity=6.0, stripeSkipFirstIters=5, mixFactor=1000, gradient=bBgwo-B.141414-mod2222-shift2
+    //   - stripeDensity=6.0, stripeSkipFirstIters=5, mixFactor=1000, gradient=Bbgoyw-mod1500
+    // - these show somewhat diffuse "stripes"
+    //   - stripeDensity=4.0, stripeSkipFirstIters=1, mixFactor=1000, gradient=Bbgoyw-mod1500
+    // - these show very diffuse "stripes" that aren't really stripes
+    //   - stripeDensity=2, stripeSkipFirstIters=5, mixFactor=1000, gradient=Bbgoyw-mod1500
+    let stripeDensity = 6.0; // anywhere from -10 to +10?
+    const stripeSkipFirstIters = 0;
+    const maxIter = n;
+    // this scales up the final result, increasing the number of
+    //   colors.  a mixFactor of 1000 works ok, but in some areas
+    //   there are rather abrupt color boundaries where a smooth
+    //   gradient is expected.
+    const mixFactor = 100000;
+
+    // use user-provided coloring params
+    let userStripeDensity;
+    try {
+      userStripeDensity = parseFloat(algorithm.split("-").find(e => e.startsWith("stripedensity")).substring(13));
+    } catch (e) {}
+    if (userStripeDensity !== undefined && userStripeDensity >= 1.0 && userStripeDensity <= 10.0) {
+      stripeDensity = userStripeDensity;
+    }
+
+    if (algorithm.includes("basic") && algorithm.includes("float") && !algorithm.includes("floatexp")) {
+      // TODO: consider allowing bailout (integer) to be specified by user in algorithm string
+      const bailoutSquared = useSmooth ? (64*64) : 4;
+      const logBailoutSquared = Math.log(bailoutSquared);
+      // truncating to 15 decimal digits here is equivalent to truncating
+      //   to 16 significant digits, but it's more efficient to do both at once
+      //let xFloat = typeof x == "number" ? x : parseFloat(infNumExpStringTruncToLen(x, 18));
+      //let yFloat = typeof y == "number" ? y : parseFloat(infNumExpStringTruncToLen(y, 18));
+      let ix = 0;
+      let iy = 0;
+      let ixSq = 0;
+      let iySq = 0;
+      let ixTemp = 0;
+      let iter = 0;
+      let avgCount = 0;
+      let avg = 0;
+      let lastAdded = 0;
+      let lastZ2 = 0; // last squared length
+// for testing curvature average coloring
+//      let ixOneAgo = 0; // nth iteration of x, from 1 iteration ago
+//      let iyOneAgo = 0; // nth iteration of y, from 1 iteration ago
+//      let ixTwoAgo = 0; // nth iteration of x, from 2 iterations ago
+//      let iyTwoAgo = 0; // nth iteration of y, from 2 iterations ago
+      while (iter < maxIter) {
+        ixSq = ix * ix;
+        iySq = iy * iy;
+        if (iter > stripeSkipFirstIters) {
+          avgCount++;
+
+          // stripe addend function
+          lastAdded = (0.5 * Math.sin(stripeDensity * Math.atan(iy / ix))) + 0.5;
+
+          // dbyrne addend function (https://www.fractalforums.com/programming/faster-alternative-to-tia-coloring/)
+          //lastAdded = Math.min(Math.abs(iy / ix), 2.0);
+
+          // "atan(value)" from "mandelbrowser" android app author:
+          //lastAdded = Math.abs(Math.atan(iy / ix));
+          //lastAdded = 1 / (1 + Math.atan(iy / ix));
+          //lastAdded = 1 / (1 + Math.abs(Math.atan(iy / ix)));
+
+          // "log(abs(value))" from "mandelbrowser" android app author:
+          //lastAdded = Math.log(Math.abs(ixSq + iySq));
+          //lastAdded = 1 / (1 + Math.log(Math.abs(ixSq + iySq)));
+
+          // similar to above, but sqrt
+          //lastAdded = 1 / (1 + Math.log(Math.sqrt(ixSq + iySq)));
+
+          // triangle average (i think the last few orbit iterations need to be excluded?)
+          //let z_mag = Math.sqrt(lastZ2);
+          //let c_mag = Math.sqrt(x*x + y*y);
+          //let mn = z_mag - c_mag;
+          //mn = Math.sqrt(mn*mn);
+          //let bigMn = z_mag + c_mag;
+          //let num = Math.sqrt(ixSq + iySq) - mn;
+          //let den = bigMn - mn;
+          //lastAdded = den == 0 ? 0.0 : num/den;
+
+          // curvature average (https://en.wikibooks.org/wiki/Fractals%2FIterations_in_the_complex_plane%2Ftriangle_ineq#CAA)
+          // stripeSkipFirstIters = 2
+          //let numx = ix - ixOneAgo;
+          //let numy = iy - iyOneAgo;
+          //let denx = ixOneAgo - ixTwoAgo;
+          //let deny = iyOneAgo - iyTwoAgo;
+          //if (denx != 0 && deny != 0) {
+          //  let quotx = (numx*denx + numy*deny) / (denx*denx + deny*deny);
+          //  let quoty = (numy*denx - numx*deny) / (denx*denx + deny*deny);
+          //  if (quotx != 0) {
+          //    lastAdded = Math.abs(1.0 * Math.atan(quoty / quotx));
+          //  } else {
+          //    lastAdded = 0;
+          //  }
+          //} else {
+          //  lastAdded = 0;
+          //}
+
+          avg += lastAdded;
+        }
+// for testing curvature average coloring
+//        ixTwoAgo = ixOneAgo;
+//        iyTwoAgo = iyOneAgo;
+//        ixOneAgo = ix;
+//        iyOneAgo = iy;
+        lastZ2 = ixSq + iySq;
+        if (lastZ2 > bailoutSquared /*&& iter > stripeSkipFirstIters*/) {
+          break;
+        }
+        ixTemp = x + (ixSq - iySq);
+        iy = y + (2 * ix * iy);
+        ix = ixTemp;
+        iter++;
+      }
+
+
+      if (iter >= maxIter) {
+        return windowCalcBackgroundColor;
+      } else {
+        if (!useSmooth) {
+          return avg / avgCount;
+        }
+        let prevAvg = (avg - lastAdded) / (avgCount - 1);
+        avg = avg / avgCount;
+        let frac = 1.0 + Math.log2(logBailoutSquared/Math.log(lastZ2));
+        let mix = frac * avg + ((1.0 - frac) * prevAvg);
+        return mix * mixFactor;
+      }
+    }
+
+    const math = selectMathInterfaceFromAlgorithm(algorithm);
+
+    // the coords used for iteration
+    const xConv = math.createFromInfNum(x);
+    const yConv = math.createFromInfNum(y);
+    var ix = structuredClone(math.zero);
+    var iy = structuredClone(math.zero);
+    var ixSq = structuredClone(math.zero);
+    var iySq = structuredClone(math.zero);
+    var ixTemp = structuredClone(math.zero);
+    var iter = 0;
+    try {
+      while (iter < maxIter) {
+        ixSq = math.mul(ix, ix);
+        iySq = math.mul(iy, iy);
+        if (math.gt(math.add(ixSq, iySq), math.four)) {
+          break;
+        }
+        ixTemp = math.add(xConv, math.sub(ixSq, iySq));
+        iy = math.add(yConv, math.mul(math.two, math.mul(ix, iy)));
+        ix = ixTemp;
+        ix = math.truncateToSigDig(ix, precis);
+        iy = math.truncateToSigDig(iy, precis);
+        iter++;
+      }
+
+      if (iter == maxIter) {
+        return windowCalcBackgroundColor;
+      } else {
+        //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
+        return iter;
+      }
+    } catch (e) {
+      console.log("ERROR CAUGHT when processing point (x, y, iter, maxIter): [" + math.toExpString(x) + ", " + math.toExpString(y) + ", " + iter + ", " + maxIter + "]:");
+      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+      return windowCalcIgnorePointColor; // special color value that will not be displayed
+    }
+  },
+  // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeReferenceOrbit": function(n, precis, algorithm, x, y, period, useSmooth, fnContext) {
 
     const outputMath = selectMathInterfaceFromAlgorithm(algorithm);
     const outputIsFloatExp = outputMath.name == "floatexp";
+
+    const useStripes = algorithm.includes("stripes");
 
     const periodLessThanN = period !== null && period > 0 && period < n;
     const maxIter = periodLessThanN ? period : n;
@@ -141,7 +318,12 @@ const plots = [{
     //   bailout of 2)
     // for smooth coloring, our bailout is much larger (32*32)
     //   so our ref orbit bailout must be larger than than (32*32*2)
-    const bailoutSquared = useSmooth ? infNum(32n*32n*2n, 0n) : sixteen;
+    // for stripes coloring, out bailout must be even larger (64*64)
+    //   with larger ref orbit bailout
+    const bailoutSquared = useStripes ?
+      (useSmooth ? infNum(64n*64n*2n, 0n) : sixteen)
+      :
+      (useSmooth ? infNum(32n*32n*2n, 0n) : sixteen);
 
     // fnContext allows the loop to be done piecemeal
     if (fnContext === null) {
@@ -734,7 +916,31 @@ const plots = [{
 
     const math = selectMathInterfaceFromAlgorithm(algorithm);
 
-    const bailoutSquared = useSmooth ? math.createFromNumber(32*32) : math.four;
+    const useStripes = algorithm.includes("stripes");
+    const oneHalf = math.createFromNumber(0.5);
+
+    let stripeDensity = math.createFromNumber(6.0);
+    // use user-provided coloring params
+    let userStripeDensity;
+    try {
+      userStripeDensity = parseFloat(algorithm.split("-").find(e => e.startsWith("stripedensity")).substring(13));
+    } catch (e) {}
+    if (userStripeDensity !== undefined && userStripeDensity >= 1.0 && userStripeDensity <= 10.0) {
+      stripeDensity = math.createFromNumber(userStripeDensity);
+    }
+    // this scales up the final result, increasing the number of
+    //   colors.  a mixFactor of 1000 works ok, but in some areas
+    //   there are rather abrupt color boundaries where a smooth
+    //   gradient is expected.
+    const mixFactor = 100000;
+
+    const bailoutSquared = useStripes ?
+      (useSmooth ? math.createFromNumber(64*64) : math.four)
+      :
+      (useSmooth ? math.createFromNumber(32*32) : math.four);
+
+    // this is a float, for now, the stripes coloring won't work for perturb-floatexp or perturb-infnum
+    const logBailoutSquared = math.log(bailoutSquared);
 
     // this function is used for both:
     //   "bla-float"    : BLA+perturb, and for
@@ -824,6 +1030,10 @@ const plots = [{
     let blaItersSkipped = 0;
     let blaSkips = 0;
     try {
+      let lastZ2 = math.zero; // last squared z
+      let lastAdded = math.zero; // last addend for the average summation
+      let avg = math.zero;
+      let avgCount = 0;
       while (iter < maxIter) {
 
         deltaZ = math.complexAdd(
@@ -837,7 +1047,24 @@ const plots = [{
         referenceIter++;
 
         z = math.complexAdd(referenceOrbit[referenceIter], deltaZ);
+        if (useStripes) {
+          avgCount++;
+          lastAdded =
+            math.add(
+              math.mul(
+                oneHalf
+                ,
+                math.sin(
+                  math.mul(stripeDensity, math.atan(z.y, z.x))
+                )
+              )
+              ,
+              oneHalf
+            );
+          avg = math.add(avg, lastAdded);
+        }
         zAbs = math.complexAbsSquared(z);
+        lastZ2 = zAbs;
         if (math.gt(zAbs, bailoutSquared)) {
           iter--;
           break;
@@ -897,6 +1124,24 @@ const plots = [{
       if (iter == maxIter) {
         return {colorpct: windowCalcBackgroundColor, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};
       } else {
+        if (useStripes) {
+          if (!useSmooth) {
+            avg = math.div(avg, math.createFromNumber(avgCount));
+            avg = parseFloat(math.toExpString(avg));
+            return {colorpct: avg, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};
+          }
+          let prevAvg = math.div(math.sub(avg, lastAdded), math.createFromNumber(avgCount - 1));
+          avg = math.div(avg, math.createFromNumber(avgCount));
+          // logs become regular floats
+          let frac = 1.0 + Math.log2(logBailoutSquared / math.log(lastZ2));
+          frac = math.createFromNumber(frac);
+          let mix = math.sub(math.one, frac);
+          mix = math.mul(mix, prevAvg);
+          mix = math.add(mix, math.mul(frac, avg));
+          mix *= mixFactor;
+          return {colorpct: mix, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};
+        }
+
         // smooth coloring (adding fractional component to integer iteration count)
         //   based on pseudocode on wikipedia:
         //   https://en.wikipedia.org/wiki/Plotting_algorithms_for_the_Mandelbrot_set#Continuous_(smooth)_coloring
@@ -929,7 +1174,7 @@ const plots = [{
   "magnificationFactor": infNum(3n, 0n),
   "privContext": {
     "usesImaginaryCoordinates": true,
-    "adjustPrecision": function(scale, usingWorkers) {
+    "adjustPrecision": function(scale, usingWorkers, algorithm) {
       const precisScale = infNumTruncateToLen(scale, 8); // we probably only need 1 or 2 significant digits for this...
       // this window plot can define its own "algorithm", which it can use
       //   later, when the pixels are being calculated?
@@ -948,29 +1193,40 @@ const plots = [{
         precision: 12,
         algorithm: "basic-float"
       };
-      if (infNumGe(precisScale, createInfNum("1e800"))) {
-        ret.algorithm = "perturb-sapx32-floatexp";
-      } else if (infNumGe(precisScale, createInfNum("1e500"))) {
-        ret.algorithm = "perturb-sapx16-floatexp";
-      } else if (infNumGe(precisScale, createInfNum("1e304"))) {
-        // looks like floatexp (with perturbation) can handle very
-        //   large scales, where only full arbitrary precision could
-        //   before, yet is much faster
-        //ret.algorithm = "basic-arbprecis";
-        //ret.algorithm = "perturb-floatexp";
-        //ret.algorithm = "bla-floatexp";
-        //ret.algorithm = "bla-sapx16-floatexp";
-        ret.algorithm = "perturb-sapx8-floatexp";
-      } else if (infNumGe(precisScale, createInfNum("1e200"))) {
-        ret.algorithm = "perturb-sapx6-float";
-      } else if (infNumGe(precisScale, createInfNum("1e100"))) {
-        // it seems like BLA, at least my code, isn't working until
-        //   scale is beyond ~1e300, but hopefully series approximation
-        //    would be useful at 3e150 and perhaps smaller scales also
-        ret.algorithm = "perturb-sapx4-float";
-      } else if (infNumGe(precisScale, createInfNum("3e13"))) {
-        ret.algorithm = "perturb-float";
-        //ret.algorithm = "bla-float";
+      if (algorithm == "auto-stripes") {
+        // for stripes coloring, we don't yet have a floatexp implementation
+        //   of sin() and atan() functions, so we cannot use floatexp
+        // also, we don't have series approximation working for stripes
+        if (infNumGe(precisScale, createInfNum("3e13"))) {
+          ret.algorithm = "perturb-stripes-stripedensity6-float";
+        } else {
+          ret.algorithm = "basic-stripes-stripedensity6-float";
+        }
+      } else {
+        if (infNumGe(precisScale, createInfNum("1e800"))) {
+          ret.algorithm = "perturb-sapx32-floatexp";
+        } else if (infNumGe(precisScale, createInfNum("1e500"))) {
+          ret.algorithm = "perturb-sapx16-floatexp";
+        } else if (infNumGe(precisScale, createInfNum("1e304"))) {
+          // looks like floatexp (with perturbation) can handle very
+          //   large scales, where only full arbitrary precision could
+          //   before, yet is much faster
+          //ret.algorithm = "basic-arbprecis";
+          //ret.algorithm = "perturb-floatexp";
+          //ret.algorithm = "bla-floatexp";
+          //ret.algorithm = "bla-sapx16-floatexp";
+          ret.algorithm = "perturb-sapx8-floatexp";
+        } else if (infNumGe(precisScale, createInfNum("1e200"))) {
+          ret.algorithm = "perturb-sapx6-float";
+        } else if (infNumGe(precisScale, createInfNum("1e100"))) {
+          // it seems like BLA, at least my code, isn't working until
+          //   scale is beyond ~1e300, but hopefully series approximation
+          //    would be useful at 3e150 and perhaps smaller scales also
+          ret.algorithm = "perturb-sapx4-float";
+        } else if (infNumGe(precisScale, createInfNum("3e13"))) {
+          ret.algorithm = "perturb-float";
+          //ret.algorithm = "bla-float";
+        }
       }
       // these values need more testing to ensure they create pixel-identical images
       //   to higher-precision images
@@ -997,12 +1253,22 @@ const plots = [{
       }
       // for non-worker mode, use only perturb or basic (no SA, no BLA)
       if (!usingWorkers) {
-        if (infNumGe(precisScale, createInfNum("1e304"))) {
-          ret.algorithm = "perturb-floatexp";
-        } else if (infNumGe(precisScale, createInfNum("3e13"))) {
-          ret.algorithm = "perturb-float";
+        if (algorithm == "auto-stripes") {
+          // for stripes coloring, we don't yet have a floatexp implementation
+          //   of sin() and atan() functions, so we cannot use floatexp
+          if (infNumGe(precisScale, createInfNum("3e13"))) {
+            ret.algorithm = "perturb-stripes-stripedensity6-float";
+          } else {
+            ret.algorithm = "basic-stripes-stripedensity6-float";
+          }
         } else {
-          ret.algorithm = "basic-float";
+          if (infNumGe(precisScale, createInfNum("1e304"))) {
+            ret.algorithm = "perturb-floatexp";
+          } else if (infNumGe(precisScale, createInfNum("3e13"))) {
+            ret.algorithm = "perturb-float";
+          } else {
+            ret.algorithm = "basic-float";
+          }
         }
       }
       console.log("default mandelbrot settings for scale:", ret);
@@ -1011,12 +1277,17 @@ const plots = [{
     "listAlgorithms": function() {
       return [
         {algorithm: "auto",                              name: "automatic"},
+        {algorithm: "auto-stripes",                      name: "automatic with stripes coloring"},
         {algorithm: "basic-float",                       name: "basic escape time, floating point"},
         {algorithm: "basic-floatexp",                    name: "basic escape time, floatexp"},
         {algorithm: "perturb-float",                     name: "perturbation theory, floating point"},
         {algorithm: "perturb-floatexp",                  name: "perturbation theory, floatexp"},
         {algorithm: "perturb-sapx4-float",               name: "perturb. w/series approx., floating point"},
         {algorithm: "perturb-sapx8-floatexp",            name: "perturb. w/series approx., floatexp"},
+        {algorithm: "basic-stripes-stripedensity6-float",name: "esc. time w/stripes coloring, floating pt."},
+        {algorithm: "basic-stripes-stripedensity2-float",name: "esc. time w/wide stripes coloring, floating pt."},
+        {algorithm: "basic-stripes-stripedensity8-float",name: "esc. time w/narrow stripes coloring, floating pt."},
+        {algorithm: "perturb-stripes-stripedensity6-float",name: "perturb. w/stripes coloring, floating pt."},
         {algorithm: "perturb-sapx6.4-floatexp-sigdig64", name: "custom"}
       ];
     },

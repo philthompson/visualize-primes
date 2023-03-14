@@ -195,7 +195,7 @@ const gradAddColorChar = document.getElementById("grad-add-color-char");
 const gradAddColorColor = document.getElementById("grad-add-color-color");
 const gradAddColorGo = document.getElementById("grad-add-color-go");
 const smoothSlopeControls = document.getElementById("smooth-slope-controls");
-const gradSmoothCb = document.getElementById("grad-smooth-cb");
+const gradLargeBailoutCb = document.getElementById("grad-largebailout-cb");
 const gradShowSmoothCb = document.getElementById("grad-showsmooth-cb");
 const gradSlopeSelect = document.getElementById("grad-slope-select");
 const gradSlopeDepth = document.getElementById("grad-slope-depth");
@@ -485,7 +485,11 @@ function computeBoundPointsChunk(chunk) {
   const results = new Array(chunk.chunkLen);
 
   if (windowCalc.algorithm.includes("basic-")) {
-    const computeFn = plot.computeBoundPointColor;
+
+    const computeFn = windowCalc.algorithm.includes("stripes") ?
+      plot.computeBoundPointColorStripes
+      :
+      plot.computeBoundPointColor;
 
     const px = chunk.chunkPos.x;
     let py, incY;
@@ -624,6 +628,18 @@ const presets = [{
   "centerY": createInfNum("100"),
   "gradient": {str: "rbgyo"},
   "bgColor": "b"
+},{
+  "plot": "Mandelbrot-set",
+  "v": 5,
+  "n": 1000,
+  "lineWidth": 1,
+  "mag": createInfNum("7.47682612308e2"),
+  "centerX": createInfNum("-7.82139360031e-1"),
+  "centerY": createInfNum("-1.48227455476e-1"),
+  "gradient": {str: "Bbwgb-b.284b75-g.28755f-mod50000-shift4"},
+  "bgColor": "b",
+  "smooth": "on-show",
+  "algo": "auto-stripes"
 }];
 
 var menuHtml =
@@ -1171,7 +1187,7 @@ function start() {
   setupAnimateIntervalSelectControl();
   animateLoopCb.checked = doAnimateLoop;
   setPlayPauseIconVisibility();
-  gradSmoothCb.checked = windowCalc.smooth;
+  gradLargeBailoutCb.checked = windowCalc.smooth;
   gradShowSmoothCb.checked = showSmooth;
   gradSlopeDepth.value = slopeDepth;
 
@@ -1393,7 +1409,8 @@ function convertMagnificationToScale(magnification, magnificationFactor) {
 //   and the rest will be populated with standard values as part of parseUrlParams()
 function replaceHistoryWithParams(params) {
   var paramsCopy = structuredClone(params);
-  // set "algo" in URL from algorithm, if not auto
+  // set "algo" in URL from algorithm, if not auto (if auto-stripes,
+  //   we DO want to include that in the URL)
   if ("algorithm" in paramsCopy && paramsCopy.algorithm != "auto") {
     paramsCopy.algo = paramsCopy.algorithm;
   }
@@ -1450,6 +1467,7 @@ const windowPlotGradients = [
   {colors: "wBGwBGwBGwBG-G.2a5726",          name:"black, white, green"},
   {colors: "BGwBGwBGwBGw-B.141414-G.D4AF37", name:"new year"},
   {colors: "GBswGBswGBsw-P.FA22BC-G.496A03-s.d9af70", name:"mitosis"},
+  {colors: "Bbwgb-b.284b75-g.28755f",        name:"aquamarine"},
   {colors: "BroywBroywBr-B.5050FF",          name:"custom"}
 ];
 
@@ -2060,11 +2078,11 @@ function resetWindowCalcContext() {
   };
 
   if ("adjustPrecision" in plot.privContext) {
-    settings = plot.privContext.adjustPrecision(historyParams.scale, useWorkers);
+    settings = plot.privContext.adjustPrecision(historyParams.scale, useWorkers, historyParams.algorithm);
   }
 
   // set the plot-specific global precision to use first
-  if (historyParams.algorithm != "auto") {
+  if (historyParams.algorithm != "auto" && historyParams.algorithm != "auto-stripes") {
     let algoPrecis;
     try {
       algoPrecis = parseInt(historyParams.algorithm.split("-").find(e => e.startsWith("sigdig")).substring(6));
@@ -2304,7 +2322,7 @@ function goToBounds(leftX, rightX, topY, bottomY, restrictPrecision = 0) {
 
   // if the plot specifies a precision value to use, use that
   if ("adjustPrecision" in plot.privContext) {
-    settings = plot.privContext.adjustPrecision(smaller, useWorkers);
+    settings = plot.privContext.adjustPrecision(smaller, useWorkers, historyParams.algorithm);
   }
 
   // if this function was called with a restriction on precision,
@@ -2574,7 +2592,10 @@ function drawWorkerColorPoints(workerMessage) {
 // simple, synchronous/blocking function to calculate and draw
 //   the entire image, for floating point only
 function calculateAndDrawWindowSync(pixelSize) {
-  const compute = plotsByName[windowCalc.plotName].computeBoundPointColor;
+  const compute = windowCalc.algorithm.includes("stripes") ?
+    plotsByName[windowCalc.plotName].computeBoundPointColorStripes
+    :
+    plotsByName[windowCalc.plotName].computeBoundPointColor;
   let step = (windowCalc.eachPixUnitsFloat * fullSizeScaleFactor) * pixelSize;
   let px = windowCalc.leftEdgeFloat;
   let xStep = step;
@@ -2588,7 +2609,7 @@ function calculateAndDrawWindowSync(pixelSize) {
       // px -- the pixel "color point"
       // pt -- the abstract coordinate on the plane
       results[resultCounter] = {
-        px: getColorPoint(x, y, compute(windowCalc.n, precision, windowCalc.algorithm, px, py))
+        px: getColorPoint(x, y, compute(windowCalc.n, precision, windowCalc.algorithm, px, py, true))
       };
       resultCounter++;
       py -= step;
@@ -2599,7 +2620,8 @@ function calculateAndDrawWindowSync(pixelSize) {
 }
 
 function calculateAndDrawWindow() {
-  if (windowCalc.algorithm.includes("basic") && windowCalc.algorithm.includes("float")) {
+  // TODO did this line intentionally match both "basic-float" and "basic-floatexp" ???
+  if (windowCalc.algorithm.includes("basic") && windowCalc.algorithm.includes("float") && !windowCalc.algorithm.includes("floatexp")) {
     // since we are just starting a new image, calculate and draw the first
     //   pass synchronously, so that as the user drags a mouse/finger, or
     //   zooms, the canvas is updated as rapidly as possible
@@ -2834,8 +2856,8 @@ function setupGradSlopeSelectControl() {
   gradSlopeSelect.innerHTML = htmlOptions.join("");
 }
 
-gradSmoothCb.addEventListener("change", function() {
-  if (!gradSmoothCb.checked) {
+gradLargeBailoutCb.addEventListener("change", function() {
+  if (!gradLargeBailoutCb.checked) {
     gradShowSmoothCb.checked = false;
   }
 });
@@ -2843,8 +2865,8 @@ gradSmoothCb.addEventListener("change", function() {
 gradShowSmoothCb.addEventListener("change", function() {
   // we can't showSmooth if the image isn't calculated with
   //   large bailouts, so ensure that box is checked
-  if (gradShowSmoothCb.checked && !gradSmoothCb.checked) {
-    gradSmoothCb.checked = true;
+  if (gradShowSmoothCb.checked && !gradLargeBailoutCb.checked) {
+    gradLargeBailoutCb.checked = true;
   }
 });
 
@@ -2881,8 +2903,8 @@ smoothSlopeGo.addEventListener("click", function() {
   }
   // if the "large bailout" checkbox has been changed, we must do
   //   a full redraw
-  const doFullRedraw = windowCalc.smooth != gradSmoothCb.checked;
-  windowCalc.smooth = gradSmoothCb.checked;
+  const doFullRedraw = windowCalc.smooth != gradLargeBailoutCb.checked;
+  windowCalc.smooth = gradLargeBailoutCb.checked;
   showSmooth = gradShowSmoothCb.checked;
   slopeLightDir = gradSlopeSelect.value;
   slopeDepth = parsedDepth;
@@ -2894,7 +2916,7 @@ smoothSlopeGo.addEventListener("click", function() {
 });
 
 function resetSmoothSlopeControls() {
-  gradSmoothCb.checked = windowCalc.smooth;
+  gradLargeBailoutCb.checked = windowCalc.smooth;
   gradShowSmoothCb.checked = showSmooth;
   gradSlopeSelect.value = slopeLightDir;
   gradSlopeDepth.value = slopeDepth.toString();
@@ -4211,6 +4233,8 @@ window.addEventListener("keydown", function(e) {
     activatePreset(presets[3]);
   } else if (e.keyCode == 53 || e.keyCode == 101 || e.key == "5") {
     activatePreset(presets[4]);
+  } else if (e.keyCode == 54 || e.keyCode == 102 || e.key == "6") {
+    activatePreset(presets[5]);
   //} else if (e.keyCode == 57 || e.keyCode == 105 || e.key == "9") {
   }
 });

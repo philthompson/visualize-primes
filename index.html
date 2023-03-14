@@ -514,7 +514,7 @@
           </details>
           <div>
             <table>
-              <tr class="large-bailout-ui"><td>large bailout:</td><td><input id="grad-smooth-cb" type="checkbox" /><small>&nbsp;(changing causes full re-render)</small></td></tr>
+              <tr class="large-bailout-ui"><td>large bailout:</td><td><input id="grad-largebailout-cb" type="checkbox" /><small>&nbsp;(changing causes full re-render)</small></td></tr>
               <tr><td>smooth:</td><td><input id="grad-showsmooth-cb" type="checkbox" /></td></tr>
               <tr><td>slope shading:</td><td><select style="font-size:0.9rem;" id="grad-slope-select"></select>&nbsp;<small>(smooth recommended)</small></td></tr>
               <tr><td>slope depth:</td><td><input size="4" id="grad-slope-depth"/>&nbsp;<small>1-64</small></td></tr>
@@ -555,11 +555,22 @@
           <summary>algorithm options</summary>
           <details class="help-text">
             <summary>?</summary>
-            The "auto" option picks the algorithm depending on the scale.  Users that are familiar with Mandelbrot set calculation algorithms may be able to select a better-performing algorithm at specific locations.
+            The "auto" option picks the algorithm depending on the scale.  Users that are familiar with Mandelbrot set calculation algorithms may be able to select a better-performing algorithm at specific locations.<br/>
+            <br/>
+            The "stripes" options use an alternate coloring algorithm.  Stripes coloring is
+            currently implemented for the basic and perturbation theory algorithms, but not for
+            series approximation and arbitrary-precision numbers used for the super-deep zooms
+            (beyond scales of 1e100).  For those deep locations, regular iteration count coloring
+            will work far better.<br/>
+            <br/>
+            When using "stripes" coloring, you'll likely want to use a "-mod#" option with your
+            gradient with a much higher modulus number than you'd use for regular iteration
+            coloring.  For example, if you would use "-mod500" with iteration coloring, try
+            starting with "-mod50000" for stripes coloring.
           </details>
           <div>
             <table>
-              <tr><td>algorithm:</td><td><input size="16" id="algo-algo"/></td></tr>
+              <tr><td>algorithm:</td><td><input size="24" id="algo-algo"/></td></tr>
               <tr><td>options:</td><td><select style="font-size:0.9rem;" id="algo-select"></select></td></tr>
             </table>
             <button id="algo-go">Go</button>

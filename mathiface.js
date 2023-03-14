@@ -70,6 +70,12 @@ const floatMath = {
   // returns a float
   log: function(a) {
     return Math.log(a);
+  },
+  sin(x) {
+    return Math.sin(x);
+  },
+  atan(opposite, adjacent) {
+    return Math.atan(opposite / adjacent);
   }
 };
 
@@ -136,6 +142,17 @@ const floatExpMath = {
   // returns a float
   log: function(a) {
     return parseFloat(floatExpToString(floatExpLn(a)));
+  },
+  // sin() not implemented for floatexp
+  sin(x) {
+    return createFloatExpFromNumber(0);
+  },
+  // atan() not implemented for floatexp
+  // the "identities" listed in this SA answer might help if
+  //   implementing atan() for floatexp some day:
+  //   https://stackoverflow.com/a/23097989/259456
+  atan(opposite, adjacent) {
+    return createFloatExpFromNumber(0);
   }
 };
 
@@ -197,5 +214,16 @@ const infNumMath = {
   },
   truncateToSigDig: function(a, precision = 0) {
     return infNumTruncateToLen(a, precision);
+  },
+  // sin() not implemented for infnum
+  sin(x) {
+    return infNum(0n, 0n);
+  },
+  // atan() not implemented for infnum
+  // the "identities" listed in this SA answer might help if
+  //   implementing atan() for infnum some day:
+  //   https://stackoverflow.com/a/23097989/259456
+  atan(opposite, adjacent) {
+    return infNum(0n, 0n);
   }
 };

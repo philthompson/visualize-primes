@@ -142,7 +142,10 @@ var computeChunk = function(plotId, chunk, cachedIndices) {
   if (cachedIndices.length < chunk.chunkLen) {
 
     if (algorithm.includes("basic-")) {
-      const computeFn = plotsByName[chunk.plot].computeBoundPointColor;
+      const computeFn = algorithm.includes("stripes-") ?
+        plotsByName[chunk.plot].computeBoundPointColorStripes
+        :
+        plotsByName[chunk.plot].computeBoundPointColor;
 
       const px = chunk.chunkPos.x;
       let py, incY;

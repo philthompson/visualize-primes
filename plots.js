@@ -88,10 +88,11 @@ const plots = [{
     }
 
     const math = selectMathInterfaceFromAlgorithm(algorithm);
+    const bailoutSquared = useSmooth ? math.createFromNumber(32*32) : math.four;
 
     // the coords used for iteration
-    const xConv = math.createFromInfNum(x);
-    const yConv = math.createFromInfNum(y);
+    const xConv = typeof x.v == "bigint" ? math.createFromInfNum(x) : math.createFromExpString(floatExpToString(x));
+    const yConv = typeof y.v == "bigint" ? math.createFromInfNum(y) : math.createFromExpString(floatExpToString(y));
     var ix = structuredClone(math.zero);
     var iy = structuredClone(math.zero);
     var ixSq = structuredClone(math.zero);
@@ -102,7 +103,7 @@ const plots = [{
       while (iter < maxIter) {
         ixSq = math.mul(ix, ix);
         iySq = math.mul(iy, iy);
-        if (math.gt(math.add(ixSq, iySq), math.four)) {
+        if (math.gt(math.add(ixSq, iySq), bailoutSquared)) {
           break;
         }
         ixTemp = math.add(xConv, math.sub(ixSq, iySq));
@@ -116,6 +117,15 @@ const plots = [{
       if (iter == maxIter) {
         return windowCalcBackgroundColor;
       } else {
+        // smooth coloring (adding fractional component to integer iteration count)
+        //   based on pseudocode on wikipedia:
+        //   https://en.wikipedia.org/wiki/Plotting_algorithms_for_the_Mandelbrot_set#Continuous_(smooth)_coloring
+        if (useSmooth) {
+          // math.log() returns a float
+          let fracIter = math.log(math.add(ixSq, iySq)) / 2;
+          fracIter = Math.log(fracIter / Math.LN2) / Math.LN2;
+          iter += 1 - fracIter;
+        }
         //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
         return iter;
       }
@@ -128,16 +138,11 @@ const plots = [{
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColorStripes": function(n, precis, algorithm, x, y, useSmooth) {
 
-    // odd stripeDensity values create the artifacts!
-    // things that worked (without weird swooping artifacts) (ALL use 64*64 bailoutSquared):
-    // - these show long "stripes"
-    //   - stripeDensity=6.0, stripeSkipFirstIters=5, mixFactor=1000, gradient=bBgwo-B.141414-mod2222-shift2
-    //   - stripeDensity=6.0, stripeSkipFirstIters=5, mixFactor=1000, gradient=Bbgoyw-mod1500
-    // - these show somewhat diffuse "stripes"
-    //   - stripeDensity=4.0, stripeSkipFirstIters=1, mixFactor=1000, gradient=Bbgoyw-mod1500
-    // - these show very diffuse "stripes" that aren't really stripes
-    //   - stripeDensity=2, stripeSkipFirstIters=5, mixFactor=1000, gradient=Bbgoyw-mod1500
+    // odd stripeDensity values create the weird swooping artifacts!
     let stripeDensity = 6.0; // anywhere from -10 to +10?
+    // for curvature average, we must skip the first 2 iterations
+    //   to avoid divide-by-zero -- for stripe average we don't need
+    //   to skip any
     const stripeSkipFirstIters = 0;
     const maxIter = n;
     // this scales up the final result, increasing the number of
@@ -155,150 +160,111 @@ const plots = [{
       stripeDensity = userStripeDensity;
     }
 
-    if (algorithm.includes("basic") && algorithm.includes("float") && !algorithm.includes("floatexp")) {
-      // TODO: consider allowing bailout (integer) to be specified by user in algorithm string
-      const bailoutSquared = useSmooth ? (64*64) : 4;
-      const logBailoutSquared = Math.log(bailoutSquared);
-      // truncating to 15 decimal digits here is equivalent to truncating
-      //   to 16 significant digits, but it's more efficient to do both at once
-      //let xFloat = typeof x == "number" ? x : parseFloat(infNumExpStringTruncToLen(x, 18));
-      //let yFloat = typeof y == "number" ? y : parseFloat(infNumExpStringTruncToLen(y, 18));
-      let ix = 0;
-      let iy = 0;
-      let ixSq = 0;
-      let iySq = 0;
-      let ixTemp = 0;
-      let iter = 0;
-      let avgCount = 0;
-      let avg = 0;
-      let lastAdded = 0;
-      let lastZ2 = 0; // last squared length
+    // TODO: consider allowing bailout (integer) to be specified by user in algorithm string
+    const bailoutSquared = useSmooth ? (64*64) : 4;
+    const logBailoutSquared = Math.log(bailoutSquared);
+    // truncating to 15 decimal digits here is equivalent to truncating
+    //   to 16 significant digits, but it's more efficient to do both at once
+    //let xFloat = typeof x == "number" ? x : parseFloat(infNumExpStringTruncToLen(x, 18));
+    //let yFloat = typeof y == "number" ? y : parseFloat(infNumExpStringTruncToLen(y, 18));
+    let ix = 0;
+    let iy = 0;
+    let ixSq = 0;
+    let iySq = 0;
+    let ixTemp = 0;
+    let iter = 0;
+    let avgCount = 0;
+    let avg = 0;
+    let lastAdded = 0;
+    let lastZ2 = 0; // last squared length
 // for testing curvature average coloring
-//      let ixOneAgo = 0; // nth iteration of x, from 1 iteration ago
-//      let iyOneAgo = 0; // nth iteration of y, from 1 iteration ago
-//      let ixTwoAgo = 0; // nth iteration of x, from 2 iterations ago
-//      let iyTwoAgo = 0; // nth iteration of y, from 2 iterations ago
-      while (iter < maxIter) {
-        ixSq = ix * ix;
-        iySq = iy * iy;
-        if (iter > stripeSkipFirstIters) {
-          avgCount++;
+//    let ixOneAgo = 0; // nth iteration of x, from 1 iteration ago
+//    let iyOneAgo = 0; // nth iteration of y, from 1 iteration ago
+//    let ixTwoAgo = 0; // nth iteration of x, from 2 iterations ago
+//    let iyTwoAgo = 0; // nth iteration of y, from 2 iterations ago
+    while (iter < maxIter) {
+      ixSq = ix * ix;
+      iySq = iy * iy;
+      if (iter > stripeSkipFirstIters) {
+        avgCount++;
 
-          // stripe addend function
-          lastAdded = (0.5 * Math.sin(stripeDensity * Math.atan(iy / ix))) + 0.5;
+        // stripe addend function
+        lastAdded = (0.5 * Math.sin(stripeDensity * Math.atan(iy / ix))) + 0.5;
 
-          // dbyrne addend function (https://www.fractalforums.com/programming/faster-alternative-to-tia-coloring/)
-          //lastAdded = Math.min(Math.abs(iy / ix), 2.0);
+        // dbyrne addend function (https://www.fractalforums.com/programming/faster-alternative-to-tia-coloring/)
+        //lastAdded = Math.min(Math.abs(iy / ix), 2.0);
 
-          // "atan(value)" from "mandelbrowser" android app author:
-          //lastAdded = Math.abs(Math.atan(iy / ix));
-          //lastAdded = 1 / (1 + Math.atan(iy / ix));
-          //lastAdded = 1 / (1 + Math.abs(Math.atan(iy / ix)));
+        // "atan(value)" from "mandelbrowser" android app author:
+        //lastAdded = Math.abs(Math.atan(iy / ix));
+        //lastAdded = 1 / (1 + Math.atan(iy / ix));
+        //lastAdded = 1 / (1 + Math.abs(Math.atan(iy / ix)));
 
-          // "log(abs(value))" from "mandelbrowser" android app author:
-          //lastAdded = Math.log(Math.abs(ixSq + iySq));
-          //lastAdded = 1 / (1 + Math.log(Math.abs(ixSq + iySq)));
+        // "log(abs(value))" from "mandelbrowser" android app author:
+        //lastAdded = Math.log(Math.abs(ixSq + iySq));
+        //lastAdded = 1 / (1 + Math.log(Math.abs(ixSq + iySq)));
 
-          // similar to above, but sqrt
-          //lastAdded = 1 / (1 + Math.log(Math.sqrt(ixSq + iySq)));
+        // similar to above, but sqrt
+        //lastAdded = 1 / (1 + Math.log(Math.sqrt(ixSq + iySq)));
 
-          // triangle average (i think the last few orbit iterations need to be excluded?)
-          //let z_mag = Math.sqrt(lastZ2);
-          //let c_mag = Math.sqrt(x*x + y*y);
-          //let mn = z_mag - c_mag;
-          //mn = Math.sqrt(mn*mn);
-          //let bigMn = z_mag + c_mag;
-          //let num = Math.sqrt(ixSq + iySq) - mn;
-          //let den = bigMn - mn;
-          //lastAdded = den == 0 ? 0.0 : num/den;
+        // triangle average (i think the last few orbit iterations need to be excluded?)
+        //let z_mag = Math.sqrt(lastZ2);
+        //let c_mag = Math.sqrt(x*x + y*y);
+        //let mn = z_mag - c_mag;
+        //mn = Math.sqrt(mn*mn);
+        //let bigMn = z_mag + c_mag;
+        //let num = Math.sqrt(ixSq + iySq) - mn;
+        //let den = bigMn - mn;
+        //lastAdded = den == 0 ? 0.0 : num/den;
 
-          // curvature average (https://en.wikibooks.org/wiki/Fractals%2FIterations_in_the_complex_plane%2Ftriangle_ineq#CAA)
-          // stripeSkipFirstIters = 2
-          //let numx = ix - ixOneAgo;
-          //let numy = iy - iyOneAgo;
-          //let denx = ixOneAgo - ixTwoAgo;
-          //let deny = iyOneAgo - iyTwoAgo;
-          //if (denx != 0 && deny != 0) {
-          //  let quotx = (numx*denx + numy*deny) / (denx*denx + deny*deny);
-          //  let quoty = (numy*denx - numx*deny) / (denx*denx + deny*deny);
-          //  if (quotx != 0) {
-          //    lastAdded = Math.abs(1.0 * Math.atan(quoty / quotx));
-          //  } else {
-          //    lastAdded = 0;
-          //  }
-          //} else {
-          //  lastAdded = 0;
-          //}
+        // curvature average (https://en.wikibooks.org/wiki/Fractals%2FIterations_in_the_complex_plane%2Ftriangle_ineq#CAA)
+        // stripeSkipFirstIters = 2
+        //let numx = ix - ixOneAgo;
+        //let numy = iy - iyOneAgo;
+        //let denx = ixOneAgo - ixTwoAgo;
+        //let deny = iyOneAgo - iyTwoAgo;
+        //if (denx != 0 && deny != 0) {
+        //  let quotx = (numx*denx + numy*deny) / (denx*denx + deny*deny);
+        //  let quoty = (numy*denx - numx*deny) / (denx*denx + deny*deny);
+        //  if (quotx != 0) {
+        //    lastAdded = Math.abs(1.0 * Math.atan(quoty / quotx));
+        //  } else {
+        //    lastAdded = 0;
+        //  }
+        //} else {
+        //  lastAdded = 0;
+        //}
 
-          avg += lastAdded;
-        }
+        avg += lastAdded;
+      }
 // for testing curvature average coloring
-//        ixTwoAgo = ixOneAgo;
-//        iyTwoAgo = iyOneAgo;
-//        ixOneAgo = ix;
-//        iyOneAgo = iy;
-        lastZ2 = ixSq + iySq;
-        if (lastZ2 > bailoutSquared /*&& iter > stripeSkipFirstIters*/) {
-          break;
-        }
-        ixTemp = x + (ixSq - iySq);
-        iy = y + (2 * ix * iy);
-        ix = ixTemp;
-        iter++;
+//      ixTwoAgo = ixOneAgo;
+//      iyTwoAgo = iyOneAgo;
+//      ixOneAgo = ix;
+//      iyOneAgo = iy;
+      lastZ2 = ixSq + iySq;
+      if (lastZ2 > bailoutSquared /*&& iter > stripeSkipFirstIters*/) {
+        break;
       }
-
-
-      if (iter >= maxIter) {
-        return windowCalcBackgroundColor;
-      } else {
-        if (!useSmooth) {
-          return avg / avgCount;
-        }
-        let prevAvg = (avg - lastAdded) / (avgCount - 1);
-        avg = avg / avgCount;
-        let frac = 1.0 + Math.log2(logBailoutSquared/Math.log(lastZ2));
-        let mix = frac * avg + ((1.0 - frac) * prevAvg);
-        return mix * mixFactor;
-      }
+      ixTemp = x + (ixSq - iySq);
+      iy = y + (2 * ix * iy);
+      ix = ixTemp;
+      iter++;
     }
 
-    const math = selectMathInterfaceFromAlgorithm(algorithm);
 
-    // the coords used for iteration
-    const xConv = math.createFromInfNum(x);
-    const yConv = math.createFromInfNum(y);
-    var ix = structuredClone(math.zero);
-    var iy = structuredClone(math.zero);
-    var ixSq = structuredClone(math.zero);
-    var iySq = structuredClone(math.zero);
-    var ixTemp = structuredClone(math.zero);
-    var iter = 0;
-    try {
-      while (iter < maxIter) {
-        ixSq = math.mul(ix, ix);
-        iySq = math.mul(iy, iy);
-        if (math.gt(math.add(ixSq, iySq), math.four)) {
-          break;
-        }
-        ixTemp = math.add(xConv, math.sub(ixSq, iySq));
-        iy = math.add(yConv, math.mul(math.two, math.mul(ix, iy)));
-        ix = ixTemp;
-        ix = math.truncateToSigDig(ix, precis);
-        iy = math.truncateToSigDig(iy, precis);
-        iter++;
+    if (iter >= maxIter) {
+      return windowCalcBackgroundColor;
+    } else {
+      if (!useSmooth) {
+        return avg / avgCount;
       }
-
-      if (iter == maxIter) {
-        return windowCalcBackgroundColor;
-      } else {
-        //console.log("point (" + infNumToString(x) + ", " + infNumToString(y) + ") exploded on the [" + iter + "]th iteration");
-        return iter;
-      }
-    } catch (e) {
-      console.log("ERROR CAUGHT when processing point (x, y, iter, maxIter): [" + math.toExpString(x) + ", " + math.toExpString(y) + ", " + iter + ", " + maxIter + "]:");
-      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
-      return windowCalcIgnorePointColor; // special color value that will not be displayed
+      let prevAvg = (avg - lastAdded) / (avgCount - 1);
+      avg = avg / avgCount;
+      let frac = 1.0 + Math.log2(logBailoutSquared/Math.log(lastZ2));
+      let mix = frac * avg + ((1.0 - frac) * prevAvg);
+      return mix * mixFactor;
     }
+
   },
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeReferenceOrbit": function(n, precis, algorithm, x, y, period, useSmooth, fnContext) {

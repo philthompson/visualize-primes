@@ -903,6 +903,7 @@ function parseUrlParams() {
         // only assign full gradient to params if no error thrown
         params.gradient = grad;
         builtGradient = grad;
+        saveUserGradientOnlyIfCustom(grad, plot.calcFrom == "window");
         hideGradientError();
       } catch (e) {
         // on error, put just parsed gradient into params (the
@@ -2758,13 +2759,11 @@ btnGradGo.addEventListener("click", function() {
     historyParams.gradient = grad;
     builtGradient = grad;
     hideGradientError();
+    saveUserGradientOnlyIfCustom(historyParams.gradient, isCurrentPlotAWindowPlot());
     if (isCurrentPlotAWindowPlot()) {
-      // save the user's last entered gradient into the "custom" gradient
-      windowPlotGradients[windowPlotGradients.length-1].colors = historyParams.gradient.colors;
       setupGradientSelectControl(windowPlotGradients);
       recolor();
     } else {
-      sequencePlotGradients[sequencePlotGradients.length-1].colors = historyParams.gradient.colors;
       setupGradientSelectControl(sequencePlotGradients);
       redraw();
     }
@@ -2778,6 +2777,29 @@ inputGradGrad.addEventListener("change", updateGradientPreview);
 inputGradGrad.addEventListener("input", updateGradientPreview);
 inputGradGrad.addEventListener("propertychange", updateGradientPreview);
 inputGradGrad.addEventListener("paste", updateGradientPreview);
+
+// if the user is using a custom gradient (NOT the same
+//   colors as any preset) then overwrite the "custom"
+//   gradient
+function saveUserGradientOnlyIfCustom(userGradient, isWindowPlot) {
+  let gradients = isWindowPlot ? windowPlotGradients : sequencePlotGradients;
+  let foundSelected = false;
+  for (let i = 0; i < gradients.length; i++) {
+    if (gradients[i].colors == userGradient.colors) {
+      foundSelected = true;
+      break;
+    }
+  }
+  // if a preset gradient is not being used, save the user's
+  //   gradient into the "custom" gradient
+  if (!foundSelected) {
+    if (isWindowPlot) {
+      windowPlotGradients[windowPlotGradients.length-1].colors = userGradient.colors;
+    } else {
+      sequencePlotGradients[sequencePlotGradients.length-1].colors = userGradient.colors;
+    }
+  }
+}
 
 function updateGradientPreview() {
   try {

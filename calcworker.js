@@ -131,6 +131,9 @@ self.onmessage = function(e) {
   console.log("got mesage [" + e.data.t + "]");
   if (e.data.t == "worker-calc") {
     runCalc(e.data.v);
+  } else if (e.data.t == "chunk-ordering") {
+    windowCalc.chunkOrdering = e.data.v;
+    updateRunningChunksOrdering();
   } else if (e.data.t == "workers-count") {
     updateWorkerCount(e.data.v);
   } else if (e.data.t == "wipe-cache") {
@@ -932,6 +935,13 @@ function centerOutArray(array) {
   }
 }
 
+// sort the array of chunks on the x pixel
+function sortXPixelChunksArray(array) {
+  array.sort(function(a, b) {
+    return a.chunkPix.x - b.chunkPix.x;
+  });
+}
+
 // call the plot's computeBoundPoints function in chunks, to better
 //   allow interuptions for long-running calculations
 var calculateWindowPassChunks = function() {
@@ -1068,6 +1078,17 @@ var calculateWindowPassChunks = function() {
 
   windowCalc.totalChunks = windowCalc.xPixelChunks.length;
 };
+
+function updateRunningChunksOrdering() {
+  if (windowCalc.chunkOrdering == "random") {
+    shuffleArray(windowCalc.xPixelChunks);
+  } else if (windowCalc.chunkOrdering == "center first") {
+    sortXPixelChunksArray(windowCalc.xPixelChunks);
+    centerOutArray(windowCalc.xPixelChunks);
+  } else {
+    sortXPixelChunksArray(windowCalc.xPixelChunks);
+  }
+}
 
 function sendStatusMessage(message) {
   self.postMessage({

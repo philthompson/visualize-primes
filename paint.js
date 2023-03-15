@@ -218,8 +218,6 @@ const windowLockIcon = document.getElementById("window-lock-icon");
 const windowLockIconKbd = document.getElementById("window-lock-icon-kbd");
 const chunkOrderingControls = document.getElementById("chunk-ordering-controls");
 const chunkOrderSelect = document.getElementById("chunk-order-select");
-const btnChunkOrderGo = document.getElementById("chunk-order-go");
-const btnChunkOrderReset = document.getElementById("chunk-order-reset");
 const animateControls = document.getElementById("animation-controls");
 const animateLoopCb = document.getElementById("animate-loop-cb");
 const animateIntervalSelect = document.getElementById("animate-interval-select");
@@ -337,6 +335,13 @@ function centerOutArray(array) {
   }
 }
 
+// sort the array of chunks on the x pixel
+function sortXPixelChunksArray(array) {
+  array.sort(function(a, b) {
+    return a.chunkPix.x - b.chunkPix.x;
+  });
+}
+
 // call the plot's computeBoundPoints function in chunks, to better
 //   allow interuptions for long-running calculations
 function calculateWindowPassChunks() {
@@ -445,9 +450,23 @@ function calculateWindowPassChunks() {
     shuffleArray(windowCalc.xPixelChunks);
   } else if (windowCalc.chunkOrdering == "center first") {
     centerOutArray(windowCalc.xPixelChunks);
+  } else {
+    // since the chunks are already ordered, we don't need
+    //   to sort them here at the start of the run
   }
 
   windowCalc.totalChunks = windowCalc.xPixelChunks.length;
+}
+
+function updateRunningChunksOrdering() {
+  if (windowCalc.chunkOrdering == "random") {
+    shuffleArray(windowCalc.xPixelChunks);
+  } else if (windowCalc.chunkOrdering == "center first") {
+    sortXPixelChunksArray(windowCalc.xPixelChunks);
+    centerOutArray(windowCalc.xPixelChunks);
+  } else {
+    sortXPixelChunksArray(windowCalc.xPixelChunks);
+  }
 }
 
 function calculateReferenceOrbit() {
@@ -1053,17 +1072,16 @@ function setupChunkOrderSelectControl(selected = chunkOrderOptions[0]) {
   chunkOrderSelect.innerHTML = htmlOptions.join("");
 }
 
-var resetChunkOrderSelect = function() {
-  chunkOrderSelect.value = windowCalc.chunkOrdering;
-};
-
-btnChunkOrderGo.addEventListener("click", function() {
+chunkOrderSelect.addEventListener("change", function() {
   if (windowCalc.chunkOrdering != chunkOrderSelect.value) {
     windowCalc.chunkOrdering = chunkOrderSelect.value;
-    redraw();
+    if (useWorkers) {
+      windowCalc.worker.postMessage({"t": "chunk-ordering", "v": windowCalc.chunkOrdering});
+    } else if (windowCalc.xPixelChunks.length > 0) {
+      updateRunningChunksOrdering();
+    }
   }
 });
-btnChunkOrderReset.addEventListener("click", resetChunkOrderSelect);
 
 function setupAnimateIntervalSelectControl() {
   const htmlOptions = [];

@@ -156,7 +156,7 @@ const plots = [{
     try {
       userStripeDensity = parseFloat(algorithm.split("-").find(e => e.startsWith("stripedensity")).substring(13));
     } catch (e) {}
-    if (userStripeDensity !== undefined && userStripeDensity >= 1.0 && userStripeDensity <= 10.0) {
+    if (userStripeDensity !== undefined && userStripeDensity >= 0.1 && userStripeDensity <= 100.0) {
       stripeDensity = userStripeDensity;
     }
 
@@ -177,6 +177,7 @@ const plots = [{
     let avg = 0;
     let lastAdded = 0;
     let lastZ2 = 0; // last squared length
+    //let triPrevZ2 = 0; // before last squared length, for triangle inequality average
 // for testing curvature average coloring
 //    let ixOneAgo = 0; // nth iteration of x, from 1 iteration ago
 //    let iyOneAgo = 0; // nth iteration of y, from 1 iteration ago
@@ -186,6 +187,7 @@ const plots = [{
       ixSq = ix * ix;
       iySq = iy * iy;
       if (iter > stripeSkipFirstIters) {
+        // comment this out for TIA
         avgCount++;
 
         // stripe addend function
@@ -206,16 +208,6 @@ const plots = [{
         // similar to above, but sqrt
         //lastAdded = 1 / (1 + Math.log(Math.sqrt(ixSq + iySq)));
 
-        // triangle average (i think the last few orbit iterations need to be excluded?)
-        //let z_mag = Math.sqrt(lastZ2);
-        //let c_mag = Math.sqrt(x*x + y*y);
-        //let mn = z_mag - c_mag;
-        //mn = Math.sqrt(mn*mn);
-        //let bigMn = z_mag + c_mag;
-        //let num = Math.sqrt(ixSq + iySq) - mn;
-        //let den = bigMn - mn;
-        //lastAdded = den == 0 ? 0.0 : num/den;
-
         // curvature average (https://en.wikibooks.org/wiki/Fractals%2FIterations_in_the_complex_plane%2Ftriangle_ineq#CAA)
         // stripeSkipFirstIters = 2
         //let numx = ix - ixOneAgo;
@@ -234,6 +226,7 @@ const plots = [{
         //  lastAdded = 0;
         //}
 
+        // comment this out for TIA
         avg += lastAdded;
       }
 // for testing curvature average coloring
@@ -241,10 +234,24 @@ const plots = [{
 //      iyTwoAgo = iyOneAgo;
 //      ixOneAgo = ix;
 //      iyOneAgo = iy;
+      // for testing triangle inequality average
+      //triPrevZ2 = lastZ2;
       lastZ2 = ixSq + iySq;
       if (lastZ2 > bailoutSquared /*&& iter > stripeSkipFirstIters*/) {
         break;
       }
+      // trying triangle here, since the |z| is not escaped
+      //let zOldMag = Math.sqrt(triPrevZ2);
+      //let cMag = Math.sqrt(x*x + y*y); // this can be calculated once, outside the loop
+      //let triMin = Math.abs(zOldMag - cMag);
+      //let triMax = zOldMag + cMag;
+      //let fracNum = Math.sqrt(lastZ2) - triMin;
+      //let fracDen = triMax - triMin;
+      //if (fracDen != 0) {
+      //  avgCount++;
+      //  lastAdded = fracNum / fracDen;
+      //  avg += lastAdded;
+      //}
       ixTemp = x + (ixSq - iySq);
       iy = y + (2 * ix * iy);
       ix = ixTemp;

@@ -388,7 +388,7 @@
     <div id="menu">
         <span style="position: fixed; right: 1.8rem; top: 1.2rem;" id="menu-close">×</span>
         <p style="padding-right: 4rem;"c>Use a "View" button below to select a plot.  Or, use the
-        buttons below or the number keys <kbd id="kbd-1">1</kbd>&nbsp;to&nbsp;<kbd id="kbd-5">5</kbd>
+        buttons below or the number keys <kbd id="kbd-1">1</kbd>&nbsp;to&nbsp;<kbd id="kbd-6">6</kbd>
         to view presets.
         <div id="menu-contents"></div>
     </div>
@@ -413,7 +413,7 @@
               <tr><td>&nbsp;</td></tr>
               <tr><td>scale:</td><td><textarea rows="4" size="22" id="go-to-scale"></textarea></td></tr>
               <tr><td colspan="2" style="font-size:0.9rem">scale is (pixels/unit) so bigger = more zoom</td></tr>
-              <tr><td>magnification:</td><td><textarea rows="4" size="22" id="go-to-mag"></textarea></td></tr>
+              <tr><td>magnif-<br/>ication:</td><td><textarea rows="4" size="22" id="go-to-mag"></textarea></td></tr>
               <tr><td colspan="2" style="font-size:0.9rem">magnification of 1 shows the entire plot.  2 shows the plot at 2x the size, 5e2 at 500x, etc.</td></tr>
             </table>
             <button id="go-to-c-go">Go</button>
@@ -570,7 +570,7 @@
           </details>
           <div>
             <table>
-              <tr><td>algorithm:</td><td><input size="24" id="algo-algo"/></td></tr>
+              <tr><td>algorithm:</td><td><input size="22" id="algo-algo" style="text-align:left"/></td></tr>
               <tr><td>options:</td><td><select style="font-size:0.9rem;" id="algo-select"></select></td></tr>
             </table>
             <button id="algo-go">Go</button>

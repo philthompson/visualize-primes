@@ -33,7 +33,8 @@ const plots = [{
     "<br/><br/>My favorite explanation I've found so far is <a target='_blank' href='https://www.youtube.com/watch?v=FFftmWSzgmk'>this Numberphile video on YouTube</a>." +
     "<br/><br/><b>Tips for using this Mandelbrot set viewer</b>:" +
     "<br/>- When not zoomed in very far, keep the <code>n</code> (iterations) parameter low for faster calculation (use N and M keys to decrease/increase the <code>n</code> value)." +
-    "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower.",
+    "<br/>- To see more detail when zoomed in, increase the <code>n</code> (iterations) parameter with the M key.  Calculations will be slower." +
+    "<br/>- <a target='_blank' href='https://philthompson.me/very-plotter-tips.html'>More tips</a>",
   "gradientType": "mod",
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColor": function(n, precis, algorithm, x, y, useSmooth) {
@@ -141,8 +142,8 @@ const plots = [{
     // odd stripeDensity values create the weird swooping artifacts!
     let stripeDensity = 6.0; // anywhere from -10 to +10?
     // for curvature average, we must skip the first 2 iterations
-    //   to avoid divide-by-zero -- for stripe average we don't need
-    //   to skip any
+    //   to avoid divide-by-zero -- for stripe average we need
+    //   to skip the first (0th)
     const stripeSkipFirstIters = 0;
     const maxIter = n;
     // this scales up the final result, increasing the number of

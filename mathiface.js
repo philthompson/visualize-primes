@@ -35,6 +35,13 @@ const floatMath = {
       y: a.y
     };
   },
+  complexDiv: function(a, b) {
+    let den = (b.x*b.x + b.y*b.y);
+    return {
+      x: (a.x*b.x + a.y*b.y) / den,
+      y: (a.y*b.x - a.x*b.y) / den
+    };
+  },
   complexAbsSquared: function(a) {
     return a.x * a.x + a.y * a.y;
   },
@@ -109,6 +116,13 @@ const floatExpMath = {
     return {
       x: floatExpAdd(a.x, real),
       y: structuredClone(a.y)
+    };
+  },
+  complexDiv: function(a, b) {
+    let den = floatExpAdd(floatExpMul(b.x, b.x), floatExpMul(b.y, b.y));
+    return {
+      x: floatExpDiv(floatExpAdd(floatExpMul(a.x, b.x), floatExpMul(a.y, b.y)), den),
+      y: floatExpDiv(floatExpSub(floatExpMul(a.y, b.x), floatExpMul(a.x, b.y)), den),
     };
   },
   complexAbsSquared: function(a) {
@@ -186,6 +200,13 @@ const infNumMath = {
     return {
       x: infNumAdd(a.x, real),
       y: structuredClone(a.y)
+    };
+  },
+  complexDiv: function(a, b) {
+    let den = infNumAdd(infNumMul(b.x, b.x), infNumMul(b.y, b.y));
+    return {
+      x: infNumDiv(infNumAdd(infNumMul(a.x, b.x), infNumMul(a.y, b.y)), den),
+      y: infNumDiv(infNumSub(infNumMul(a.y, b.x), infNumMul(a.x, b.y)), den),
     };
   },
   complexAbsSquared: function(a) {

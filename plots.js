@@ -138,12 +138,9 @@ const plots = [{
   },
   // x and y must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColorStripes": function(n, precis, algorithm, x, y, useSmooth) {
-
     // odd stripeDensity values create the weird swooping artifacts!
     let stripeDensity = 6.0; // anywhere from -10 to +10?
-    // for curvature average, we must skip the first 2 iterations
-    //   to avoid divide-by-zero -- for stripe average we need
-    //   to skip the first (0th)
+    // for stripe average we need to skip the first (0th) iteration
     const stripeSkipFirstIters = 0;
     const maxIter = n;
     // this scales up the final result, increasing the number of
@@ -179,11 +176,6 @@ const plots = [{
     let lastAdded = 0;
     let lastZ2 = 0; // last squared length
     //let triPrevZ2 = 0; // before last squared length, for triangle inequality average
-// for testing curvature average coloring
-//    let ixOneAgo = 0; // nth iteration of x, from 1 iteration ago
-//    let iyOneAgo = 0; // nth iteration of y, from 1 iteration ago
-//    let ixTwoAgo = 0; // nth iteration of x, from 2 iterations ago
-//    let iyTwoAgo = 0; // nth iteration of y, from 2 iterations ago
     while (iter < maxIter) {
       ixSq = ix * ix;
       iySq = iy * iy;
@@ -209,32 +201,9 @@ const plots = [{
         // similar to above, but sqrt
         //lastAdded = 1 / (1 + Math.log(Math.sqrt(ixSq + iySq)));
 
-        // curvature average (https://en.wikibooks.org/wiki/Fractals%2FIterations_in_the_complex_plane%2Ftriangle_ineq#CAA)
-        // stripeSkipFirstIters = 2
-        //let numx = ix - ixOneAgo;
-        //let numy = iy - iyOneAgo;
-        //let denx = ixOneAgo - ixTwoAgo;
-        //let deny = iyOneAgo - iyTwoAgo;
-        //if (denx != 0 && deny != 0) {
-        //  let quotx = (numx*denx + numy*deny) / (denx*denx + deny*deny);
-        //  let quoty = (numy*denx - numx*deny) / (denx*denx + deny*deny);
-        //  if (quotx != 0) {
-        //    lastAdded = Math.abs(1.0 * Math.atan(quoty / quotx));
-        //  } else {
-        //    lastAdded = 0;
-        //  }
-        //} else {
-        //  lastAdded = 0;
-        //}
-
         // comment this out for TIA
         avg += lastAdded;
       }
-// for testing curvature average coloring
-//      ixTwoAgo = ixOneAgo;
-//      iyTwoAgo = iyOneAgo;
-//      ixOneAgo = ix;
-//      iyOneAgo = iy;
       // for testing triangle inequality average
       //triPrevZ2 = lastZ2;
       lastZ2 = ixSq + iySq;
@@ -259,6 +228,88 @@ const plots = [{
       iter++;
     }
 
+
+    if (iter >= maxIter) {
+      return windowCalcBackgroundColor;
+    } else {
+      if (!useSmooth) {
+        return avg / avgCount;
+      }
+      let prevAvg = (avg - lastAdded) / (avgCount - 1);
+      avg = avg / avgCount;
+      let frac = 1.0 + Math.log2(logBailoutSquared/Math.log(lastZ2));
+      let mix = frac * avg + ((1.0 - frac) * prevAvg);
+      return mix * mixFactor;
+    }
+
+  },
+  "computeBoundPointColorCurvature": function(n, precis, algorithm, x, y, useSmooth) {
+
+    // for curvature average, we must skip the first 2 iterations
+    //   to avoid divide-by-zero -- for stripe average we need
+    //   to skip the first (0th)
+    const skipFirstIters = 1;
+    const maxIter = n;
+    // this scales up the final result, increasing the number of
+    //   colors.  a mixFactor of 1000 works ok, but in some areas
+    //   there are rather abrupt color boundaries where a smooth
+    //   gradient is expected.
+    const mixFactor = 100000;
+
+    // TODO: consider allowing bailout (integer) to be specified by user in algorithm string
+    const bailoutSquared = useSmooth ? (64*64) : 4;
+    const logBailoutSquared = Math.log(bailoutSquared);
+    // truncating to 15 decimal digits here is equivalent to truncating
+    //   to 16 significant digits, but it's more efficient to do both at once
+    //let xFloat = typeof x == "number" ? x : parseFloat(infNumExpStringTruncToLen(x, 18));
+    //let yFloat = typeof y == "number" ? y : parseFloat(infNumExpStringTruncToLen(y, 18));
+    let ix = 0;
+    let iy = 0;
+    let ixSq = 0;
+    let iySq = 0;
+    let ixTemp = 0;
+    let iter = 0;
+    let avgCount = 0;
+    let avg = 0;
+    let lastAdded = 0;
+    let lastZ2 = 0; // last squared length
+    let currentZ = {x: 0, y: 0};
+    let oneZ = {x: 0, y: 0}; // z (coord. at iteration) one iteration ago
+    let twoZ = {x: 0, y: 0}; // z (coord. at iteration) two iterations ago
+    while (iter < maxIter) {
+      ixSq = ix * ix;
+      iySq = iy * iy;
+
+      lastZ2 = ixSq + iySq;
+
+      // curvature average (https://en.wikibooks.org/wiki/Fractals%2FIterations_in_the_complex_plane%2Ftriangle_ineq#CAA)
+      twoZ = oneZ;
+      oneZ = currentZ;
+      currentZ = {x: ix, y: iy};
+
+      if (iter > skipFirstIters) {
+        let curveNum = {x: currentZ.x - oneZ.x, y: currentZ.y - oneZ.y};
+        let curveDen = {x: oneZ.x - twoZ.x, y: oneZ.y - twoZ.y};
+        let curveQuot = floatMath.complexDiv(curveNum, curveDen);
+          if (curveQuot.x != 0) {
+            avgCount++;
+            // the 1.2 here may be a parameter that could be exposed to the user
+            //   in the algorithm string, similar to -stripedensity# used with
+            //   stripe average coloring
+            lastAdded = Math.abs(1.2 * Math.atan(curveQuot.y / curveQuot.x));
+            avg += lastAdded;
+          }
+      }
+
+      if (lastZ2 > bailoutSquared /*&& iter > skipFirstIters*/) {
+        break;
+      }
+
+      ixTemp = x + (ixSq - iySq);
+      iy = y + (2 * ix * iy);
+      ix = ixTemp;
+      iter++;
+    }
 
     if (iter >= maxIter) {
       return windowCalcBackgroundColor;

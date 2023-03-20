@@ -351,12 +351,12 @@ function setupBlaCoefficients(state) {
       windowCalc.referenceBlaTables = null;
       sendStatusMessage("Calculating BLA coefficient tables");
     }
-    state = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, windowCalc.referenceOrbit, state);
+    state = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, windowCalc.referenceOrbit, windowCalc.referencePx, windowCalc.referencePy, windowCalc.edges, state);
     sendStatusMessage(state.status);
   }
   if (state.done) {
     windowCalc.referenceBlaN = windowCalc.n;
-    windowCalc.referenceBlaTables = state.blaTables;
+    windowCalc.referenceBlaTables = state.blasByRefIter;
   }
   return state;
 }

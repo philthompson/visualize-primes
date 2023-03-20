@@ -198,10 +198,13 @@ function floatExpEq(a, b) {
     return a.v === b.v;
   }
 }
-
 // ported from floatexp.h
 function floatExpGt(a, b) {
-  if (a.v > 0) {
+  if (a.v == 0) {
+    return b.v < 0;
+  } else if (b.v == 0) {
+    return a.v > 0;
+  } else if (a.v > 0) {
     if (b.v < 0) {
       return true;
     } else if (a.e > b.e) {
@@ -231,7 +234,11 @@ function floatExpGe(a, b) {
 
 // ported from floatexp.h
 function floatExpLt(a, b) {
-  if (a.v > 0) {
+  if (a.v == 0) {
+    return b.v > 0;
+  } else if (b.v == 0) {
+    return a.v < 0;
+  } else if (a.v > 0) {
     if (b.v < 0) {
       return false;
     } else if (a.e > b.e) {
@@ -406,6 +413,11 @@ if (doUnitTests) {
   c = floatExpGt(a, b);
   console.log(a, ">", b, "=", c, " // 2 > 100 = false");
 
+  a = createFloatExpFromString("0");
+  b = createFloatExpFromString("-0.00123");
+  c = floatExpGt(a, b);
+  console.log(a, ">", b, "=", c, " // 0 > -0.00123 = true");
+
   a = createFloatExpFromString("2.00");
   b = createFloatExpFromString("100");
   c = floatExpGe(a, b);
@@ -415,6 +427,11 @@ if (doUnitTests) {
   b = createFloatExpFromString("100");
   c = floatExpLt(a, b);
   console.log(a, "<", b, "=", c, " // 2 < 100 = true");
+
+  a = floatExpAlign({e:-709, v:1.071});
+  b = {e:0, v:0};
+  c = floatExpLt(a, b);
+  console.log(a, "<", b, "=", c, " // 1.071*10^-709 < 0 = false");
 
   a = createFloatExpFromString("2.00");
   b = createFloatExpFromString("100");

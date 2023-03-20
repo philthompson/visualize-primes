@@ -54,6 +54,12 @@ const floatMath = {
   lt: function(a, b) {
     return a < b;
   },
+  max: function(a, b) {
+    return a > b ? a : b;
+  },
+  min: function(a, b) {
+    return a > b ? b : a;
+  },
   // (it seems more efficient to let JavaScript truncate by using
   //   the full exponential notation with parseFloat(), but maybe
   //   some precision is lost and it would be better to truncate
@@ -136,6 +142,12 @@ const floatExpMath = {
   },
   lt: function(a, b) {
     return floatExpLt(a, b);
+  },
+  max: function(a, b) {
+    return floatExpGt(a, b) ? a : b;
+  },
+  min: function(a, b) {
+    return floatExpGt(a, b) ? b : a;
   },
   createFromInfNum: function(a) {
     return createFloatExpFromInfNum(a);
@@ -220,6 +232,12 @@ const infNumMath = {
   },
   lt: function(a, b) {
     return infNumLt(a, b);
+  },
+  max: function(a, b) {
+    return infNumGt(a, b) ? a : b;
+  },
+  min: function(a, b) {
+    return infNumGt(a, b) ? b : a;
   },
   createFromInfNum: function(a) {
     return structuredClone(a);

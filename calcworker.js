@@ -356,7 +356,7 @@ function setupBlaCoefficients(state) {
   }
   if (state.done) {
     windowCalc.referenceBlaN = windowCalc.n;
-    windowCalc.referenceBlaTables = state.blasByRefIter;
+    windowCalc.referenceBlaTables = state.blas;
   }
   return state;
 }

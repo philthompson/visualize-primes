@@ -14,6 +14,92 @@ if (typeof importScripts === 'function') {
   importScripts("floatexp.js?v=" + (appVersion || scriptAppVersion));
 }
 
+// based on the function at https://stackoverflow.com/a/29018745/259456
+// sortedArray - "best" BLA is at index 0, "worst" is at the end
+//
+function searchForBestBLAbinary(sortedArray, deltaZAbs, math) {
+  let lo = 0;
+  let hi = sortedArray.length - 1;
+  let x = null;
+  // we want the lowest-indexed (closest to start of array)
+  //   BLA found to be valid
+  let lowestValid = null;
+  let validityTestsPerformed = 0;
+  // special case for arrays larger than 1 BLA: test the smallest
+  //   first, because many times the smallest (least iterations
+  //   skipped) is not valid, in which case we don't need to test
+  //   the rest of the BLAs in the array
+  if (hi > 0) {
+    validityTestsPerformed++;
+    if (math.lt(deltaZAbs, sortedArray[hi].r2)) {
+      lowestValid = hi;
+      hi--;
+    } else {
+      return {
+        validityTestsPerformed: validityTestsPerformed,
+        bestValidBLA: false
+      }
+    }
+  }
+  while (lo <= hi) {
+    x = (lo + hi) >>1;
+    validityTestsPerformed++;
+    // if the tested BLA is valid, try halfway
+    //   among the higher-iteration BLAs (which are
+    //   toward the lower-indexed end of the array)
+    if (math.lt(deltaZAbs, sortedArray[x].r2)) {
+      lowestValid = x;
+      hi = x - 1;
+    // if the tested BLA is not valid, try halfway
+    //   among the lower-iteration BLAs (which are
+    //   toward the higher-indexed end of the array)
+    } else {
+      lo = x + 1;
+    }
+  }
+  return {
+    validityTestsPerformed: validityTestsPerformed,
+    bestValidBLA: lowestValid === null ? false : sortedArray[lowestValid]
+  };
+}
+// actually does linear search after first checking the worst
+//   (last) element in the array
+function searchForBestBLA(sortedArray, deltaZAbs, math) {
+  let lo = 0;
+  let hi = sortedArray.length - 1;
+  // we want the lowest-indexed (closest to start of array)
+  //   BLA found to be valid
+  let lowestValid = null;
+  let validityTestsPerformed = 0;
+  // special case for arrays larger than 1 BLA: test the smallest
+  //   first, because many times the smallest (least iterations
+  //   skipped) is not valid, in which case we don't need to test
+  //   the rest of the BLAs in the array
+  if (hi > 0) {
+    validityTestsPerformed++;
+    if (math.lt(deltaZAbs, sortedArray[hi].r2)) {
+      lowestValid = hi;
+      hi--;
+    } else {
+      return {
+        validityTestsPerformed: validityTestsPerformed,
+        bestValidBLA: false
+      };
+    }
+  }
+  for (let x = lo; x <= hi; x++) {
+    validityTestsPerformed++;
+    if (math.lt(deltaZAbs, sortedArray[x].r2)) {
+      lowestValid = x;
+      break;
+    }
+  }
+  return {
+    validityTestsPerformed: validityTestsPerformed,
+    bestValidBLA: lowestValid === null ? false : sortedArray[lowestValid]
+  };
+}
+
 const windowCalcBackgroundColor = -1;
 const windowCalcIgnorePointColor = -2;
 
@@ -733,7 +819,7 @@ const plots = [{
         if (coefTermsAreValid) {
           validTestPoints++;
         } else {
-          console.log("SA test point [" + p + "] is not valid at iteraition [" + i + "]");
+          console.log("SA test point [" + p + "] is not valid at iteration [" + i + "]");
           // if the coefficients at this iteration were not valid for any single test point
           //   we don't need to keep trying the other points
           break;
@@ -844,8 +930,9 @@ const plots = [{
     // we'll then just use normal perturbation, as needed, to move 1 or 2 iterations
     //   until we reach a ref orbit iteration with a matching BLA
     // IMPORTANT -- when changing this, also change the BLA lookup skip bitwise check in the perturb loop:
-    // lowLevelsToDelete = 1 -- use: (referenceIter & 3 == 3)
-    // lowLevelsToDelete = 2 -- use: (referenceIter & 5 == 5)
+    // lowLevelsToDelete = 1 -- use: ((referenceIter & 1) == 1) (checking for odd-numbered ref iter)
+    // lowLevelsToDelete = 2 -- use: ((referenceIter & 3) == 1) (checking for ref iter 1 more than a multiple of 4)
+    // lowLevelsToDelete = 3 -- use: ???
     const lowLevelsToDelete = 2;
 
     if (fnContext === null) {
@@ -857,11 +944,11 @@ const plots = [{
       // SO INSTEAD we'll try computing max |dc| here
       // subtraction order doesn't matter because we're taking abs
       let refDeltaCX = math.createFromInfNum(infNumSub(windowEdges.left, referencePx));
-      let refDeltaCY = math.createFromInfNum(infNumSub(windowEdges.bottom, referencePy)); 
+      let refDeltaCY = math.createFromInfNum(infNumSub(windowEdges.bottom, referencePy));
       let maxAbsC = math.complexAbs({x: refDeltaCX, y: refDeltaCY});
       refDeltaCX = math.createFromInfNum(infNumSub(windowEdges.right, referencePx));
       maxAbsC = math.max(maxAbsC, math.complexAbs({x: refDeltaCX, y: refDeltaCY}));
-      refDeltaCY = math.createFromInfNum(infNumSub(windowEdges.top, referencePy)); 
+      refDeltaCY = math.createFromInfNum(infNumSub(windowEdges.top, referencePy));
       maxAbsC = math.max(maxAbsC, math.complexAbs({x: refDeltaCX, y: refDeltaCY}));
       refDeltaCX = math.createFromInfNum(infNumSub(windowEdges.left, referencePx));
       maxAbsC = math.max(maxAbsC, math.complexAbs({x: refDeltaCX, y: refDeltaCY}));
@@ -884,6 +971,10 @@ const plots = [{
         // - blas: another Map, of either "level" or itersToSkip
         // - orderedItersToSkip: an ordered array, from large to small, of available BLAs by itersToSkip
         blasByRefIter: new Map(),
+        blas: {
+          byNthIter: [],
+          iterToNthDivisor: lowLevelsToDelete ** 2,
+        },
 
         maxAbsC: maxAbsC,
 
@@ -928,11 +1019,12 @@ const plots = [{
           // b: the "B" coefficient, which is a complex number
           // r: the validity radius (not a complex number)
           // r2:the validity radius squared
-          bla = {
+          let bla = {
             a: math.complexRealMul(referenceOrbit[refIter], math.two), // 2 Z (where big Z = ref orbit Z)
             b: {x: math.one, y: math.zero}, // (1+0i),
             r: null, // computed here, below
             r2: null, // computed here, below
+            itersToSkip: levelItersToSkip
           }
 
           // claude's orig line, then does Zhouran's correction apply here?
@@ -971,17 +1063,7 @@ const plots = [{
           bla.r2 = math.mul(r, r);
 
           // store our initial 1-iteration BLA in a new map
-          blas = new Map();
-          blas.set(levelItersToSkip, bla);
-
-          // TODO why keep any BLAs besides the longest-skipping one for
-          //   any one ref iter?  is it so we can backtrack in case skipping
-          //   too many iters escapes the bailout?  or so we can skip a
-          //   smaller amount when the validation radius is exceeded?
-          fnContext.blasByRefIter.set(refIter, {
-            blas: blas,
-            orderedItersToSkip: [] // include nothing here, since the lowest level(s) are going to be deleted
-          });
+          fnContext.blasByRefIter.set(refIter, [bla]);
           calcsDoneThisStatusUpdate++;
 
         // for all subsequent levels, we calculate A and B by merging the
@@ -989,18 +1071,22 @@ const plots = [{
         } else if (refIter + levelItersToSkip < maxIter) {
 
           // we'll call the BLAs we are merging x and y
-          let x = fnContext.blasByRefIter.get(refIter).blas.get(prevLevelItersToSkip);
-          let y = fnContext.blasByRefIter.get(refIter + prevLevelItersToSkip).blas.get(prevLevelItersToSkip);
+          let x = fnContext.blasByRefIter.get(refIter).find(e => e.itersToSkip == prevLevelItersToSkip);
+          let y = fnContext.blasByRefIter.get(refIter + prevLevelItersToSkip).find(e => e.itersToSkip == prevLevelItersToSkip);
 
-          // A = y.A * x.A
-          // B = y.A * x.B + y.B
-          // r = min(x.r, max(0, (y.r - |B| |c|) / |A|))
+          if (x === undefined) {
+            console.log("bah");
+          }
+          if (y === undefined) {
+            console.log("gah");
+          }
 
-          bla = {
+          let bla = {
             a: math.complexMul(x.a, y.a),
             b: math.complexAdd(math.complexMul(x.b, y.a), y.b),
             r: null, // computed here, below
             r2: null, // computed here, below
+            itersToSkip: levelItersToSkip
           }
 
           // this is an attempt to implement claude's merging: https://fractalforums.org/index.php?topic=4360.msg32142#msg32142
@@ -1031,12 +1117,14 @@ const plots = [{
           bla.r = r;
           bla.r2 = math.mul(r, r);
 
-          // add this new BLA for the ref orbit iteration
-          fnContext.blasByRefIter.get(refIter).blas.set(levelItersToSkip, bla);
-          // insert this level's number of iterations to skip at the front of the array
-          if (level >= lowLevelsToDelete) {
-            fnContext.blasByRefIter.get(refIter).orderedItersToSkip.unshift(levelItersToSkip);
-          }
+          // delete the merged BLAs' r properties, since they're not needed anymore
+          //   (the BLA "r2" property is needed later, when testing the validity
+          //   radius)
+          delete x.r;
+          delete y.r;
+
+          // add this new BLA for the ref orbit iteration to the front of the array
+          fnContext.blasByRefIter.get(refIter).unshift(bla);
           calcsDoneThisStatusUpdate++;
 
           //console.log("merged [" + prevLevelItersToSkip + "]-iteration BLAs at " +
@@ -1072,29 +1160,47 @@ const plots = [{
 
     console.log("before deleting the lowest [", lowLevelsToDelete, "] levels, we have BLAs at [", fnContext.blasByRefIter.size , "] iterations");
     let totalDeletedBLAs = 0;
-    // we already made sure to not inculde these levels' iters to skip from
-    //   the ordered array, so we don't have to trim the ends of the arrays
     let blasAtRefIter;
+    let bla;
     for (let deleteLevel = 0; deleteLevel < lowLevelsToDelete; deleteLevel++) {
       let levelItersToSkip = 2 ** deleteLevel; // skip 1 iter at level 0, 2 at level 1, ...
-      for (let deleteRefIter = 0; deleteRefIter < maxIter; deleteRefIter += levelItersToSkip) {
+      // IMPORTANT here to start at index 1 (the 2nd ref orbit iter) since that's
+      //   where all the BLAs start
+      for (let deleteRefIter = 1; deleteRefIter < maxIter; deleteRefIter += levelItersToSkip) {
         blasAtRefIter = fnContext.blasByRefIter.get(deleteRefIter);
         if (blasAtRefIter === undefined) {
           //console.log("when deleting low-level BLAs, we didn't find any BLAs at ref iter [" + deleteRefIter + "]");
           continue;
         }
-        if (blasAtRefIter.blas.delete(levelItersToSkip)) {
+        if (blasAtRefIter.length > 0) {
+          bla = blasAtRefIter.pop();
+          if (bla.itersToSkip != levelItersToSkip) {
+            console.log("somehow, for ref iter " + deleteRefIter + ", was going to remove a " + bla.itersToSkip + "-iter BLA when trying to remove BLAs with ", levelItersToSkip, " iters");
+            blasAtRefIter.push(bla);
+          }
           totalDeletedBLAs++;
-        //} else {
-        //  console.log("when deleting low-level BLAs, we didn't find any BLA for skipping [" + levelItersToSkip + "] iters at ref iter [" + deleteRefIter + "]");
         }
-        if (blasAtRefIter.blas.size == 0) {
+        if (blasAtRefIter.length == 0) {
           fnContext.blasByRefIter.delete(deleteRefIter);
         }
       }
     }
     console.log("deleted [" + totalDeletedBLAs + "] total BLAs in the lowest [" + lowLevelsToDelete + "] levels");
     console.log("after deleting the lowest [", lowLevelsToDelete, "] levels, we have BLAs at [", fnContext.blasByRefIter.size , "] iterations");
+
+    // convert the map, by reference iter, to an array
+    //   where the Nth reference iter is converted to
+    //   the corresponding array index
+    for (const kv of fnContext.blasByRefIter) {
+      // to convert ref iteration to Nth index:
+      // (iter - 1) / (2 ** lowestLevel)
+      if (kv[0] < 20) {
+        let index = (kv[0] - 1) / fnContext.blas.iterToNthDivisor;
+        console.log("iteration", kv[0], "becomes array index", index);
+      }
+      fnContext.blas.byNthIter[(kv[0] - 1) / fnContext.blas.iterToNthDivisor] = kv[1];
+    }
+    delete fnContext.blasByRefIter;
 
     return fnContext;
   },
@@ -1357,43 +1463,59 @@ const plots = [{
     }
     let blaItersSkipped = 0;
     let blaSkips = 0;
+    //let blaRadiusTests = 0;
     try {
       let lastZ2 = math.zero; // last squared z
       let lastAdded = math.zero; // last addend for the average summation
       let avg = math.zero;
       let avgCount = 0;
+      let foundBLA;
+      let blasAtRefIter;
+      let blaItersToSkip;
+      let blaTestResult;
+      let foundValidBLA;
+      let refOrbitCouldStillHaveValidBLAs = true;
       while (iter < maxIter) {
 
-        let foundValidBLA = false;
+        foundValidBLA = false;
         // TODO here, since we start BLA at ref iter 1 (not 0):
         // - if we drop the first 2 levels of BLA, all BLAs will be for a ref iter of one more than a multiple of 4
         //   - to easily test, do binary & with all zeroes ending with 101
         // - if we drop only the first level of BLA, all BLAs will be for a ref iter of one more than a multiple of 2
         //   - to easily test, do binary & with all zeroes ending with 11
-        if (useBla && (referenceIter == 1 || (referenceIter & 5 == 5))) {
+        //let testresult = referenceIter & 3;
+        if (useBla && (referenceIter & 3) == 1 && refOrbitCouldStillHaveValidBLAs) {
 
           // see if any BLAs, for this ref orbit iteration, can be used
           //   (we're looking to see if the ref orbit iter and BLA
           //   coefficients create a negligible squared iteration term)
 
-          let blasAtRefIter = blaTables.get(referenceIter);
+          //blasAtRefIter = blaTables.get(referenceIter);
+          blasAtRefIter = blaTables.byNthIter[(referenceIter - 1) / blaTables.iterToNthDivisor];
 
-          if (blasAtRefIter !== undefined) {
+          //if (blasAtRefIter === undefined) {
+          //  console.log("strange!  undefined BLAs for ref iter ", referenceIter);
+          //} else {
 
             // test the BLAs at this ref orbit iter, in order from most
             //   skipped iterations to fewest skipped
-            let blaItersToSkip;
-            let foundBLA;
-            for (let itersIndex in blasAtRefIter.orderedItersToSkip) {
-              blaItersToSkip = blasAtRefIter.orderedItersToSkip[itersIndex];
-              foundBLA = blasAtRefIter.blas.get(blaItersToSkip);
-              if (math.lt(/*zAbs*/ deltaZAbs, foundBLA.r2) && blaItersToSkip + iter < maxIter && blaItersToSkip + referenceIter < maxReferenceIter) {
-                foundValidBLA = true;
-                break;
-              }
-            }
+            //for (let blaIndex = 0; blaIndex < blasAtRefIter.length; blaIndex++) {
+            //  foundBLA = blasAtRefIter[blaIndex];
+            //  blaItersToSkip = foundBLA.itersToSkip;
+            //  blaRadiusTests++;
+            //  if (math.lt(/*zAbs*/ deltaZAbs, foundBLA.r2) && blaItersToSkip + iter < maxIter && blaItersToSkip + referenceIter < maxReferenceIter) {
+            //    foundValidBLA = true;
+            //    break;
+            //  }
+            //}
+
+            blaTestResult = searchForBestBLA(blasAtRefIter, deltaZAbs, math);
+            //blaRadiusTests += blaTestResult.validityTestsPerformed;
+            foundBLA = blaTestResult.bestValidBLA;
+            foundValidBLA = foundBLA !== false;
 
             if (foundValidBLA) {
+              blaItersToSkip = foundBLA.itersToSkip;
               deltaZ = math.complexAdd(
                 math.complexMul(foundBLA.a, deltaZ),
                 math.complexMul(foundBLA.b, deltaC)
@@ -1403,8 +1525,10 @@ const plots = [{
               referenceIter += blaItersToSkip;
               blaItersSkipped += blaItersToSkip;
               blaSkips++;
+            } else {
+              refOrbitCouldStillHaveValidBLAs = false;
             }
-          }
+          //}
         }
 
         // do a 1-iteration regular perturbation step if BLA isn't
@@ -1442,6 +1566,9 @@ const plots = [{
         zAbs = math.complexAbsSquared(z);
         lastZ2 = zAbs;
         if (math.gt(zAbs, bailoutSquared)) {
+          if (foundValidBLA) {
+            console.log("skipped ahead with a BLA and ended up beyond the bailout... should we backtrack?");
+          }
           iter--;
           break;
         }
@@ -1450,97 +1577,13 @@ const plots = [{
           //console.log("re-basing to beginning of ref orbit");
           deltaZ = z;
           referenceIter = 0;
-        } else if (false && useBla) { // moving this BLA stuff above
-
-          // see if any BLAs, for this ref orbit iteration, can be used
-          //   (we're looking to see if the ref orbit iter and BLA
-          //   coefficients create a negligible squared iteration term)
-
-          let bla = blaTables.get(referenceIter);
-
-          // no found BLA for this ref iter, so just continue to
-          //   apply perturbation on next iteration?
-          if (bla === undefined) {
-            continue;
-          }
-
-          // test the BLAs at this ref orbit iter, in order from most
-          //   skipped iterations to fewest skipped
-          let foundValidBLA = false;
-          let blaItersToSkip;
-          let foundBLA;
-          for (let itersIndex in bla.orderedItersToSkip) {
-            blaItersToSkip = bla.orderedItersToSkip[itersIndex];
-            foundBLA = bla.blas.get(blaItersToSkip);
-            if (math.lt(/*zAbs*/ deltaZAbs, foundBLA.r2) && blaItersToSkip + iter < maxIter && blaItersToSkip + referenceIter < maxReferenceIter) {
-              foundValidBLA = true;
-              break;
-            }
-          }
-
-          // no valid BLA for this ref iter, so just continue to
-          //   apply perturbation on next iteration?
-          if (!foundValidBLA) {
-            continue;
-          }
-
-          deltaZ = math.complexAdd(
-            math.complexMul(foundBLA.a, deltaZ),
-            math.complexMul(foundBLA.b, deltaC)
-          );
-
-          iter += blaItersToSkip;
-          referenceIter += blaItersToSkip;
-          blaItersSkipped += blaItersToSkip;
-          blaSkips++;
-
-          //// old stuff below //////
-
-//          let goodL = null;
-//          if (referenceIter / maxReferenceIter < 0.95) {
-//
-//            let blaL = null;
-//            let epsilonRefAbs = null;
-//            let coefTable =  blaTables.coefTable.get(referenceIter);
-//            for (const entry of coefTable) {
-//              epsilonRefAbs = blaTables.epsilonRefAbsTable.get(referenceIter+entry[0]);
-//              if (math.lt(
-//                  math.complexAbs(math.complexAdd(
-//                    math.complexMul(entry[1].a, deltaZ),
-//                    math.complexMul(entry[1].b, deltaC))),
-//                  epsilonRefAbs)) {
-//                goodL = entry[0];
-//              } else {
-//                break;
-//              }
-//            }
-//          }
-//
-//          // if no iters were skippable, use regular perturbation for the next iteration
-//          // otherwise
-//          // if some iters are skippable, apply BLA function here to skip iterations
-//          // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
-//          // BLA+perturb algorithm: https://fractalforums.org/index.php?topic=4360.msg31574#msg31574
-//          if (goodL !== null) {
-//            //console.log("skipping " + goodL + " iters at pixel", {x:x, y:y});
-//            //skippedIters += goodL;
-//            deltaZ = math.complexAdd(
-//              math.complexMul(blaTables.coefTable.get(referenceIter).get(goodL).a, deltaZ),
-//              math.complexMul(blaTables.coefTable.get(referenceIter).get(goodL).b, deltaC)
-//            );
-//            iter += goodL;
-//            referenceIter += goodL;
-//            blaItersSkipped += goodL;
-//            blaSkips++;
-//
-//            if (referenceIter >= maxReferenceIter) {
-//              console.log("somehow we have to re-base to beginning of ref orbit");
-//              deltaZ = math.complexAdd(referenceOrbit[referenceIter], deltaZ);
-//              referenceIter = 0;
-//            }
-//          }
+          refOrbitCouldStillHaveValidBLAs = true;
         }
       }
+
+      //if (useBla && Math.random() >= 0.9997) {
+      //  console.log("for this pixel, did", blaSkips, "BLA skips averaging", (Math.round(blaRadiusTests * 100.0 / blaSkips) / 100.0), "radius tests per skip");
+      //}
 
       if (iter == maxIter) {
         return {colorpct: windowCalcBackgroundColor, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};

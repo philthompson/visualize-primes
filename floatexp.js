@@ -198,6 +198,7 @@ function floatExpEq(a, b) {
     return a.v === b.v;
   }
 }
+
 // ported from floatexp.h
 function floatExpGt(a, b) {
   if (a.v == 0) {

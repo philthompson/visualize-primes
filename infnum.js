@@ -1,6 +1,8 @@
 
 // remove starting here for minify
 var doUnitTests = false;
+//var heronsIterations = 0;
+var doPerfTests = true;
 // remove ending here for minify
 
 function replaceAllEachChar(subject, replaceThese, replaceWith) {
@@ -448,6 +450,13 @@ function infNumMagnitude(n) {
   return finalExponent;
 }
 
+function infNumAbs(n) {
+  if (n.v < 0) {
+    return infNum(-n.v, n.e);
+  }
+  return n;
+}
+
 //
 // Math.sqrt(2*(10**7)) === Math.sqrt(2) * (10**3.5)
 //
@@ -467,16 +476,31 @@ function infNumRoughSqrt(a) {
   if (a.e % 2n === 0n) {
     return {
       v: bigIntRoughSqrt(a.v),
-      e: a.e / 2n
+      e: a.e >> 1n
     };
   } else {
-    return infNumMul(infNumSqrt10, {
-      v: bigIntRoughSqrt(a.v),
-      // >>1 is equivalent to Math.floor(a.e/2) BUT bitwise operations force
-      //   JavaScript numbers down to unsigned 32-bit integers, so we cannot
-      //   use bitwise operations here
-      e: Math.floor(a.e/2)
-    });
+    return {
+      v: bigIntRoughSqrt(a.v * 10n),
+      e: a.e >> 1n
+    };
+  }
+}
+function infNumRoughSqrt5(a) {
+  if (a.v === 0n) {
+    return a;
+  }
+  // we want to keep exponent an integer, so we must
+  //   check whether it's even before dividing by 2
+  if (a.e % 2n === 0n) {
+    return {
+      v: bigIntRoughSqrt5(a.v),
+      e: a.e >> 1n
+    };
+  } else {
+    return {
+      v: bigIntRoughSqrt5(a.v * 10n),
+      e: a.e >> 1n
+    };
   }
 }
 
@@ -530,6 +554,549 @@ function bigIntRoughSqrt(a) {
     BigInt(Math.round(Math.sqrt(floatMantissa) * 1000.0)) * (10n**(BigInt(Math.floor(mag/2)))) * 3n;
 
   return sqrt1000 / BigInt(1000n);
+}
+
+function bigIntRoughSqrt5(a) {
+  if (a < 0n) {
+    throw "cannot take rough square root of negative value";
+  }
+  let digits = a.toString().length;
+  const mag = digits - 1;
+  //const magMinusTwo = mag - 2;
+  //let mantissa = null;
+  //if (magMinusTwo < 0) {
+  //  // get first three digits of value
+  //  // 5 (v:5n,e:0n) is magnitude 0
+  //  // (5n * (10n**(-2n*-1n))) / (10n**(0n*-1n)) => 500n
+  //  // 0.054321 (v:54321n,e:-6n) is magnitude -2
+  //  // (54321n * (10n**(-4n*-1n))) / (10n**(-6n*-1n)) => 543n
+  //  mantissa = (a.v * (10n**BigInt(magMinusTwo*-1))) / (10n**(a.e*-1n));
+  //} else {
+  //  // get first three digits of value
+  //  // 398765 is magnitude 5
+  //  // 398765n / (10n**(5n-2n)) => 398n
+  //  mantissa = a.v / (10n**BigInt(magMinusTwo));
+  //}
+  //const floatMantissa = parseFloat(mantissa) / 100.0;
+  //return floatMantissa;
+
+  // make a copy of the argument (necessary?)
+  let mantissa = a * 10n;
+  digits++;
+  while (mantissa < 10000n) {
+    mantissa *= 10n;
+    digits++;
+  }
+  // keep first 5 digits of mantissa
+  mantissa = mantissa / (10n**BigInt(digits - 5));
+  const floatMantissa = parseFloat(mantissa) / 10000.0;
+
+  // to perform square root, we are dividing magnitude in half
+  // if magnitude is not an even number, multiply by 3, which is
+  //   roughly the square root of 10, since:
+  // 10**3.5 === 10**0.5 * 10**3
+  const sqrt100000 = mag % 2 === 0 ?
+    BigInt(Math.round(Math.sqrt(floatMantissa) * 100000.0)) * (10n**(BigInt(mag/2)))
+    :
+    BigInt(Math.round(Math.sqrt(floatMantissa) * 100000.0)) * (10n**(BigInt(Math.floor(mag/2)))) * 3n;
+
+  return sqrt100000 / BigInt(100000n);
+}
+
+// based on my above infNumRoughSqrt() but with more sensible
+//   handling of odd exponents from https://stackoverflow.com/a/9236307/259456
+//
+// for sqrt, we halve the exponent and do sqrt(mantissa)
+//
+// since the resulting exponent must be an integer, if the
+//   given exponent is odd, we use:
+//
+// sqrt(n * 10^7) = sqrt(10n * 10^6) = sqrt(10n)*10^3
+// or
+// sqrt(n * 10^-9) = sqrt(10n * 10^-10) = sqrt(10n)*10^-5
+//
+// TODO:
+// the mantissa will need a bunch more digits of precision when
+//   we take the square root, so the exponent will need to be
+//   subtracted the number 
+//   
+// n * 10^-10 = n*10^2 * 10^-12
+//
+// as mentioned in https://stackoverflow.com/a/9236307/259456, we
+//   can either use (2p+2) precision, where p is the precision of
+//   the given value's mantissa, (and carry all that extra
+//   precision through all the sqrt computation) or we can use
+//   just a little more precision and then use guess-and-check
+//   upon the final answer (by squaring it to check) and tweak the
+//   least-significant digits until we get close enough
+//
+// to start with, we'll add 10 extra digits of precision here, and
+//   see if we can tweak the final result to get close
+//
+function infNumSqrt(a) {
+  if (a.v === 0n) {
+    return a;
+  }
+  // we want to keep exponent an integer, so we must
+  //   check whether it's even before dividing by 2
+  if (a.e % 2n === 0n) {
+    return {
+      v: bigIntSqrt(a.v * 10000000000n), // increase by 10^10, and reduce exponent accordingly before halving
+      e: (a.e - 10n) / 2n
+    };
+  } else {
+    return {
+      v: bigIntSqrt(a.v * 100000000000n), // increase by 10^11 here, and reduce exponent accordingly before halving
+      e: (a.e - 11n) / 2n
+    };
+  }
+}
+function infNumSqrtMorePrecis(a) {
+  if (a.v === 0n) {
+    return a;
+  }
+  // we want to keep exponent an integer, so we must
+  //   check whether it's even before dividing by 2
+  if (a.e % 2n === 0n) {
+    return {
+      v: bigIntSqrt(a.v * 100000000000000n), // increase by 10^14, and reduce exponent accordingly before halving
+      e: (a.e - 14n) / 2n
+    };
+  } else {
+    return {
+      v: bigIntSqrt(a.v * 1000000000000000n), // increase by 10^15 here, and reduce exponent accordingly before halving
+      e: (a.e - 15n) / 2n
+    };
+  }
+}
+function infNumSqrtLessPrecis(a) {
+  if (a.v === 0n) {
+    return a;
+  }
+  // we want to keep exponent an integer, so we must
+  //   check whether it's even before dividing by 2
+  if (a.e % 2n === 0n) {
+    return {
+      v: bigIntSqrt(a.v * 1000000n), // increase by 10^6, and reduce exponent accordingly before halving
+      e: (a.e - 6n) / 2n
+    };
+  } else {
+    return {
+      v: bigIntSqrt(a.v * 10000000n), // increase by 10^7 here, and reduce exponent accordingly before halving
+      e: (a.e - 7n) / 2n
+    };
+  }
+}
+function infNumSqrtPower10(a) {
+  if (a.v === 0n) {
+    return a;
+  }
+  // we want to keep exponent an integer, so we must
+  //   check whether it's even before dividing by 2
+  if (a.e % 2n === 0n) {
+    return {
+      v: bigIntSqrtPower10(a.v * 10000000000n), // increase by 10^10, and reduce exponent accordingly before halving
+      e: (a.e - 10n) / 2n
+    };
+  } else {
+    return {
+      v: bigIntSqrtPower10(a.v * 100000000000n), // increase by 10^11 here, and reduce exponent accordingly before halving
+      e: (a.e - 11n) / 2n
+    };
+  }
+}
+function infNumSqrtPower10LessPrecis(a) {
+  if (a.v === 0n) {
+    return a;
+  }
+  // we want to keep exponent an integer, so we must
+  //   check whether it's even before dividing by 2
+  if (a.e % 2n === 0n) {
+    return {
+      v: bigIntSqrtPower10(a.v * 1000000n), // increase by 10^6, and reduce exponent accordingly before halving
+      e: (a.e - 6n) / 2n
+    };
+  } else {
+    return {
+      v: bigIntSqrtPower10(a.v * 10000000n), // increase by 10^7 here, and reduce exponent accordingly before halving
+      e: (a.e - 7n) / 2n
+    };
+  }
+}
+function infNumSqrtPower10MorePrecis(a) {
+  if (a.v === 0n) {
+    return a;
+  }
+  // we want to keep exponent an integer, so we must
+  //   check whether it's even before dividing by 2
+  if (a.e % 2n === 0n) {
+    return {
+      v: bigIntSqrtPower10(a.v * 100000000000000n), // increase by 10^14, and reduce exponent accordingly before halving
+      e: (a.e - 14n) / 2n
+    };
+  } else {
+    return {
+      v: bigIntSqrtPower10(a.v * 1000000000000000n), // increase by 10^15 here, and reduce exponent accordingly before halving
+      e: (a.e - 15n) / 2n
+    };
+  }
+}
+// using more digits of precision:
+// - seems to decrease the error by 10^(digts/2)
+// - exponentially slows down the computation
+//
+// testing on Apple M1 processor (single-core presumably)
+//   where 4 million square roots are taken of varying lengths:
+// - with 2 additional digits of precision:
+//   - ~2e-3% average error
+//   - this required, on average, 1.44 iterations of Heron's method per square root
+//   - run time of 1.27s (about 22% faster than with 6 digits of precision)
+// - with 6 additional digits of precision:
+//   - ~2e-5% average error
+//   - this required, on average, 1.65 iterations of Heron's method per square root
+//   - run time of 1.56s
+// - with 10 additional digits of precision:
+//   - ~2e-7% average error
+//   - this required, on average, 1.88 iterations of Heron's method per square root
+//   - run time of 1.86s (about 18% slower than with 6 digits of precision)
+// - with 14 additional digits of precision:
+//   - ~2e-9% average error
+//   - this required, on average, 2.16 iterations of Heron's method per square root
+//   - run time of 2.24s (about 42% slower than with 6 digits of precision)
+// - with 18 additional digits of precision:
+//   - ~2e-11% average error
+//   - this required, on average, 2.37 iterations of Heron's method per square root
+//   - run time of 2.93s (about 88% slower than with 6 digits of precision)
+// - with 22 additional digits of precision:
+//   - ~2e-13% average error
+//   - this required, on average, 2.58 iterations of Heron's method per square root
+//   - run time of 3.70s (about 237% slower than with 6 digits of precision)
+function infNumSqrtHerons(a) {
+  if (a.v === 0n) {
+    return a;
+  }
+  // we want to keep exponent an integer, so we must
+  //   check whether it's even before dividing by 2
+  if (a.e % 2n === 0n) {
+    return {
+      v: bigIntSqrtHerons(a.v * 10000000000n), // increase by 10^10, and reduce exponent accordingly before halving
+      e: (a.e - 10n) >> 1n
+    };
+  } else {
+    return {
+      v: bigIntSqrtHerons(a.v * 100000000000n), // increase by 10^11 here, and reduce exponent accordingly before halving
+      e: (a.e - 11n) >> 1n
+    };
+  }
+}
+function infNumSqrtHeronsLessPrecis(a) {
+  if (a.v === 0n) {
+    return a;
+  }
+  // we want to keep exponent an integer, so we must
+  //   check whether it's even before dividing by 2
+  if (a.e % 2n === 0n) {
+    return {
+      v: bigIntSqrtHerons(a.v * 1000000n), // increase by 10^6, and reduce exponent accordingly before halving
+      e: (a.e - 6n) >> 1n
+    };
+  } else {
+    return {
+      v: bigIntSqrtHerons(a.v * 10000000n), // increase by 10^7 here, and reduce exponent accordingly before halving
+      e: (a.e - 7n) >> 1n
+    };
+  }
+}
+function infNumSqrtHeronsMorePrecis(a) {
+  if (a.v === 0n) {
+    return a;
+  }
+  // we want to keep exponent an integer, so we must
+  //   check whether it's even before dividing by 2
+  if (a.e % 2n === 0n) {
+    return {
+      v: bigIntSqrtHerons(a.v * 100000000000000n), // increase by 10^14, and reduce exponent accordingly before halving
+      e: (a.e - 14n) >> 1n
+    };
+  } else {
+    return {
+      v: bigIntSqrtHerons(a.v * 1000000000000000n), // increase by 10^15 here, and reduce exponent accordingly before halving
+      e: (a.e - 15n) >> 1n
+    };
+  }
+}
+// remove starting here for minify
+// thanks to: https://stackoverflow.com/a/9236307/259456
+//
+// sqrt(n) = sqrt(f * 2^2m) = sqrt(f)*2^m
+//
+// to begin newton-raphson iterations, we want the above
+//   value f to be in the range [1,4).  if the power of
+//   2 we find is odd, then we need f to be in the range
+//   [1, 2) so that we can double it to remain in that
+//   [1, 4) range after doubling.
+//
+// from what i can tell, we want f in that range because
+//   that will guarantee an initial newton-raphson guess
+//   of 0.5 will converge on the actual answer.
+//
+// to convert the bigint into n * 2^m:
+//   1987 in binary is:
+//   11111000011
+//   becomes
+//   1.1111000011 (binary) * 2^10 (decimal)
+//   1.9404296875 * 2^10
+//
+// if m is odd, we just need to multiply n by 2
+//   and reduce m by 1 -- since f is initially in
+//   range [1, 2) when doubled it remains in the
+//   range [1, 4)
+//
+// then by:
+// sqrt(n) = sqrt(f * 2^2m) = sqrt(f)*2^m
+//
+// we just need to find the sqrt of that n number,
+//   and multiply it by 2^(m/2)
+//
+// since the f value may be very long, can i run this
+//   function recursively (a couple times at most) to
+//   try to build up a series of lower-precision sqrts
+//   which i can multiply together at the end to create
+//   the final higher-precision result? looks like no...
+//
+function bigIntSqrt(a) {
+  if (a < 0n) {
+    throw "cannot take square root of negative value";
+  }
+  // probably don't need to use ltrimchar, but it's not
+  //   much overhead
+  const binaryStr = ltrimchar(a.toString(2), "0");
+  const twoPowerInitial = binaryStr.length - 1;
+  // convert "10101" to "1.0101", and convert that to
+  //   a floating point value
+  // for very long binary strings, this operation will
+  //   throw away some precision
+  const roughFloatInitial = parseBinaryWithDecimalPoint("1." + binaryStr.substring(1));
+  const oddInitialPower = (twoPowerInitial & 1) === 1;
+  const twoPower = oddInitialPower ? (twoPowerInitial - 1) / 2 : (twoPowerInitial / 2);
+  const roughFloat = oddInitialPower ? roughFloatInitial * 2 : roughFloatInitial;
+  const roughFloatSqrt = Math.sqrt(roughFloat);
+  // convert the square root float we have to BigInt (while
+  //   multiplying by 2 raised to half its original power)
+  //   without losing precision
+  const roughFloatSqrtStr = roughFloatSqrt.toString();
+  const roughFloatSqrtStrSplit = roughFloatSqrtStr.split(".");
+  let roughFloatSqrtInteger = BigInt(roughFloatSqrtStrSplit[0]);
+//  let roughFloatSqrtInteger = 1n;
+//  if (isNaN(roughFloatSqrt)) {
+//    console.log("what on earth");
+//  }
+//  try {
+//    roughFloatSqrtInteger = BigInt(roughFloatSqrtStrSplit[0]);
+//  } catch (e) {
+//    console.log("ERROR CAUGHT computing BigInt square root (a, roughFloatSqrt): [" + a.toString() + ", " + roughFloatSqrt + "]:");
+//    console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+//  }
+  let roughFloatSqrtPrecisionKeepingFactor = 1n;
+  // if there's no decimal point in the rough float sqrt,
+  //   we can just use the integer portion as-is
+  // if there is a decimal point, raise the integer portion
+  //   to the power of 10 corresponding to the number of 
+  //   fractional/decimal digits, then add the decimal digits
+  if (roughFloatSqrtStrSplit.length === 2) {
+    roughFloatSqrtPrecisionKeepingFactor = 10n ** BigInt(roughFloatSqrtStrSplit[1].length);
+    roughFloatSqrtInteger *= roughFloatSqrtPrecisionKeepingFactor;
+    roughFloatSqrtInteger += BigInt(roughFloatSqrtStrSplit[1]);
+  }
+  // after multiplying by the two power, divide again by the
+  //   precision-keeping factor
+  let lowerBound = (roughFloatSqrtInteger * (2n**BigInt(twoPower))) / roughFloatSqrtPrecisionKeepingFactor;
+  let upperBound = lowerBound;
+  if (lowerBound * lowerBound < a) {
+    // using the converted as the lower bound, square while
+    //   adding larger and larger values until we exceed the
+    //   given original value
+    let addend = 1n;
+    do {
+      addend *= 2n;
+      upperBound = lowerBound + addend;
+    } while (upperBound * upperBound < a);
+  } else {
+    let addend = -1n;
+    do {
+      addend *= 2n;
+      lowerBound = upperBound + addend;
+    } while (lowerBound * lowerBound > a);
+  }
+  // use the lower and upper bounds with binary search to
+  //   find the closest value we can to the true square root
+  return leastSignificantSquareBinarySearch(lowerBound, upperBound, a);
+}
+
+function bigIntSqrtPower10(a) {
+  if (a < 0n) {
+    throw "cannot take square root of negative value";
+  }
+  const decimalStr = a.toString(10);
+  const tenPowerInitial = decimalStr.length - 1;
+  // convert "12345" to "1.2345", and convert that to
+  //   a floating point value
+  // for very long binary strings, this operation will
+  //   throw away some precision
+  const roughFloatInitial = parseFloat(decimalStr[0] + "." + decimalStr.substring(1,18));
+  const oddInitialPower = (tenPowerInitial & 1) === 1;
+  const tenPower = oddInitialPower ? (tenPowerInitial - 1) / 2 : (tenPowerInitial / 2);
+  const roughFloat = oddInitialPower ? roughFloatInitial * 10 : roughFloatInitial;
+  const roughFloatSqrt = Math.sqrt(roughFloat);
+  // convert the square root float we have to BigInt (while
+  //   multiplying by 10 raised to half its original power)
+  //   without losing precision
+  const roughFloatSqrtStr = roughFloatSqrt.toString();
+  const roughFloatSqrtStrSplit = roughFloatSqrtStr.split(".");
+  let roughFloatSqrtInteger = BigInt(roughFloatSqrtStrSplit[0]);
+  let roughFloatSqrtPrecisionKeepingFactor = 1n;
+  // if there's no decimal point in the rough float sqrt,
+  //   we can just use the integer portion as-is
+  // if there is a decimal point, raise the integer portion
+  //   to the power of 10 corresponding to the number of 
+  //   fractional/decimal digits, then add the decimal digits
+  if (roughFloatSqrtStrSplit.length === 2) {
+    roughFloatSqrtPrecisionKeepingFactor = 10n ** BigInt(roughFloatSqrtStrSplit[1].length);
+    roughFloatSqrtInteger *= roughFloatSqrtPrecisionKeepingFactor;
+    roughFloatSqrtInteger += BigInt(roughFloatSqrtStrSplit[1]);
+  }
+  // after multiplying by the two power, divide again by the
+  //   precision-keeping factor
+  let lowerBound = (roughFloatSqrtInteger * (10n**BigInt(tenPower))) / roughFloatSqrtPrecisionKeepingFactor;
+  let upperBound = lowerBound;
+  if (lowerBound * lowerBound < a) {
+    // using the converted as the lower bound, square while
+    //   adding larger and larger values until we exceed the
+    //   given original value
+    let addend = 1n;
+    do {
+      addend *= 2n;
+      upperBound = lowerBound + addend;
+    } while (upperBound * upperBound < a);
+  } else {
+    let addend = -1n;
+    do {
+      addend *= 2n;
+      lowerBound = upperBound + addend;
+    } while (lowerBound * lowerBound > a);
+  }
+  // use the lower and upper bounds with binary search to
+  //   find the closest value we can to the true square root
+  return leastSignificantSquareBinarySearch(lowerBound, upperBound, a);
+}
+// remove ending here for minify
+
+// based on Heron's method: https://en.wikipedia.org/wiki/Methods_of_computing_square_roots
+// also thanks to: https://stackoverflow.com/a/9236307/259456
+//
+// sqrt(n) = sqrt(f * 2^2m) = sqrt(f)*2^m
+//
+// to begin Heron's method iterations, we just need a
+//   decent starting guess.  the better the guess, the
+//   fewer iterations need to be done.
+//
+// to convert the bigint into f * 2^2m:
+//   123456789   ~= 1234 * 10^5
+//   since the power 10 is raised to is odd,
+//     we move one multiple of 10:
+//   1234 * 10^5  = 12340 * 10^4
+//
+// since we can use ~17 decimal digits with built-in
+//   JavaScript floats without losing precision, and
+//   since we may need to multiply the float value
+//   by 10, we'll use the first 16 decimal digits to
+//   create a float value, upon which JavaSript's
+//   Math.sqrt() can be used.
+//
+// then by:
+// sqrt(n) = sqrt(f * 2^2m) = sqrt(f)*2^m
+//
+// we just need to multiply that square root by 2^m
+//
+// that gives us our starting guess for Heron's method
+//   iterations
+//
+function bigIntSqrtHerons(a) {
+  if (a < 0n) {
+    throw "cannot take square root of negative value";
+  }
+  const decimalStr = a.toString(10);
+  const tenPowerInitial = decimalStr.length - 16;
+  const roughFloatInitial = tenPowerInitial <= 0 ? Number(a) : parseFloat(decimalStr.substring(0,16));
+
+  const oddInitialPower = (tenPowerInitial & 1) === 1;
+  let tenPower = 0;
+  if (tenPowerInitial > 0) {
+    //tenPower = oddInitialPower ? (tenPowerInitial - 1) / 2 : (tenPowerInitial / 2);
+    tenPower = tenPowerInitial >> 1;
+  }
+  const roughFloat = (tenPowerInitial > 0 && oddInitialPower) ? roughFloatInitial * 10 : roughFloatInitial;
+  let nextGuess = BigInt(Math.floor(Math.sqrt(roughFloat))) * (10n ** BigInt(tenPower));
+  let currentGuess;
+  let guessDiff;
+  do {
+    currentGuess = nextGuess;
+    // average of currentGuess and (a/currentGuess)
+    nextGuess = (currentGuess + (a/currentGuess)) >> 1n;
+    guessDiff = currentGuess - nextGuess;
+    //++heronsIterations;
+  } while (guessDiff > 1n || guessDiff < -1n)
+
+  return nextGuess;
+}
+
+// based on the function at https://stackoverflow.com/a/29018745/259456
+//
+function leastSignificantSquareBinarySearch(lowerBound, upperBound, targetValue) {
+  let lo = 0n;
+  let hi = upperBound - lowerBound;
+  let x;
+  let value;
+  let valueSquaredDiff;
+
+  while (lo <= hi) {
+    x = (lo + hi) >>1n;
+    value = lowerBound + x;
+    valueSquaredDiff = (value * value) - targetValue;
+    if (valueSquaredDiff > 0n) {
+      hi = x - 1n;
+    } else if (valueSquaredDiff < 0n) {
+      lo = x + 1n;
+    } else {
+      return value;
+    }
+  }
+  return value;
+}
+
+// parses a binary string value to a float:
+//   "1.1111000011" --> 1.9404296875
+//   "1.0011001"    --> 1.1953125
+//
+// thanks to https://stackoverflow.com/a/58695018/259456
+function parseBinaryWithDecimalPoint(binaryStringWithDecimalPoint) {
+  // after so many characters, we exceed float precision and can
+  //   just throw the remaining chars away without affecting the
+  //   returned result
+  const s = binaryStringWithDecimalPoint.substring(0, 77);
+  return parseInt(s.replace('.', ''), 2) / Math.pow(2, (s.split('.')[1] || '').length);
+}
+
+// thanks to https://stackoverflow.com/a/55292366/259456
+function ltrimchar(str, ch) {
+  var start = 0;
+  const end = str.length;
+
+  while(start < end && str[start] === ch) {
+    ++start;
+  }
+
+  return start > 0 ? str.substring(start) : str;
 }
 
 // remove starting here for minify
@@ -763,5 +1330,82 @@ if (doUnitTests) {
     console.log(unitTest, " -> infNumFastStr() -> createInfNumFromFastStr() -> ...");
     console.log(createInfNumFromFastStr(infNumFastStr(unitTest)));
   }
+}
+
+if (doPerfTests) {
+  // thanks to https://stackoverflow.com/a/47593316/259456 for
+  //   the seed-able prng
+  const sfc32 = function(a, b, c, d) {
+    return function() {
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0; 
+      var t = (a + b) | 0;
+      a = b ^ b >>> 9;
+      b = c + (c << 3) | 0;
+      c = (c << 21 | c >>> 11);
+      d = d + 1 | 0;
+      t = t + d | 0;
+      c = c + t | 0;
+      return (t >>> 0) / 4294967296;
+    }
+  }
+  const seed = 1337 ^ 0xDEADBEEF; // 32-bit seed with optional XOR value
+  // Pad seed with Phi, Pi and E.
+  // https://en.wikipedia.org/wiki/Nothing-up-my-sleeve_number
+  const sfc32Rand = sfc32(0x9E3779B9, 0x243F6A88, 0xB7E15162, seed);
+  for (const sqrtFunction of [/*infNumSqrt, infNumSqrtLessPrecis, infNumSqrtMorePrecis,*/ infNumSqrtPower10, infNumSqrtPower10LessPrecis, /*infNumSqrtPower10MorePrecis,*/ infNumRoughSqrt, infNumRoughSqrt5, infNumSqrtHerons, infNumSqrtHeronsLessPrecis, infNumSqrtHeronsMorePrecis]) {
+    //heronsIterations = 0;
+    let perfTestDurationMs = 0;
+    const perfTestOverallStartMs = Date.now();
+    let totalSqrtsTaken = 0;
+    let powerPositive;
+    let power;
+    let mantissa;
+    let valRounds;
+    let testInfnum;
+    let result;
+    let perfTestStartMs;
+    let percentageDifference;
+    let totalPercentageDifference;
+    let percentageDifferenceCount;
+    const oneHundred = infNum(100n, 0n);
+    for (let powerRange = 10; powerRange <= 10000; powerRange *= 10) {
+      totalPercentageDifference = 0;
+      percentageDifferenceCount = 0;
+      for (let i = 0; i < 10000; i++) {
+        powerPositive = sfc32Rand() > 0.5 ? 1 : -1;
+        power = Math.round(sfc32Rand() * powerRange) * powerPositive;
+        valRounds = (sfc32Rand() * 10) + 1;
+        mantissa = Math.round(sfc32Rand() * 100).toString();
+        for (let j = 0; j < valRounds; j++) {
+          mantissa += Math.round(sfc32Rand() * 100).toString();
+        }
+        //console.log("mantissa: " + mantissa);
+        testInfnum = infNum(BigInt(mantissa), BigInt(power));
+        //console.log("taking sqrt of " + infNumToString(testInfnum));
+        perfTestStartMs = Date.now();
+        for (let k = 0; k < 100; k++) {
+          result = sqrtFunction(testInfnum);
+        }
+        perfTestDurationMs += Date.now() - perfTestStartMs;
+        totalSqrtsTaken += 100;
+        //console.log("sqrt is " + infNumToString(result));
+        // get percentage difference
+        percentageDifference = infNumMul(result, result);
+        percentageDifference = infNumSub(percentageDifference, testInfnum);
+        percentageDifference = infNumAbs(percentageDifference);
+        percentageDifference = infNumMul(oneHundred, percentageDifference);
+        percentageDifference = infNumDiv(percentageDifference, testInfnum, 18);
+        // for computing the average percentage inaccuracy, float values have enough precision
+        totalPercentageDifference += parseFloat(infNumExpStringTruncToLen(percentageDifference, 18));
+        ++percentageDifferenceCount;
+      }
+      let avgPctDifference = totalPercentageDifference / percentageDifferenceCount;
+      console.log("for " + sqrtFunction.name + "(), power range 0-" + powerRange + ", sqrt average inaccuracy of " + avgPctDifference + "% (x100 so it's an actual percentage)");
+    }
+    const perfTestOverallDurationMs = Date.now() - perfTestOverallStartMs;
+    console.log("for " + sqrtFunction.name + "(), perf test time: " + perfTestDurationMs + "ms, overall: " + perfTestOverallDurationMs + "ms, for " + totalSqrtsTaken + " sqrts");
+    //console.log("total of " + heronsIterations + " herons iterations, for avg. of " + (heronsIterations/totalSqrtsTaken) + " iterations per square root");
+  }
+  perfTestsDone = true;
 }
 // remove ending here for minify

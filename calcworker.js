@@ -295,22 +295,35 @@ function setupCheckReferenceOrbit() {
 function setupReferenceOrbit(state) {
   if (state === null || !state.done) {
 
-    // temporary, try to find period (turned off for now)
-    const findPeriod = false;
+    // temporary, try to find period
+    const findPeriod = true;
     if (!findPeriod) {
       windowCalc.referencePeriod = -1;
     } else if (state === null) {
-      let refPeriodState = null;
-      // to create square 10% of screen width (larger dimension) we
-      //   need to move 5% right/left/up/down from the center point
-      let pixelsPercent = Math.floor(0.05 * Math.max(windowCalc.canvasHeight, windowCalc.canvasWidth));
-      let boxDelta = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelsPercent), 0n));
-      while (refPeriodState === null || !refPeriodState.done) {
-        refPeriodState = plotsByName[windowCalc.plot].computeReferencePeriod(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, boxDelta, refPeriodState);
-        sendStatusMessage(refPeriodState.status);
+      // this was the previous attempt, using a square 10% of screen width
+      //// to create square 10% of screen width (larger dimension) we
+      ////   need to move 5% right/left/up/down from the center point
+      //let refPeriodState = null;
+      //let pixelsPercent = Math.floor(0.05 * Math.max(windowCalc.canvasHeight, windowCalc.canvasWidth));
+      //let boxDelta = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelsPercent), 0n));
+      //while (refPeriodState === null || !refPeriodState.done) {
+      //  refPeriodState = plotsByName[windowCalc.plot].computeReferencePeriodSquare(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, boxDelta, refPeriodState);
+      //  sendStatusMessage(refPeriodState.status);
+      //}
+
+      // this attempt was never fully pursued: using rectangle method, where
+      //   the recangle is repeatedly halved
+      //let refPeriodState = null;
+      //const rectHalfX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth / 2)), 0n));
+      //const rectHalfY = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight / 2)), 0n));
+      //while (refPeriodState === null || !refPeriodState.done) {
+      //  refPeriodState = plotsByName[windowCalc.plot].computeReferencePeriodAndMinibrot(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, rectHalfX, rectHalfY, refPeriodState);
+      //  sendStatusMessage(refPeriodState.status);
+      //}
+      //console.log("computed ref PERIOD to be " + refPeriodState.period);
+      //windowCalc.referencePeriod = refPeriodState.period;
+
       }
-      console.log("computed ref PERIOD to be " + refPeriodState.period);
-      windowCalc.referencePeriod = refPeriodState.period;
     }
 
     state = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referencePeriod, windowCalc.smooth, state);

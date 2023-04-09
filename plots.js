@@ -100,6 +100,93 @@ function searchForBestBLA(sortedArray, deltaZAbs, math) {
   };
 }
 
+/*
+function iterateCornersAndTestOriginSurround(bailoutSquared, precis, cornerIndicesToIterate, maxIter, goalPeriod, fnContext) {
+  // if the goalPeriod is > 0, run that many iterations and
+  //   then test for origin surround
+  // otherwise, iterate up to maxIter and test for origin
+  //   surround after each iteration
+  const stoppingIter = goalPeriod > 0 ? goalPeriod : maxIter;
+  while (fnContext.iter < stoppingIter) {
+    for (const i of cornerIndicesToIterate) {
+      ixSq = infNumMul(fnContext.ix[i], fnContext.ix[i]);
+      iySq = infNumMul(fnContext.iy[i], fnContext.iy[i]);
+      if (infNumGt(infNumAdd(ixSq, iySq), bailoutSquared)) {
+        // if any point escapes, we can't find the with this rectangle
+        return false;
+      }
+      ixTemp = infNumAdd(fnContext.x[i], infNumSub(ixSq, iySq));
+      fnContext.iy[i] = infNumAdd(fnContext.y[i], infNumMul(two, infNumMul(fnContext.ix[i], fnContext.iy[i])));
+      fnContext.ix[i] = copyInfNum(ixTemp);
+      fnContext.ix[i] = infNumTruncateToLen(fnContext.ix[i], precis);
+      fnContext.iy[i] = infNumTruncateToLen(fnContext.iy[i], precis);
+    }
+    fnContext.iter++;
+    if (goalPeriod <= 0 || fnContext.iter == goalPeriod) {
+      // check that exactly 1 or 3 edges of the box crosses the positive x (real) axis
+      // (i believe that if the box becomes "twisted" then we could have 3 edges
+      // cross that half of the axis, BUT i don't think the box would "twist" before
+      // the points surround the origin)
+      let edgesMeetingCriterion = 0;
+      for (let a = 0; a < 4; a++) {
+        let b = a == 3 ? 0 : a + 1;
+        // infNumGt() is slow, but we don't need to use it because
+        //   we can just check the sign on the "v"alue of the InfNum
+        if (fnContext.ix[a].v > 0n && fnContext.ix[b].v > 0n &&
+            (
+              fnContext.iy[a].v > 0n && fnContext.iy[b].v < 0n ||
+              fnContext.iy[a].v < 0n && fnContext.iy[b].v > 0n
+            )) {
+          edgesMeetingCriterion++;
+        }
+      }
+      // if we find the period, set the period and then resume this function
+      //   again using that
+      if (edgesMeetingCriterion == 1 || edgesMeetingCriterion == 3) {
+        if (goalPeriod > 0) {
+          return true;
+        } else {
+          fnContext.period = fnContext.iter;
+          return true;
+        }
+      // if after the period iterations have been run, the origin
+      //   surround test fails, then this rectangle does not
+      //   contain a point with the goal period
+      } else if (goalPeriod > 0) {
+        // WAIT!  if one or more of the corners has the same value
+        //   at iteration P, then the corner is potentially inside
+        //   the minibrot
+        // ... perhaps continue until all 4 are inside the minibrot?
+        // NO! for now, just stop when one of the 4 corners appears
+        //   to have a periodic orbit of P iterations
+        for (let i = 0; i < 4; i++) {
+          if (
+              infNumEqualsOrClose(fnContext.subdividedx[i], fnContext.ix[i]) &&
+              infNumEqualsOrClose(fnContext.subdividedy[i], fnContext.iy[i])) {
+            fnContext.periodicPointX = copyInfNum(fnContext.subdividedx[i]);
+            fnContext.periodicPointY = copyInfNum(fnContext.subdividedy[i]);
+            return true;
+          }
+        }
+
+        return false;
+      }
+    statusIterCounter++;
+    // if we have to pause here to report status, it's not a failure
+    //   so return true
+    if (statusIterCounter >= 1000) {
+      statusIterCounter = 0;
+      fnContext.status = "computed " + (Math.round(fnContext.iter * 10000.0 / maxIter)/100.0) + "% of period orbit";
+      console.log(fnContext.status);
+      return true;
+    }
+  }
+  // if we get here, it must be that there was no goalPeriod, and
+  //   we never passed the origin surround test
+  return false;
+}
+*/
+
 const windowCalcBackgroundColor = -1;
 const windowCalcIgnorePointColor = -2;
 
@@ -497,7 +584,7 @@ const plots = [{
       return fnContext;
     }
   },
-  "computeReferencePeriod": function(n, precis, algorithm, x, y, boxDelta, fnContext) {
+  "computeReferencePeriodSquare": function(n, precis, algorithm, x, y, boxDelta, fnContext) {
     // - find the 4 points in a square surrounding the given x,y location
     // - iterate the 4 points until one escapes, or, exactly 1 edge of
     //     that square crosses the positive x (real) axis
@@ -597,6 +684,292 @@ const plots = [{
     fnContext.period = -1;
     return fnContext;
   },
+
+/*
+  "computeReferencePeriodAndMinibrot": function(n, precis, algorithm, x, y, rectHalfX, rectHalfY, fnContext) {
+    // - find the 4 points in a rectangle surrounding the given x,y location
+    // - iterate the 4 points until one escapes, or, exactly 1 or 3 edges of
+    //     that square crosses the positive x (real) axis
+    // - the number of iterations until this occurs is the period
+    //
+    // This method is explained here: http://www.mrob.com/pub/muency/period.html
+    //
+    // After finding the period, subdivide the rectangle in half and iterate
+    //   again (chosing the other half as needed), repeatedly, until one of the
+    //   corners repeats with the found period
+    //
+
+    const outputMath = selectMathInterfaceFromAlgorithm(algorithm);
+    const outputIsFloatExp = outputMath.name == "floatexp";
+
+    const maxIter = n;
+    const two = infNum(2n, 0n);
+    const four = infNum(4n, 0n);
+    const sixteen = infNum(16n, 0n);
+    // try using slightly larger bailout (4) for ref orbit
+    //   than for perturb orbit (which uses smallest possible
+    //   bailout of 2)
+    const bailoutSquared = four;
+
+    // fnContext allows the loop to be done piecemeal
+    if (fnContext === null) {
+      fnContext = {
+
+        // the coords used for iteration, clockwise from top right
+        //   corner of the rectangle
+        x: [infNumAdd(x, rectHalfX), infNumAdd(x, rectHalfX), infNumSub(x, rectHalfX), infNumSub(x, rectHalfX)],
+        y: [infNumAdd(y, rectHalfY), infNumSub(y, rectHalfY), infNumSub(y, rectHalfY), infNumAdd(y, rectHalfY)],
+        ix: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)],
+        iy: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)],
+        savedx: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)], // the previous iterated corner x coords
+        savedy: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)], // the previous iterated corner y coords
+        subdividedx: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)],
+        subdividedy: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)],
+        rectHalvings: 0,
+        iter: 0,
+        period: -1,
+        subdivideHorizontally: false,
+        subdivisionIndex: 0,
+        periodicPointX: null,
+        periodicPointY: null,
+        status: "",
+        done: false
+      };
+    }
+    var ixSq = infNum(0n, 0n);
+    var iySq = infNum(0n, 0n);
+    var ixTemp = infNum(0n, 0n);
+    var statusIterCounter = 0;
+    try {
+      // while period hasn't been found yet, iterate the corners of the rect
+      //   to find the period
+      if (fnContext.period == -1) {
+
+        const result =
+          iterateCornersAndTestOriginSurround(bailoutSquared, precis, [0,1,2,3], maxIter, -1, fnContext);
+
+        // if result is true and the period is found, we need to
+        //   save the iterated corners before proceeding to the
+        //   subdividing steps
+        if (result && fnContext.period > 0) {
+          for (let i = 0; i < 4; i++) {
+            fnContext.savedx[i] = copyInfNum(fnContext.ix[i]);
+            fnContext.savedy[i] = copyInfNum(fnContext.iy[i]);
+          }
+        }
+        // hmm actually maybe just always return the fnContext,
+        //   and it should be set properly to resume this function
+        //   if needed
+        return fnContext;
+
+        //while (fnContext.iter < maxIter) {
+        //  for (let i = 0; i < 4; i++) {
+        //    ixSq = infNumMul(fnContext.ix[i], fnContext.ix[i]);
+        //    iySq = infNumMul(fnContext.iy[i], fnContext.iy[i]);
+        //    if (infNumGt(infNumAdd(ixSq, iySq), bailoutSquared)) {
+        //      // if any point escapes, we can't find the period
+        //      fnContext.done = true;
+        //      fnContext.period = -1;
+        //      return fnContext;
+        //    }
+        //    ixTemp = infNumAdd(fnContext.x[i], infNumSub(ixSq, iySq));
+        //    fnContext.iy[i] = infNumAdd(fnContext.y[i], infNumMul(two, infNumMul(fnContext.ix[i], fnContext.iy[i])));
+        //    fnContext.ix[i] = copyInfNum(ixTemp);
+        //    fnContext.ix[i] = infNumTruncateToLen(fnContext.ix[i], precis);
+        //    fnContext.iy[i] = infNumTruncateToLen(fnContext.iy[i], precis);
+        //  }
+        //  fnContext.iter++;
+        //  // check that exactly 1 or 3 edges of the box crosses the positive x (real) axis
+        //  // (i believe that if the box becomes "twisted" then we could have 3 edges
+        //  // cross that half of the axis, BUT i don't think the box would "twist" before
+        //  // the points surround the origin)
+        //  let edgesMeetingCriterion = 0;
+        //  for (let a = 0; a < 4; a++) {
+        //    let b = a == 3 ? 0 : a + 1;
+        //    // infNumGt() is slow, but we don't need to use it because
+        //    //   we can just check the sign on the "v"alue of the InfNum
+        //    if (fnContext.ix[a].v > 0n && fnContext.ix[b].v > 0n &&
+        //        (
+        //          fnContext.iy[a].v > 0n && fnContext.iy[b].v < 0n ||
+        //          fnContext.iy[a].v < 0n && fnContext.iy[b].v > 0n
+        //        )) {
+        //      edgesMeetingCriterion++;
+        //    }
+        //  }
+        //  // if we find the period, set the period and then resume this function
+        //  //   again using that
+        //  if (edgesMeetingCriterion == 1 || edgesMeetingCriterion == 3) {
+        //    fnContext.period = fnContext.iter;
+        //    return fnContext;
+        //  }
+        //  statusIterCounter++;
+        //  if (statusIterCounter >= 1000) {
+        //    statusIterCounter = 0;
+        //    fnContext.status = "computed " + (Math.round(fnContext.iter * 10000.0 / maxIter)/100.0) + "% of period orbit";
+        //    console.log(fnContext.status);
+        //    return fnContext;
+        //  }
+        //}
+
+      // while the period is known, but the minibrot has not been found,
+      //   subdivide the rect to find the minibrot
+      // WAIT!  the two new middle points need to be iterated once, but then
+      //   can be used to check origin surround for both subdivided halves
+
+      ////////////////////////////
+      // (see above note about not iterating the new "halfway" points twice)
+      // then
+      //
+      // IF going to keep trying this, re-implement with an object/function
+      //   to make the code easier to read+maintain
+      ////////////////////////////
+
+      } else if (periodicPointX === null) {
+        let cornerIndicesToIterate;
+        if (fnContext.subdivideHorizontally) {
+          // for horizontal subdivision, index 0, we'll re-use indices 0 and 1
+          if (fnContext.subdivisionIndex == 0) {
+            cornerIndicesToIterate = [2, 3];
+            // re-use the two already-iterated corners here
+            fnContext.ix[0] = fnContext.savedx[0];
+            fnContext.iy[0] = fnContext.savedy[0];
+            fnContext.ix[1] = fnContext.savedx[1];
+            fnContext.iy[1] = fnContext.savedy[1];
+            fnContext.subdividedx[0] = fnContext.x[0];
+            fnContext.subdividedy[0] = fnContext.y[0];
+            fnContext.subdividedx[1] = fnContext.x[1];
+            fnContext.subdividedy[1] = fnContext.y[1];
+            // these next two corners are new coords and cannot be re-used
+            // can subdivide horizontally with only one division operation
+            fnContext.ix[2] = infNumDiv(infNumAdd(fnContext.x[1], fnContext.x[2]), infNumMath.two, precis);
+            fnContext.iy[2] = fnContext.y[1]; // y stays the same when subdividing horizontally
+            fnContext.ix[3] = fnContext.ix[2]; // both 2 and 3 have the same x when subdividing horizontally 
+            fnContext.iy[3] = fnContext.y[0]; // y stays the same when subdividing horizontally
+            fnContext.subdividedx[2] = copyInfNum(fnContext.ix[2]);
+            fnContext.subdividedy[2] = copyInfNum(fnContext.iy[2]);
+            fnContext.subdividedx[3] = copyInfNum(fnContext.ix[3]);
+            fnContext.subdividedy[3] = copyInfNum(fnContext.iy[3]);
+          // for horizontal subdivision, index 1, we'll re-use indices 2 and 3
+          } else {
+            cornerIndicesToIterate = [0, 1];
+            // re-use the two already-iterated corners here
+            fnContext.ix[2] = fnContext.savedx[2];
+            fnContext.iy[2] = fnContext.savedy[2];
+            fnContext.ix[3] = fnContext.savedx[3];
+            fnContext.iy[3] = fnContext.savedy[3];
+            fnContext.subdividedx[2] = fnContext.x[2];
+            fnContext.subdividedy[2] = fnContext.y[2];
+            fnContext.subdividedx[3] = fnContext.x[3];
+            fnContext.subdividedy[3] = fnContext.y[3];
+            // these next two corners are new coords and cannot be re-used
+            // can subdivide horizontally with only one division operation
+            fnContext.ix[0] = infNumDiv(infNumAdd(fnContext.x[0], fnContext.x[3]), infNumMath.two, precis);
+            fnContext.iy[0] = fnContext.y[3]; // y stays the same when subdividing horizontally
+            fnContext.ix[1] = fnContext.ix[0]; // both 0 and 1 have the same x when subdividing horizontally 
+            fnContext.iy[1] = fnContext.y[2]; // y stays the same when subdividing horizontally
+            fnContext.subdividedx[0] = copyInfNum(fnContext.ix[0]);
+            fnContext.subdividedy[0] = copyInfNum(fnContext.iy[0]);
+            fnContext.subdividedx[1] = copyInfNum(fnContext.ix[1]);
+            fnContext.subdividedy[1] = copyInfNum(fnContext.iy[1]);
+          }
+        } else {
+          // for vertical subdivision, index 0, we'll re-use indices 0 and 3
+          if (fnContext.subdivisionIndex == 0) {
+            cornerIndicesToIterate = [1, 2];
+            // re-use the two already-iterated corners here
+            fnContext.ix[0] = fnContext.savedx[0];
+            fnContext.iy[0] = fnContext.savedy[0];
+            fnContext.ix[3] = fnContext.savedx[3];
+            fnContext.iy[3] = fnContext.savedy[3];
+            fnContext.subdividedx[0] = fnContext.x[0];
+            fnContext.subdividedy[0] = fnContext.y[0];
+            fnContext.subdividedx[3] = fnContext.x[3];
+            fnContext.subdividedy[3] = fnContext.y[3];
+            // these next two corners are new coords and cannot be re-used
+            // can subdivide horizontally with only one division operation
+            fnContext.ix[1] = fnContext.x[0]; // x stays the same when subdividing horizontally
+            fnContext.iy[1] = infNumDiv(infNumAdd(fnContext.y[0], fnContext.y[1]), infNumMath.two, precis);
+            fnContext.ix[2] = fnContext.x[3]; // x stays the same when subdividing horizontally
+            fnContext.iy[2] = fnContext.iy[1]; // both 2 and 1 have the same y when subdividing vertically 
+            fnContext.subdividedx[1] = copyInfNum(fnContext.ix[1]);
+            fnContext.subdividedy[1] = copyInfNum(fnContext.iy[1]);
+            fnContext.subdividedx[2] = copyInfNum(fnContext.ix[2]);
+            fnContext.subdividedy[2] = copyInfNum(fnContext.iy[2]);
+          // for vertical subdivision, index 1, we'll re-use indices 1 and 2
+          } else {
+            cornerIndicesToIterate = [0, 3];
+            // re-use the two already-iterated corners here
+            fnContext.ix[1] = fnContext.savedx[1];
+            fnContext.iy[1] = fnContext.savedy[1];
+            fnContext.ix[2] = fnContext.savedx[2];
+            fnContext.iy[2] = fnContext.savedy[2];
+            fnContext.subdividedx[1] = fnContext.x[1];
+            fnContext.subdividedy[1] = fnContext.y[1];
+            fnContext.subdividedx[2] = fnContext.x[2];
+            fnContext.subdividedy[2] = fnContext.y[2];
+            // these next two corners are new coords and cannot be re-used
+            // can subdivide horizontally with only one division operation
+            fnContext.ix[0] = fnContext.x[1]; // x stays the same when subdividing horizontally
+            fnContext.iy[0] = infNumDiv(infNumAdd(fnContext.y[0], fnContext.y[1]), infNumMath.two, precis);
+            fnContext.ix[3] = fnContext.x[2]; // x stays the same when subdividing horizontally
+            fnContext.iy[3] = fnContext.iy[0]; // both 3 and 0 have the same y when subdividing vertically 
+            fnContext.subdividedx[0] = copyInfNum(fnContext.ix[0]);
+            fnContext.subdividedy[0] = copyInfNum(fnContext.iy[0]);
+            fnContext.subdividedx[3] = copyInfNum(fnContext.ix[3]);
+            fnContext.subdividedy[3] = copyInfNum(fnContext.iy[3]);
+          }
+        }
+
+        // iterate the two interpolated new corners only (the other two corners
+        //   were iterated previously)
+        const result =
+          iterateCornersAndTestOriginSurround(bailoutSquared, precis, cornerIndicesToIterate, maxIter, fnContext.period, fnContext);
+
+        // if the reference point was found, we are done
+        if (fnContext.periodicPointX !== null) {
+          fnContext.done = true;
+          return fnContext;
+        }
+
+        // if the subdivision passed the origin surround test at the
+        //   given period, subdivide again
+        if (result) {
+          // save the 4 iterated corners and the 4 subdivided corners
+          for (let i = 0; i < 4; i++) {
+            fnContext.x[i] = copyInfNum(fnContext.subdividedx[i]);
+            fnContext.y[i] = copyInfNum(fnContext.subdividedy[i]);
+            fnContext.savedx[i] = copyInfNum(fnContext.ix[i]);
+            fnContext.savedy[i] = copyInfNum(fnContext.iy[i]);
+          }
+          fnContext.rectHalvings++;
+
+        // if we've only tried one half of the subdivided rect, try the other half
+        } else if ( ... ) {
+
+        // if we've tried both subdivided halves, something went wrong...
+        } else {
+
+        }
+
+        // no this isn't the righ way to do this part
+        if (fnContext.subdivisionIndex >= 1) {
+          fnContext.subdivideHorizontally = !fnContext.subdivideHorizontally;
+        } else {
+          fnContext.subdivisionIndex++;
+        }
+      }
+
+    } catch (e) {
+      console.log("ERROR CAUGHT when computing reference period at point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
+      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+    }
+    // if we reach this point, the period could be found
+    fnContext.done = true;
+    fnContext.period = -1;
+    return fnContext;
+  },
+*/
+
   "computeSaCoefficients": function(precision, algorithm, referenceX, referenceY, referenceOrbit, windowEdges, fnContext) {
     // always use FloatExp for SA coefficients
     const math = floatExpMath;

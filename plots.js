@@ -1237,7 +1237,6 @@ const plots = [{
     return fnContext;
   },
   "computeBlaTables": function(algorithm, referenceOrbit, referencePx, referencePy, windowEdges, fnContext) {
-    // we'll call this BLA attempt "five"
     //
     // this will attempt to use the standard "merging" idea:
     //
@@ -1275,7 +1274,7 @@ const plots = [{
     const math = selectMathInterfaceFromAlgorithm(algorithm);
 
     const minIter = 1; // start from 2nd ref orbit iteration
-    const maxIter = referenceOrbit.length - 3;
+    const maxIter = referenceOrbit.length - 3; // how many of the final iterations of the ref orbit can used in BLA?
     let calcsDoneThisStatusUpdate = 0;
     const calcsPerStatusUpdate = 10000;
 
@@ -1558,146 +1557,6 @@ const plots = [{
 
     return fnContext;
   },
-  "computeBlaTablesFour": function(algorithm, referenceOrbit, fnContext) {
-    // we'll call this BLA attempt "four"
-    // this is to check stopping criteria: |AlΔzm+BlΔc|<ϵ|2Zn|
-    //  from Zhuoran's post: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
-    // this attempt will take square roots for the |values| on both
-    //   sides of the inequality, but unlike attempt "three" we will
-    //   increment both n and l when calculating coefficients
-
-    const math = selectMathInterfaceFromAlgorithm(algorithm);
-
-    if (fnContext === null) {
-      fnContext = {
-        // try 1 for algo four with floatexp: too many skips, all one solid color
-        //epsilon: math.createFromNumber(2**-53),
-        // try 2 for algo four with floatexp: large circular artifacts and other distortions
-        //epsilon: math.createFromInfNum(infNum(1n, -323n)),
-        // try 3 for algo four with floatexp: fewer skips, too few? large circular artifact?
-        //epsilon: math.createFromInfNum(infNum(1n, -324n)),
-        // try 4 for algo four with floatexp: smaller large circular artifact?
-        //epsilon: math.createFromInfNum(infNum(1n, -322n)),
-        // try 5 for algo four with floatexp: only 1,800 iters skipped per pixel, almost no artifact?
-        //epsilon: math.createFromInfNum(infNum(1n, -321n)),
-        // try 6 for algo four with floatexp: 18,000 iters skipped per pixel, all one solid color
-        //epsilon: math.createFromInfNum(infNum(1n, -320n)),
-        // try 7 for algo four with floatexp: 13,000 iters skipped per pixel, all one solid color
-        //epsilon: math.createFromInfNum(infNum(1n, -324n)),
-        // try 8 for algo four with floatexp: behaves like try 5, ONLY when l goes up to 256
-        //epsilon: math.createFromInfNum(infNum(1n, -321n)),
-        // try 9 for algo four with floatexp: appears to create a large donut artifact around center of image
-        //epsilon: math.createFromInfNum(infNum(1n, -323n)),
-        // try 10 for algo four with floatexp: smaller artifacts but image is "zoomed out", and image is rotated 30 deg (problem elsewhere)
-        epsilon: math.createFromInfNum(infNum(1n, -340n)),
-
-        blaTables: {
-          coefTable: new Map(),
-          epsilonRefAbsTable: new Map()
-        },
-
-        //a: {x:math.one, y:math.zero},
-        //b: {x:math.zero, y:math.zero},
-
-        blaCoeffIterM: 0,
-        epsRefOrbitIter: 0,
-
-        status: "",
-        done: false
-      };
-      console.log("using epsilon: " + math.toExpString(fnContext.epsilon));
-    }
-
-    // BLA equation and criteria: https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
-    // not much point in skipping only 1 iteration, so we'll
-    //   stop at n = m + l =
-    let maxIter = referenceOrbit.length - 3;
-    let m = fnContext.blaCoeffIterM;
-    let statusIterCounter = 0;
-    // compute coefficients for each possible starting mth iteration
-    for (; m < maxIter; m++) {
-
-      fnContext.blaTables.coefTable.set(m, new Map());
-
-      // compute coefficients for each possible number of iterations to skip l, from 1 to n
-      //let a = {x:math.one, y:math.zero};
-      //let b = {x:math.zero, y:math.zero};
-      //let refDoubled = null;
-      //let l = 1;
-      //for (; l < maxIter - m - 2 /*&& l < 257*/; l++) {
-      //  refDoubled = math.complexRealMul(referenceOrbit[m+l], math.two);
-      //  a = math.complexMul(refDoubled, a);
-      //  b = math.complexAdd(math.complexMul(refDoubled, b), {x:math.one, y:math.zero});
-      //  if (l == 2 || l == 4 || l == 8 || l == 16 || l == 32 || l == 64 ||
-      //      l == 128 || l == 256 || l == 512 || l == 1024 || l % 2048 == 0) {
-      //    fnContext.blaTables.coefTable.get(m).set(l, {
-      //      a: structuredClone(a),
-      //      b: structuredClone(b)
-      //    });
-      //  }
-      //}
-
-      let a = {x:math.one, y:math.zero};
-      let b = {x:math.zero, y:math.zero};
-      let refDoubled = null;
-      let l = 1;
-      // try only skipping up to 512 iters from each m
-      for (; l < maxIter - m - 2 && l < 513; l++) {
-        refDoubled = math.complexRealMul(referenceOrbit[m+l], math.two);
-        if (l == 1) {
-          a = refDoubled;
-          b = {x:math.one, y:math.zero};
-        } else {
-          a = math.complexMul(refDoubled, a);
-          b = math.complexAdd(math.complexMul(refDoubled, b), {x:math.one, y:math.zero});
-        }
-        if (l == 2 || l == 4 || l == 8 || l == 16 || l == 32 || l == 64 ||
-            l == 128 || l == 256 || l == 512 || l == 1024 || l % 2048 == 0) {
-          fnContext.blaTables.coefTable.get(m).set(l, {
-            a: structuredClone(a),
-            b: structuredClone(b)
-          });
-        }
-      }
-
-      statusIterCounter++;
-      if (statusIterCounter >= 1000) {
-        // resume this loop later, which means WE NEED TO INCREMENT
-        //   m here
-        fnContext.blaCoeffIterM = m+1;
-        let doneIters = (maxIter*m)-(((m-1)/2)*(m-1))+((m-1)/2);
-        let totalIters = ((maxIter/2)*maxIter)+(maxIter/2);
-        fnContext.status = "computed " + (Math.round(doneIters * 10000.0 / totalIters)/100.0) + "% of BLA coefficients (m [" + m + "] of [" + maxIter + "])";
-        console.log(fnContext.status);
-        return fnContext;
-      }
-    }
-    fnContext.blaCoeffIterM = m;
-    //fnContext.a = a;
-    //fnContext.b = b;
-
-    statusIterCounter = 0;
-    maxIter = referenceOrbit.length;
-    let i = fnContext.epsRefOrbitIter;
-    for (; i < maxIter; i++) {
-      fnContext.blaTables.epsilonRefAbsTable.set(i,
-        math.mul(math.complexAbs(math.complexRealMul(referenceOrbit[i], math.two)), fnContext.epsilon));
-      statusIterCounter++;
-      if (statusIterCounter >= 10000) {
-        // resume this loop later, which means WE NEED TO INCREMENT
-        //   i here
-        fnContext.epsRefOrbitIter = i+1;
-        fnContext.status = "computed " + (Math.round(i * 10000.0 / maxIter)/100.0) + "% of BLA epsilon criteria";
-        console.log(fnContext.status);
-        return fnContext;
-      }
-    }
-    fnContext.epsRefOrbitIter = i;
-    fnContext.done = true;
-
-    return fnContext;
-
-  },
   // x, y, referenceX, and referenceY must be infNum objects of a coordinate in the abstract plane being computed upon
   "computeBoundPointColorPerturbOrBla": function(n, precis, dx, dy, algorithm, referenceX, referenceY, referenceOrbit, blaTables, saCoefficients, useSmooth) {
 
@@ -1832,22 +1691,19 @@ const plots = [{
       let blaItersToSkip;
       let blaTestResult;
       let foundValidBLA;
-      //let refOrbitCouldStillHaveValidBLAs = true;
       while (iter < maxIter) {
 
         foundValidBLA = false;
-        // TODO here, since we start BLA at ref iter 1 (not 0):
+
         // - if we drop the first 2 levels of BLA, all BLAs will be for a ref iter of one more than a multiple of 4
         //   - to easily test, do binary & with all zeroes ending with 101
         // - if we drop only the first level of BLA, all BLAs will be for a ref iter of one more than a multiple of 2
         //   - to easily test, do binary & with all zeroes ending with 11
-        if (useBla && (referenceIter & 3) === 1 /*&& refOrbitCouldStillHaveValidBLAs*/) {
+        if (useBla && (referenceIter & 3) === 1) {
 
           // see if any BLAs, for this ref orbit iteration, can be used
           //   (we're looking to see if the ref orbit iter and BLA
           //   coefficients create a negligible squared iteration term)
-
-          //blasAtRefIter = blaTables.get(referenceIter);
           blasAtRefIter = blaTables.byNthIter[(referenceIter - 1) / blaTables.iterToNthDivisor];
 
           // right near the end of the ref orbit, depending on how many of the lowest
@@ -1875,17 +1731,6 @@ const plots = [{
               referenceIter += blaItersToSkip;
               blaItersSkipped += blaItersToSkip;
               blaSkips++;
-            } else {
-              // when the ref orbit is periodic, we can likely skip more
-              //   iterations when the ref orbit iter restarts (returns to zero)
-              //   in which case we don't want to set this to false
-              // ideally, the ref orbit can be left short (instead of artificially
-              //   repeating it several times to fill the full n iterations)
-              //   and when we re-base back to the beginning of the ref orbit
-              //   this bool will be reset to true BUT that re-basing isn't working
-              //   so for now we're still artificially repeating the ref orbit
-              //   until it has n iterations
-              //refOrbitCouldStillHaveValidBLAs = false;
             }
           }
         }
@@ -1917,7 +1762,6 @@ const plots = [{
           z = math.complexAdd(referenceOrbit[referenceIter], deltaZ);
         }
 
-        //z = math.complexAdd(referenceOrbit[referenceIter], deltaZ);
         if (useStripes) {
           avgCount++;
           lastAdded =
@@ -1944,29 +1788,11 @@ const plots = [{
           break;
         }
         deltaZAbs = math.complexAbsSquared(deltaZ);
-        //if (math.lt(zAbs, deltaZAbs) || referenceIter == maxReferenceIter) {
-        //  //console.log("re-basing to beginning of ref orbit");
-        //  // when the ref orbit is a periodic point, and the ref orbit array
-        //  //   contains just one set of iterations for the period, this
-        //  //   doesn't work (image is completely wrong, one solid color)
-        //  deltaZ = z;
-        //  // when the deltaZ value is left alone, the image is still wrong
-        //  //   but much closer to correct: the correct-looking image but
-        //  //   somewhere between 2x-4x the expected scale
-        //  //if (referenceIter !== maxReferenceIter) {
-        //  //  deltaZ = z;
-        //  //}
-        //  referenceIter = 0;
-        //  refOrbitCouldStillHaveValidBLAs = true;
-        //}
+
         if (math.lt(zAbs, deltaZAbs)) {
+          //console.log("re-basing to beginning of ref orbit");
           deltaZ = z;
           referenceIter = 0;
-          //refOrbitCouldStillHaveValidBLAs = true;
-        //} else if (referenceIter >= maxReferenceIter) {
-        //  //deltaZ = z;
-        //  referenceIter = 0;
-        //  //refOrbitCouldStillHaveValidBLAs = true;
         }
       }
 
@@ -1974,7 +1800,10 @@ const plots = [{
       //  console.log("for this pixel, did", blaSkips, "BLA skips averaging", (Math.round(blaRadiusTests * 100.0 / blaSkips) / 100.0), "radius tests per skip");
       //}
 
-      if (iter == maxIter) {
+      // apparently, with BLA, we can skip along with the ref orbit beyond
+      //   the image's upper limit of n iterations, so we now have to check
+      //   for >= here
+      if (iter >= maxIter) {
         return {colorpct: windowCalcBackgroundColor, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};
       } else {
         if (useStripes) {

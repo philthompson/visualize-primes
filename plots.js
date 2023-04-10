@@ -920,26 +920,13 @@ const plots = [{
       //  break;
       //}
 
-      step = infNumMath.complexDiv(nthIterationState.z, nthIterationState.dz, precis);
-
-      // if z/dz is tiny, stop
-      // how to determine this?  try seeing if |c| > 1000000*|z/dz| (didn't work)
-      // another way would be to compare c to its previous value:
-      //   if the exponents of the infnum is the same, the difference is
-      //   tiny if the mantissa only differs by 1 or 2 least-significant
-      //   digits (maybe <= Math.ceil(precision*0.05) digits)
-      //cAbsSq = infNumMath.complexAbsSquared(c);
-      //stepAbsSq = infNumMath.complexAbsSquared(step);
-      //if (i > 10 && infNumGt(cAbsSq, infNumMul(stepAbsSq, magnitudeDifferenceSq))) {
-      //  console.log("newton's method stopped during the [" + (i+1) + "]th iteration because z/dz got tiny");
-      //  break;
-      //}
-
-      // c = c - z / dz
       cPrev = c;
+      // c = c - z / dz
+      step = infNumMath.complexDiv(nthIterationState.z, nthIterationState.dz, precis);
       c = infNumMath.complexSub(c, step);
 
-      //if (infNumEq(c.x, cPrev.x, precis) && infNumEq(c.y, cPrev.y, precis)) {
+      // if z/dz is tiny, stop
+      // how to determine this? compare c to its previous value...
       if (infNumApproxEq(c.x, cPrev.x, precis) && infNumApproxEq(c.y, cPrev.y, precis)) {
         console.log("newton's method stopped during the [" + (i+1) + "]th iteration because z/dz got tiny enough to be negligible");
         break;

@@ -2192,6 +2192,7 @@ function resetWindowCalcContext() {
 
   windowCalc.n = params.n;
   windowCalc.scale = params.scale;
+  windowCalc.precision = precision; // why wasn't precison already kept in windowCalc?
   windowCalc.leftEdge = leftEdge;
   windowCalc.topEdge = topEdge;
   windowCalc.rightEdge = rightEdge;
@@ -2203,6 +2204,7 @@ function resetWindowCalcContext() {
   windowCalc.topEdgeM = windowCalc.math.createFromInfNum(topEdge);
   windowCalc.rightEdgeM = windowCalc.math.createFromInfNum(rightEdge);
   windowCalc.bottomEdgeM = windowCalc.math.createFromInfNum(bottomEdge);
+  windowCalc.minibrotNucleusFound = false;
 
   resetGoToBoundsValues();
   resetGoToCenterValues();
@@ -2512,16 +2514,24 @@ var calcWorkerOnmessage = function(e) {
     drawStatusNotice(fitSizeContext, messageString);
     if (showMousePosition) {
       redrawMousePosNotice();
+      drawMinibrotNucleusPoint();
     }
     if (imageParametersCaption) {
       drawImageParameters();
     }
     return;
   }
+  if ("minibrotNucleusFound" in e.data) {
+    windowCalc.minibrotNucleusFound = true;
+    windowCalc.referencePx = e.data.minibrotNucleusFound.x;
+    windowCalc.referencePy = e.data.minibrotNucleusFound.y;
+    windowCalc.period = e.data.minibrotNucleusFound.period;
+  }
   // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean, workersCount: string, workersNow: int}
   drawWorkerColorPoints(e);
   if (showMousePosition) {
     redrawMousePosNotice();
+    drawMinibrotNucleusPoint();
   }
   windowCalc.workersCountRange = e.data.calcStatus.workersCount;
   if ("saItersSkipped" in e.data.calcStatus) {
@@ -3742,6 +3752,65 @@ function drawImageParametersOnContext(context2d) {
   }
 }
 
+// this is also used after painting new chunks, so it doesn't do
+//   repaintOnly()
+function drawMinibrotNucleusPoint() {
+
+  if (!windowCalc.hasOwnProperty('minibrotNucleusFound') || windowCalc.minibrotNucleusFound !== true) {
+    return;
+  }
+  //windowCalc.referencePx = e.data.minibrotNucleusFound.x;
+  //windowCalc.referencePy = e.data.minibrotNucleusFound.y;
+  //windowCalc.period = e.data.minibrotNucleusFound.period;
+
+  // pixel from left = (point x - left edge) / units per pixel
+  const pixelXinfnum = infNumDiv(infNumSub(windowCalc.referencePx, windowCalc.leftEdge), windowCalc.eachPixUnits, windowCalc.precision);
+  const pixelX = Math.floor(floatMath.createFromInfNum(pixelXinfnum));
+
+  const pixelYinfnum = infNumDiv(infNumSub(windowCalc.topEdge, windowCalc.referencePy), windowCalc.eachPixUnits, windowCalc.precision);
+  const pixelY = Math.floor(floatMath.createFromInfNum(pixelYinfnum));
+
+  if (pixelX < 0 || pixelX >= fitSizeCanvas.width || pixelY < 0 || pixelY >= fitSizeCanvas.height) {
+    console.log("found minibrot nucleus is off screen!", {
+        x: windowCalc.referencePx,
+        pixelX: pixelX,
+        y: windowCalc.referencePy,
+        pixelY: pixelY,
+        period: windowCalc.period
+    });
+    windowCalc.minibrotNucleusFound = false;
+    return;
+  }
+
+  fitSizeContext.lineWidth = 5.0;
+  fitSizeContext.strokeStyle = "rgb(255,255,255)";
+  fitSizeContext.beginPath();
+  fitSizeContext.moveTo(pixelX - 5, pixelY - 5);
+  fitSizeContext.lineTo(pixelX + 5, pixelY + 5);
+  fitSizeContext.moveTo(pixelX - 5, pixelY + 5);
+  fitSizeContext.lineTo(pixelX + 5, pixelY - 5);
+  fitSizeContext.stroke();
+
+  fitSizeContext.lineWidth = 3.0;
+  fitSizeContext.strokeStyle = "rgb(0,0,0)";
+  fitSizeContext.beginPath();
+  fitSizeContext.moveTo(pixelX - 4, pixelY - 4);
+  fitSizeContext.lineTo(pixelX + 4, pixelY + 4);
+  fitSizeContext.moveTo(pixelX - 4, pixelY + 4);
+  fitSizeContext.lineTo(pixelX + 4, pixelY - 4);
+  fitSizeContext.stroke();
+
+  fitSizeContext.lineWidth = 1.0;
+  fitSizeContext.strokeStyle = "rgb(255,255,255)";
+  fitSizeContext.beginPath();
+  fitSizeContext.moveTo(pixelX - 3, pixelY - 3);
+  fitSizeContext.lineTo(pixelX + 3, pixelY + 3);
+  fitSizeContext.moveTo(pixelX - 3, pixelY + 3);
+  fitSizeContext.lineTo(pixelX + 3, pixelY - 3);
+  fitSizeContext.stroke();
+  fitSizeContext.beginPath();
+}
+
 function drawSequencePointsData(infoPoints, mouseX, mouseY) {
   const canvas = fitSizeCanvas;
   const ctx = fitSizeContext;
@@ -4368,6 +4437,7 @@ var mouseMoveHandler = function(e) {
     if (showMousePosition) {
       let pos = convertPixelPosToPlanePos(e.pageX, e.pageY);
       drawMousePosNotice(pos.x, pos.y);
+      drawMinibrotNucleusPoint();
     }
     return;
   }

@@ -219,6 +219,40 @@ function runCalc(msg) {
     windowCalc.referenceBlaTables = null;
     windowCalc.saCoefficients = null;
 
+    // TODO make this a separate thing that can be run with a controls
+    //   menu button or something (for non-"basic" algorithms, it will
+    //   always be run)
+    // try ball arithmetic here for basic, too
+    // start with middle of window for reference point (doesn't have to
+    //   exactly align with a pixel)
+//    const newReferencePx = infNumAdd(windowCalc.edges.left, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth/2)), 0n)));
+//    const newReferencePy = infNumAdd(windowCalc.edges.bottom, infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight/2)), 0n)));
+//    const rectHalfX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth / 2)), 0n));
+//    const rectHalfY = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight / 2)), 0n));
+//    const period = plotsByName[windowCalc.plot].findPeriodBallArithmetic2ndOrder(windowCalc.n, windowCalc.precision, windowCalc.algorithm, newReferencePx, newReferencePy, rectHalfX, rectHalfY, false);
+//    if (period > 0) {
+//      const getNthIterationAndDerivative = plotsByName[windowCalc.plot].getNthIterationAndDerivative;
+//      const foundMinibrotNucleus = plotsByName[windowCalc.plot].newtonsMethod(period, newReferencePx, newReferencePy, windowCalc.precision, getNthIterationAndDerivative);
+//      if (
+//          infNumGt(foundMinibrotNucleus.x, windowCalc.edges.right) ||
+//          infNumLt(foundMinibrotNucleus.x, windowCalc.edges.left) ||
+//          infNumGt(foundMinibrotNucleus.y, windowCalc.edges.top) ||
+//          infNumLt(foundMinibrotNucleus.y, windowCalc.edges.bottom)) {
+//        console.log("newton nucleus is off screen!");
+//        windowCalc.referencePeriod = -1;
+//      } else {
+//        windowCalc.referencePeriod = period;
+//        windowCalc.referencePx = foundMinibrotNucleus.x;
+//        windowCalc.referencePy = foundMinibrotNucleus.y;
+//        console.log("found ref x/y/period!");
+//        setMinibrotNucleusMessage({
+//          x: foundMinibrotNucleus.x,
+//          y: foundMinibrotNucleus.y,
+//          period: period
+//        });
+//      }
+//    }
+
     // since the basic algorithm has no setup tasks, we just start here
     calculatePass();
 
@@ -258,8 +292,8 @@ function setupCheckReferenceOrbit() {
     let yDiff = infNumSub(windowCalc.referencePy, newReferencePy);
     let squaredDiff = infNumAdd(infNumMul(xDiff, xDiff), infNumMul(yDiff, yDiff));
 
-    // 5% of pixel width move (radius) is allowable
-    let maxAllowablePixelsMove = Math.ceil(windowCalc.canvasWidth * 0.05);
+    // 15% of pixel width move (radius) is allowable
+    let maxAllowablePixelsMove = Math.ceil(windowCalc.canvasWidth * 0.15);
     let maxAllowableMove = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(maxAllowablePixelsMove), 0n));
     // square this as well
     maxAllowableMove = infNumMul(maxAllowableMove, maxAllowableMove);
@@ -311,19 +345,51 @@ function setupReferenceOrbit(state) {
       //  sendStatusMessage(refPeriodState.status);
       //}
 
-      // this attempt was never fully pursued: using rectangle method, where
-      //   the recangle is repeatedly halved
-      //let refPeriodState = null;
-      //const rectHalfX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth / 2)), 0n));
-      //const rectHalfY = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight / 2)), 0n));
-      //while (refPeriodState === null || !refPeriodState.done) {
-      //  refPeriodState = plotsByName[windowCalc.plot].computeReferencePeriodAndMinibrot(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, rectHalfX, rectHalfY, refPeriodState);
-      //  sendStatusMessage(refPeriodState.status);
-      //}
-      //console.log("computed ref PERIOD to be " + refPeriodState.period);
-      //windowCalc.referencePeriod = refPeriodState.period;
+      // ball arithmetic method
+      const rectHalfX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth / 2)), 0n));
+      const rectHalfY = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight / 2)), 0n));
 
+      const getNthIterationAndDerivative = plotsByName[windowCalc.plot].getNthIterationAndDerivative;
+      const newtonsMethod = plotsByName[windowCalc.plot].newtonsMethod;
+      const foundMinibrotNucleus = plotsByName[windowCalc.plot].findMinibrotWithBallArithmetic1stOrderAndNewton(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, rectHalfX, rectHalfY, getNthIterationAndDerivative, newtonsMethod);
+      if (foundMinibrotNucleus === null) {
+          console.log("no found newton nucleus is within the window");
+          windowCalc.referencePeriod = -1;
+      } else {
+          windowCalc.referencePeriod = foundMinibrotNucleus.period;
+          windowCalc.referencePx = foundMinibrotNucleus.x;
+          windowCalc.referencePy = foundMinibrotNucleus.y;
+          console.log("found ref x/y/period!");
+          setMinibrotNucleusMessage({
+            x: foundMinibrotNucleus.x,
+            y: foundMinibrotNucleus.y,
+            period: foundMinibrotNucleus.period
+          });
       }
+
+      //const period = plotsByName[windowCalc.plot].findPeriodBallArithmetic2ndOrder(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, rectHalfX, rectHalfY, false);
+      //if (period > 0) {
+      //  const getNthIterationAndDerivative = plotsByName[windowCalc.plot].getNthIterationAndDerivative;
+      //  const foundMinibrotNucleus = plotsByName[windowCalc.plot].newtonsMethod(period, windowCalc.referencePx, windowCalc.referencePy, windowCalc.precision, getNthIterationAndDerivative);
+      //  if (
+      //      infNumGt(foundMinibrotNucleus.x, windowCalc.edges.right) ||
+      //      infNumLt(foundMinibrotNucleus.x, windowCalc.edges.left) ||
+      //      infNumGt(foundMinibrotNucleus.y, windowCalc.edges.top) ||
+      //      infNumLt(foundMinibrotNucleus.y, windowCalc.edges.bottom)) {
+      //    console.log("newton nucleus is off screen!");
+      //    windowCalc.referencePeriod = -1;
+      //  } else {
+      //    windowCalc.referencePeriod = period;
+      //    windowCalc.referencePx = foundMinibrotNucleus.x;
+      //    windowCalc.referencePy = foundMinibrotNucleus.y;
+      //    console.log("found ref x/y/period!");
+      //    setMinibrotNucleusMessage({
+      //      x: foundMinibrotNucleus.x,
+      //      y: foundMinibrotNucleus.y,
+      //      period: period
+      //    });
+      //  }
+      //}
     }
 
     state = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referencePeriod, windowCalc.smooth, state);
@@ -1107,6 +1173,13 @@ function sendStatusMessage(message) {
   self.postMessage({
     plotId: windowCalc.plotId,
     statusMessage: message
+  });
+}
+
+function setMinibrotNucleusMessage(data) {
+  self.postMessage({
+    plotId: windowCalc.plotId,
+    minibrotNucleusFound: data
   });
 }
 

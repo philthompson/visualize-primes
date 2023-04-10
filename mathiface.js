@@ -208,24 +208,36 @@ const infNumMath = {
       y: infNumAdd(a.y, b.y)
     };
   },
+  complexSub: function(a, b) {
+    return {
+      x: infNumSub(a.x, b.x),
+      y: infNumSub(a.y, b.y)
+    };
+  },
   complexRealAdd: function(a, real) {
     return {
       x: infNumAdd(a.x, real),
       y: structuredClone(a.y)
     };
   },
-  complexDiv: function(a, b) {
+  complexDiv: function(a, b, precis) {
     let den = infNumAdd(infNumMul(b.x, b.x), infNumMul(b.y, b.y));
     return {
-      x: infNumDiv(infNumAdd(infNumMul(a.x, b.x), infNumMul(a.y, b.y)), den),
-      y: infNumDiv(infNumSub(infNumMul(a.y, b.x), infNumMul(a.x, b.y)), den),
+      x: infNumDiv(infNumAdd(infNumMul(a.x, b.x), infNumMul(a.y, b.y)), den, precis),
+      y: infNumDiv(infNumSub(infNumMul(a.y, b.x), infNumMul(a.x, b.y)), den, precis),
     };
   },
   complexAbsSquared: function(a) {
     return infNumAdd(infNumMul(a.x, a.x), infNumMul(a.y, a.y));
   },
   complexAbs: function(a) {
+    return infNumSqrtHerons(infNumAdd(infNumMul(a.x, a.x), infNumMul(a.y, a.y)));
+  },
+  complexAbsRough: function(a) {
     return infNumRoughSqrt(infNumAdd(infNumMul(a.x, a.x), infNumMul(a.y, a.y)));
+  },
+  complexAbsLessPrecis: function(a) {
+    return infNumSqrtHeronsLessPrecis(infNumAdd(infNumMul(a.x, a.x), infNumMul(a.y, a.y)));
   },
   gt: function(a, b) {
     return infNumGt(a, b);

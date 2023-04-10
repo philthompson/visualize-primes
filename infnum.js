@@ -312,6 +312,42 @@ function infNumGtNorm(a, b) {
   return a.v > b.v;
 }
 
+function infNumApproxEq(a, b, precis) {
+//  if (a.v === 0n && b.v === 0n) {
+//    return true;
+//  }
+//  if (a.v > 0n && b.v < 0n) {
+//    return false;
+//  }
+//  if (a.v < 0n && b.v > 0n) {
+//    return false;
+//  }
+
+  const norm = normInfNum(a, b);
+
+  const diff = infNumAbs(infNumSubNorm(norm[0], norm[1]));
+
+  return infNumLt(diff, infNum(1n, (BigInt(a.v.toString().length) + a.e) - BigInt(precis)));
+
+  //return infNumLt(diff, infNum(1n, BigInt(-precis)));
+
+//  const norm = normInfNum(a, b);
+//
+//  const aStr = norm[0].v.toString().substring(0, precis);
+//  // after normalizing (ensuring exponents are the same)
+//  //   if one of the values has fewer digits than the
+//  //   requested precision, both values must be equal
+//  if (aStr.length < precis) {
+//    return norm[0].v === norm[1].v;
+//  }
+//  const bStr = norm[1].v.toString().substring(0, precis);
+//  if (bStr.length < precis) {
+//    return norm[0].v === norm[1].v;
+//  }
+//
+//  return aStr === bStr;
+}
+
 function infNumToString(n) {
   var value = n.v.toString();
   if (n.e === 0n) {
@@ -543,7 +579,7 @@ function bigIntRoughSqrt(a) {
 // - exponentially slows down the computation
 //
 // testing on Apple M1 processor (single-core presumably)
-//   where 4 million square roots are taken of varying lengths:
+//   where 4 million square roots of inputs of varying lengths are taken:
 // - with 2 additional digits of precision:
 //   - ~2e-3% average error
 //   - this required, on average, 1.44 iterations of Heron's method per square root
@@ -913,6 +949,40 @@ if (doUnitTests) {
     console.log(unitTest, " -> infNumFastStr() -> createInfNumFromFastStr() -> ...");
     console.log(createInfNumFromFastStr(infNumFastStr(unitTest)));
   }
+
+  const runUnitTest = function(testFn) {
+    if (!testFn()) {
+      console.log("unit test FAILED:\n" + testFn.toString());
+    }
+  }
+
+  runUnitTest(function() {
+    return infNumApproxEq(infNum(12345678n, -3n), infNum(12345123n, -3n), 5) === true;
+  });
+
+  runUnitTest(function() {
+    return infNumApproxEq(infNum(12345678n, -3n), infNum(12344123n, -3n), 5) === false;
+  });
+
+  runUnitTest(function() {
+    return infNumApproxEq(infNum(123n, -3n), infNum(123n, -3n), 5) === true;
+  });
+
+  runUnitTest(function() {
+    return infNumApproxEq(infNum(123n, -3n), infNum(122n, -3n), 5) === false;
+  });
+
+  runUnitTest(function() {
+    return infNumApproxEq(infNum(123456789n, -3n), infNum(1234567n, -1n), 6) === true;
+  });
+
+  runUnitTest(function() {
+    return infNumApproxEq(infNum(123456n, 2n), infNum(12345600n, 0n), 8) === true;
+  });
+
+  runUnitTest(function() {
+    return infNumApproxEq(infNum(0n, 0n), infNum(123456789n, -30n), 20) === true;
+  });
 }
 
 if (doPerfTests) {

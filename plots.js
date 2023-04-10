@@ -16,7 +16,7 @@ if (typeof importScripts === 'function') {
 
 // does linear search after first checking the worst/smallest
 //   (last) element in the array
-function searchForBestBLA(sortedArray, /*r2last,*/ deltaZAbs, math) {
+function searchForBestBLA(sortedArray, deltaZAbs, math) {
   let hi = sortedArray.length - 1;
   // we want the lowest-indexed (closest to start of array)
   //   BLA found to be valid
@@ -29,7 +29,6 @@ function searchForBestBLA(sortedArray, /*r2last,*/ deltaZAbs, math) {
   if (hi > 0) {
     //++validityTestsPerformed;
     if (math.lt(deltaZAbs, sortedArray[hi].r2)) {
-    //if (math.lt(deltaZAbs, r2last)) {
       lowestValid = hi;
       hi--;
     } else {
@@ -372,7 +371,8 @@ const plots = [{
     const useStripes = algorithm.includes("stripes");
 
     const periodLessThanN = period !== null && period > 0 && period < n;
-    const maxIter = periodLessThanN ? period : n;
+    // add two exta iterations to periodic orbits for debugging below
+    const maxIter = periodLessThanN ? (period+2) : n;
     const two = infNum(2n, 0n);
     const four = infNum(4n, 0n);
     const sixteen = infNum(16n, 0n);
@@ -415,6 +415,8 @@ const plots = [{
           x: outputMath.createFromInfNum(fnContext.ix),
           y: outputMath.createFromInfNum(fnContext.iy),
           // if needed, include floatexp x and y as well, for SA coefficients calc
+          //   (if outputMath is floatexp, x and y are already floatexp, then we
+          //   don't need another floatexp version of those here)
           xfxp: outputIsFloatExp ? null : floatExpMath.createFromInfNum(fnContext.ix),
           yfxp: outputIsFloatExp ? null : floatExpMath.createFromInfNum(fnContext.iy)
         });
@@ -432,58 +434,385 @@ const plots = [{
           return fnContext;
         }
       }
-      // fill out reference orbit will repeat data
-      if (periodLessThanN && fnContext.iter >= maxIter) {
-        for (let i = 0; i < n - period; i++) {
-          // use mod to keep looping back over the ref orbit iterations
-          fnContext.orbit.push(structuredClone(fnContext.orbit[i % period]));
-        }
+      // debug... to see if we actually have a periodic orbit here
+      if (periodLessThanN) {
+        // remove the two extra iterations we computed
+        const periodPlusTwoIter = fnContext.orbit.pop(); // (period+2)th iteration should be equal to the 2nd (index 1) iter
+        const periodPlusOneIter = fnContext.orbit.pop(); // (period+1)th iteration should be zero
+        const firstIter = fnContext.orbit[0];
+        const secondIter = fnContext.orbit[1];
+        console.log("the full period of [" + period + "] iters has been computed, " +
+          "where the orbit has [" + fnContext.orbit.length + "] iters, where the first orbit iter is (should be zero):\n",
+          {x:outputMath.toExpString(firstIter.x), y:outputMath.toExpString(firstIter.y)},
+          " and where the last orbit iter is:\n",
+          {x:outputMath.toExpString(fnContext.orbit[fnContext.orbit.length-1].x), y:outputMath.toExpString(fnContext.orbit[fnContext.orbit.length-1].y)},
+          " and where the next [" + (period+1) + "]th iteration (should be (~0, ~0)) would be at:\n",
+          {x:outputMath.toExpString(periodPlusOneIter.x), y:outputMath.toExpString(periodPlusOneIter.y)},
+          " and where the next [" + (period+2) + "]th iteration would be at:\n",
+          {x:outputMath.toExpString(periodPlusTwoIter.x), y:outputMath.toExpString(periodPlusTwoIter.y)},
+          " which should be equal to, or close to, the 1th (2nd) iter:\n",
+          {x:outputMath.toExpString(secondIter.x), y:outputMath.toExpString(secondIter.y)});
       }
+      // fill out reference orbit with repeat data
+      //if (periodLessThanN && fnContext.iter >= maxIter) {
+      //  for (let i = 0; i < n - period; i++) {
+      //    // use mod to keep looping back over the ref orbit iterations
+      //    fnContext.orbit.push(structuredClone(fnContext.orbit[i % period]));
+      //  }
+      //}
 
       fnContext.done = true;
       return fnContext;
     } catch (e) {
-      console.log("ERROR CAUGHT when computing reference orbit at point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
+      console.log("ERROR CAUGHT when computing reference orbit at point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + fnContext.iter + ", " + maxIter + "]:");
       console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
       fnContext.done = true;
       return fnContext;
     }
   },
-  "computeReferencePeriodSquare": function(n, precis, algorithm, x, y, boxDelta, fnContext) {
-    // - find the 4 points in a square surrounding the given x,y location
-    // - iterate the 4 points until one escapes, or, exactly 1 edge of
-    //     that square crosses the positive x (real) axis
-    // - the number of iterations until this occurs is the period
-    // - after that number of iterations, i believe, any point inside
-    //     the square will be at its "smallest" (lowest distance from the origin)
+  // based on garrit's matlab code: https://fractalforums.org/index.php?topic=3805.msg24312#msg24312
+  "findPeriodBallArithmetic1stOrder": function(n, precis, algorithm, x, y, width, height, doCont) {
+    // in ball centered on (x+yi) find period (up to n) of nucleus
+    // doCont = false normally
     //
-    // This method is explained here: http://www.mrob.com/pub/muency/period.html
+    // i believe:
+    // x = center coordinate of screen
+    // y = center coordinate of screen
+    // width = half screen width (half rendered window width, in plane units, not in pixels)
+    // height = half screen height (half rendered window height, in plane units, not in pixels)
+    //const math = selectMathInterfaceFromAlgorithm(algorithm);
+    // infnum is likely more accurate at very large scales, but is much
+    //   slower than float and floatexp... but infnum if the only way
+    //   to do full-precision computations
+    const math = infNumMath;
+    const c0 = {
+      x: math.createFromInfNum(x),
+      y: math.createFromInfNum(y)
+    };
+    const r0 = math.min(math.createFromInfNum(width), math.createFromInfNum(height));
+    let z = math.complexRealMul(c0, math.zero);
+    let r = r0;
+    //let p = []; // this doesn't appear to be used
+    const maxR = math.createFromNumber(1e5);
+    let az = math.complexAbs(z);
+
+    for (let k = 1; k < n; k++) {
+      // r = (az+r).^mpow - az.^mpow + r0;
+      r = math.add(az, r);
+      r = math.mul(r, r);
+      r = math.sub(r, math.mul(az, az));
+      r = math.add(r, r0);
+      // z = z.^mpow + c0;
+      z = math.complexAdd(math.complexMul(z, z), c0);
+      az = math.complexAbs(z);
+
+      // what all needs to be truncated?
+      z.x = math.truncateToSigDig(z.x, precis);
+      z.y = math.truncateToSigDig(z.y, precis);
+      r = infNumTruncateToLen(r, precis);
+      az = infNumTruncateToLen(az, precis);
+
+      if (math.gt(r, az)) {
+        //p = [p k];
+        console.log("period found with 1st-order ball arithmetic:", k);
+        if (!doCont) {
+          break;
+        }
+      }
+      if (math.gt(az, maxR) || math.gt(r, maxR)) {
+        console.log("1st-order ball arithmetic escaped at iteration:", k);
+        break;
+      }
+    }
+  },
+  "findMinibrotWithBallArithmetic1stOrderAndNewton": function(n, precis, algorithm, x, y, viewWidth, viewHeight, getNthIterationAndDerivative, newtonsMethod) {
+    // in ball centered on (x+yi) find period (up to n) of nucleus
+    // doCont = false normally
     //
+    // i believe:
+    // x = center coordinate of screen
+    // y = center coordinate of screen
+    // width = half screen width (half rendered window width, in plane units, not in pixels)
+    // height = half screen height (half rendered window height, in plane units, not in pixels)
+    //const math = selectMathInterfaceFromAlgorithm(algorithm);
+    // infnum is likely more accurate at very large scales, but is much
+    //   slower than float and floatexp... but infnum if the only way
+    //   to do full-precision computations
+    const math = infNumMath;
+    const c0 = {
+      x: math.createFromInfNum(x),
+      y: math.createFromInfNum(y)
+    };
+    const r0 = math.min(math.createFromInfNum(viewWidth), math.createFromInfNum(viewHeight));
+    const r0sq = math.mul(r0, r0);
+    let z = math.complexRealMul(c0, math.zero);
+    let r = r0;
+    //let p = []; // this doesn't appear to be used
+    const maxR = math.createFromNumber(1e5);
+    let az = math.complexAbs(z);
 
-    const outputMath = selectMathInterfaceFromAlgorithm(algorithm);
-    const outputIsFloatExp = outputMath.name == "floatexp";
+    const nthIterToLog = 100;
+    let nthIterToLogCount = 0;
+    for (let k = 1; k < n; k++) {
+      nthIterToLogCount++;
+      if (nthIterToLogCount >= nthIterToLog) {
+        nthIterToLogCount = 0;
+        console.log("1st-order ball arithmetic at iteration:", k);
+      }
+      // r = (az+r).^mpow - az.^mpow + r0;
+      r = math.add(az, r);
+      r = math.mul(r, r);
+      r = math.sub(r, math.mul(az, az));
+      r = math.add(r, r0);
+      // z = z.^mpow + c0;
+      z = math.complexAdd(math.complexMul(z, z), c0);
+      az = math.complexAbs(z);
 
-    const maxIter = n;
-    const two = infNum(2n, 0n);
-    const four = infNum(4n, 0n);
-    const sixteen = infNum(16n, 0n);
-    // try using slightly larger bailout (4) for ref orbit
-    //   than for perturb orbit (which uses smallest possible
-    //   bailout of 2)
-    const bailoutSquared = four;
+      // what all needs to be truncated?
+      z.x = math.truncateToSigDig(z.x, precis);
+      z.y = math.truncateToSigDig(z.y, precis);
+      r = infNumTruncateToLen(r, precis);
+      az = infNumTruncateToLen(az, precis);
+
+      //if (math.gt(r, az)) {
+      //  //p = [p k];
+      //  console.log("period found with 1st-order ball arithmetic:", k);
+      //  if (!doCont) {
+      //    break;
+      //  }
+      //}
+      if (math.gt(r, az)) {
+        //p = [p k];
+        console.log("period found with 1st-order ball arithmetic:", k);
+        // use newton's method to find minibrot nucleus
+        const foundMinibrotNucleus = newtonsMethod(k, x, y, precis, getNthIterationAndDerivative);
+        // if the nucleus is within the original radius, we're done!
+        if (math.lt(math.complexAbsSquared(math.complexSub(foundMinibrotNucleus, c0)), r0sq)) {
+          console.log("found on-screen ref x/y/period!");
+          foundMinibrotNucleus.period = k;
+          return foundMinibrotNucleus;
+        // otherwise, proceed to try to find a deeper higher-period
+        } else {
+          console.log("newton nucleus with period [" + k + "] is off screen!");
+        }
+      }
+      if (math.gt(az, maxR) || math.gt(r, maxR)) {
+        console.log("1st-order ball arithmetic escaped at iteration:", k);
+        //break;
+        return null;
+      }
+    }
+    return null;
+  },
+  // based on garrit's matlab code: https://fractalforums.org/index.php?topic=3805.msg24312#msg24312
+  "findPeriodBallArithmetic2ndOrder": function(n, precis, algorithm, x, y, width, height, doCont) {
+    // in ball centered on (x+yi) find period (up to n) of nucleus
+    // doCont = false normally
+    //
+    // i believe:
+    // x = center coordinate of screen
+    // y = center coordinate of screen
+    // width = half screen width (half rendered window width, in plane units, not in pixels)
+    // height = half screen height (half rendered window height, in plane units, not in pixels)
+
+    //const math = selectMathInterfaceFromAlgorithm(algorithm);
+    // infnum is likely more accurate at very large scales, but is much
+    //   slower than float and floatexp... but infnum if the only way
+    //   to do full-precision computations
+    const math = infNumMath;
+    //const math = floatExpMath;
+
+    const c0 = {
+      x: math.createFromInfNum(x),
+      y: math.createFromInfNum(y)
+    };
+    const r0 = math.min(math.createFromInfNum(width), math.createFromInfNum(height));
+    const r0sq = math.mul(r0, r0);
+    let z = math.complexRealMul(c0, math.zero);
+    //let c1 = c0;
+    let dz = math.complexRealMul(c0, math.zero);
+    let r = r0;
+    //let p = []; // this doesn't appear to be used
+    const maxR = math.createFromNumber(1e5);
+    let az = math.complexAbs(z);
+    let adz = math.complexAbs(dz);
+    let minz = math.createFromNumber(1e16);
+    let minIter = -1;
+
+    let rsq;
+    let r0sqadzsq;
+    const nthIterToLog = 100;
+    let nthIterToLogCount = 0;
+    for (let k = 1; k < n; k++) {
+      nthIterToLogCount++;
+      if (nthIterToLogCount >= nthIterToLog) {
+        nthIterToLogCount = 0;
+        console.log("2nd-order ball arithmetic at iteration:", k);
+      }
+      // r = r.^2+2*(az+r0.*adz)*r + r0.^2.*adz.^2;
+      rsq = math.mul(r, r);
+      r = math.mul(r, math.mul(math.two, math.add(az, math.mul(r0, adz))));
+      r0sqadzsq = math.mul(r0sq, math.mul(adz, adz));
+      r = math.add(rsq, math.add(r, r0sqadzsq));
+      // dz = 2*z.*dz + 1;
+      dz = math.complexRealMul(math.complexMul(z, dz), math.two);
+      dz = math.complexRealAdd(dz, math.one);
+      // z = z.^2 + c0;
+      z = math.complexAdd(math.complexMul(z, z), c0);
+      az = math.complexAbs(z);
+      adz = math.complexAbs(dz);
+
+      // what all needs to be truncated?
+      z.x = math.truncateToSigDig(z.x, precis);
+      z.y = math.truncateToSigDig(z.y, precis);
+      r = math.truncateToSigDig(r, precis);
+      az = math.truncateToSigDig(az, precis);
+      adz = math.truncateToSigDig(adz, precis);
+
+      if (math.lt(az, minz)) {
+        minz = az;
+        minIter = k;
+      }
+
+      if (math.gt(math.add(r, math.mul(r0, adz)), az)) {
+        //p = [p k];
+        console.log("period found with 2nd-order ball arithmetic:", k, "atom:", minIter);
+        if (!doCont) {
+          //break;
+          return k;
+        }
+      }
+      if (math.gt(az, maxR) || math.gt(r, maxR)) {
+        console.log("2nd-order ball arithmetic escaped at iteration:", k);
+        //break;
+        return -1;
+      }
+
+    }
+    return -1;
+  },
+  "findMinibrotWithBallArithmetic2ndOrderAndNewton": function(n, precis, algorithm, x, y, viewWidth, viewHeight, getNthIterationAndDerivative, newtonsMethod) {
+    // in ball centered on (x+yi) find period (up to n) of nucleus
+    // doCont = false normally
+    //
+    // i believe:
+    // x = center coordinate of screen
+    // y = center coordinate of screen
+    // viewWidth = half screen width in the x/real dimension (half rendered window width, in plane units, not in pixels)
+    // viewHeight = half screen height in the y/imag dimension (half rendered window height, in plane units, not in pixels)
+
+    //const math = selectMathInterfaceFromAlgorithm(algorithm);
+    // infnum is likely more accurate at very large scales, but is much
+    //   slower than float and floatexp... but infnum if the only way
+    //   to do full-precision computations
+    const math = infNumMath;
+    //const math = floatExpMath;
+
+    const c0 = {
+      x: math.createFromInfNum(x),
+      y: math.createFromInfNum(y)
+    };
+    const r0 = math.min(math.createFromInfNum(viewWidth), math.createFromInfNum(viewHeight));
+    const r0sq = math.mul(r0, r0);
+    let z = math.complexRealMul(c0, math.zero);
+    //let c1 = c0;
+    let dz = math.complexRealMul(c0, math.zero);
+    let r = r0;
+    //let p = []; // this doesn't appear to be used
+    const maxR = math.createFromNumber(1e5);
+    let az = math.complexAbs(z);
+    let adz = math.complexAbs(dz);
+    let minz = math.createFromNumber(1e16);
+    let minIter = -1;
+
+    let rsq;
+    let r0sqadzsq;
+    const nthIterToLog = 20;
+    let nthIterToLogCount = 0;
+    for (let k = 1; k < n; k++) {
+      nthIterToLogCount++;
+      if (nthIterToLogCount >= nthIterToLog) {
+        nthIterToLogCount = 0;
+        console.log("2nd-order ball arithmetic at iteration:", k);
+      }
+      // r = r.^2+2*(az+r0.*adz)*r + r0.^2.*adz.^2;
+      rsq = math.mul(r, r);
+      r = math.mul(r, math.mul(math.two, math.add(az, math.mul(r0, adz))));
+      r0sqadzsq = math.mul(r0sq, math.mul(adz, adz));
+      r = math.add(rsq, math.add(r, r0sqadzsq));
+      // dz = 2*z.*dz + 1;
+      dz = math.complexRealMul(math.complexMul(z, dz), math.two);
+      dz = math.complexRealAdd(dz, math.one);
+      // z = z.^2 + c0;
+      z = math.complexAdd(math.complexMul(z, z), c0);
+      az = math.complexAbs(z);
+      adz = math.complexAbs(dz);
+
+      // what all needs to be truncated?
+      z.x = math.truncateToSigDig(z.x, precis);
+      z.y = math.truncateToSigDig(z.y, precis);
+      r = math.truncateToSigDig(r, precis);
+      az = math.truncateToSigDig(az, precis);
+      adz = math.truncateToSigDig(adz, precis);
+
+      if (math.lt(az, minz)) {
+        minz = az;
+        minIter = k;
+      }
+
+      if (math.gt(math.add(r, math.mul(r0, adz)), az)) {
+        //p = [p k];
+        console.log("period found with 2nd-order ball arithmetic:", k, "atom:", minIter);
+        // use newton's method to find minibrot nucleus
+        const foundMinibrotNucleus = newtonsMethod(k, x, y, precis, getNthIterationAndDerivative);
+        // if the nucleus is within the original radius, we're done!
+        if (math.lt(math.complexAbsSquared(math.complexSub(foundMinibrotNucleus, c0)), r0sq)) {
+          console.log("found on-screen ref x/y/period!");
+          foundMinibrotNucleus.period = k;
+          return foundMinibrotNucleus;
+        // otherwise, proceed to try to find a deeper higher-period
+        } else {
+          console.log("newton nucleus with period [" + k + "] is off screen!");
+        }
+      }
+      if (math.gt(az, maxR) || math.gt(r, maxR)) {
+        console.log("2nd-order ball arithmetic escaped at iteration:", k);
+        //break;
+        //return -1;
+        return null;
+      }
+
+    }
+    //return -1;
+    return null;
+  },
+  // this is largely the same as "computeReferenceOrbit" above, but also
+  //   performs iterations of the derivative mandelbrot function
+  // x and y must be infNum objects
+  // for newton's method for finding minibrots/periodic ref orbit locations: https://www.fractalforums.com/index.php?topic=18289.msg90972#msg90972
+  "getNthIterationAndDerivative": function(n, x, y, precis, fnContext) {
+
+    //const two = infNum(2n, 0n);
+    //const four = infNum(4n, 0n);
+    //const sixteen = infNum(16n, 0n);
+
+    // we are just using a large bailout here, as large
+    //   or larger than any algorithm would use
+    const bailoutSquared = infNum(64n*64n*2n, 0n);
 
     // fnContext allows the loop to be done piecemeal
     if (fnContext === null) {
       fnContext = {
-
-        // the coords used for iteration, clockwise from top right
-        //   corner of the square
-        x: [infNumAdd(x, boxDelta), infNumAdd(x, boxDelta), infNumSub(x, boxDelta), infNumSub(x, boxDelta)],
-        y: [infNumAdd(y, boxDelta), infNumSub(y, boxDelta), infNumSub(y, boxDelta), infNumAdd(y, boxDelta)],
-        ix: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)],
-        iy: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)],
+        // the coords used for iteration
+        //ix: infNum(0n, 0n),
+        //iy: infNum(0n, 0n),
+        z: {x:infNum(0n, 0n), y:infNum(0n, 0n)}, // the nth iteration of the mandelbrot equation
+        //z1: {x:infNum(0n, 0n), y:infNum(0n, 0n)}, // the 1th iteration of the mandelbrot equation
+        //znplus1: {x:infNum(0n, 0n), y:infNum(0n, 0n)}, // the n+1th iteration of the mandelbrot equation
+        //zsave: {x:infNum(0n, 0n), y:infNum(0n, 0n)}, // save the nth iteration of the mandelbrot equation
+        dz: {x:infNum(0n, 0n), y:infNum(0n, 0n)}, // the nth iteration of the derivative of the mandelbrot equation
+        c: {x: copyInfNum(x), y: copyInfNum(y)},
         iter: 0,
-        period: -1,
         status: "",
         done: false
       };
@@ -493,348 +822,135 @@ const plots = [{
     var ixTemp = infNum(0n, 0n);
     var statusIterCounter = 0;
     try {
-      while (fnContext.iter < maxIter) {
-        for (let i = 0; i < 4; i++) {
-          ixSq = infNumMul(fnContext.ix[i], fnContext.ix[i]);
-          iySq = infNumMul(fnContext.iy[i], fnContext.iy[i]);
-          if (infNumGt(infNumAdd(ixSq, iySq), bailoutSquared)) {
-            // if any point escapes, we can't find the period
-            fnContext.done = true;
-            fnContext.period = -1;
-            return fnContext;
-          }
-          ixTemp = infNumAdd(fnContext.x[i], infNumSub(ixSq, iySq));
-          fnContext.iy[i] = infNumAdd(fnContext.y[i], infNumMul(two, infNumMul(fnContext.ix[i], fnContext.iy[i])));
-          fnContext.ix[i] = copyInfNum(ixTemp);
-          fnContext.ix[i] = infNumTruncateToLen(fnContext.ix[i], precis);
-          fnContext.iy[i] = infNumTruncateToLen(fnContext.iy[i], precis);
+      //while (fnContext.iter < n+2) {
+      while (fnContext.iter < n) {
+        // dz = 2 * z * dz + 1
+        fnContext.dz = infNumMath.complexRealAdd(
+          infNumMath.complexRealMul(
+            infNumMath.complexMul(
+              fnContext.z,
+              fnContext.dz),
+            infNumMath.two),
+          infNumMath.one);
+
+        // z = z * z + c
+        //fnContext.z = infNumMath.complexAdd(
+        //  infNumMath.complexMul(fnContext.z, fnContext.z),
+        //  fnContext.c
+        //  );
+
+        ixSq = infNumMul(fnContext.z.x, fnContext.z.x);
+        iySq = infNumMul(fnContext.z.y, fnContext.z.y);
+        if (infNumGt(infNumAdd(ixSq, iySq), bailoutSquared)) {
+          break;
         }
+
+        //fnContext.z.x = infNumTruncateToLen(fnContext.z.x, precis);
+        //fnContext.z.y = infNumTruncateToLen(fnContext.z.y, precis);
+        fnContext.dz.x = infNumTruncateToLen(fnContext.dz.x, precis);
+        fnContext.dz.y = infNumTruncateToLen(fnContext.dz.y, precis);
+
+        ixTemp = infNumAdd(x, infNumSub(ixSq, iySq));
+        fnContext.z.y = infNumAdd(y, infNumMul(infNumMath.two, infNumMul(fnContext.z.x, fnContext.z.y)));
+        fnContext.z.x = copyInfNum(ixTemp);
+        fnContext.z.x = infNumTruncateToLen(fnContext.z.x, precis);
+        fnContext.z.y = infNumTruncateToLen(fnContext.z.y, precis);
+
+        //if (fnContext.iter === 1) {
+        //  fnContext.z1 = structuredClone(fnContext.z); // use index 1th iter for period detection
+        //} else if (fnContext.iter === n-1) {
+        //  fnContext.zsave = structuredClone(fnContext.z); // save the nth iter
+        //} else if (fnContext.iter === n+1) {
+        //  fnContext.znplus1 = structuredClone(fnContext.z); // use n+1th iter for period detection
+        //}
+
         fnContext.iter++;
-        // check that exactly 1 or 3 edges of the box crosses the positive x (real) axis
-        // (i believe that if the box becomes "twisted" then we could have 3 edges
-        // cross that half of the axis, BUT i don't think the box would "twist" before
-        // the points surround the origin)
-        let edgesMeetingCriterion = 0;
-        for (let a = 0; a < 4; a++) {
-          let b = a == 3 ? 0 : a + 1;
-          // infNumGt() is slow, but we don't need to use it because
-          //   we can just check the sign on the "v"alue of the InfNum
-          if (fnContext.ix[a].v > 0n && fnContext.ix[b].v > 0n &&
-              (
-                fnContext.iy[a].v > 0n && fnContext.iy[b].v < 0n ||
-                fnContext.iy[a].v < 0n && fnContext.iy[b].v > 0n
-              )) {
-            edgesMeetingCriterion++;
-          }
-        }
-        if (edgesMeetingCriterion == 1 || edgesMeetingCriterion == 3) {
-          fnContext.done = true;
-          fnContext.period = fnContext.iter;
-          return fnContext;
-        }
         statusIterCounter++;
-        if (statusIterCounter >= 1000) {
+        if (statusIterCounter >= 5000) {
           statusIterCounter = 0;
-          fnContext.status = "computed " + (Math.round(fnContext.iter * 10000.0 / maxIter)/100.0) + "% of period orbit";
+          fnContext.status = "at " + (Math.round(fnContext.iter * 10000.0 / n)/100.0) + "% of orbit";
           console.log(fnContext.status);
           return fnContext;
         }
       }
 
+      //fnContext.z = structuredClone(fnContext.zsave);
+
+      fnContext.done = true;
+      return fnContext;
     } catch (e) {
-      console.log("ERROR CAUGHT when computing reference period at point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
+      console.log("ERROR CAUGHT when computing Nth iteration and derivative (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + fnContext.iter + ", " + n + "]:");
       console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+      fnContext.done = true;
+      return fnContext;
     }
-    fnContext.done = true;
-    fnContext.period = -1;
-    return fnContext;
   },
+  // newton's method for finding minibrots/periodic ref orbit locations: https://www.fractalforums.com/index.php?topic=18289.msg90972#msg90972
+  "newtonsMethod": function(period, x, y, precis, getNthIterationAndDerivative) {
+    const maxSteps = 32;
+    // experimentation is needed to see when z/dz is considered
+    //   small enough to be ignored (thus, when we can stop
+    //   iterating newton's method)
+    const magnitudeDifference = infNum(1000000n, 0n);
+    const magnitudeDifferenceSq = infNumMul(magnitudeDifference, magnitudeDifference);
+    let nthIterationState = null;
+    let c = {x: copyInfNum(x), y: copyInfNum(y)};
+    let step;
+    let cAbsSq;
+    let stepAbsSq;
+    let cPrev;
+    for (let i = 0; i < maxSteps; i++) {
+      // calculate the Nth iteration of regular+deriviative
+      nthIterationState = null;
+      while (nthIterationState === null || !nthIterationState.done) {
+        nthIterationState = getNthIterationAndDerivative(period, c.x, c.y, precis, nthIterationState);
+        sendStatusMessage("for " + (i+1) + "th newton iteration, " + nthIterationState.status);
+      }
+      // if dz is zero, stop
+      //if (nthIterationState.dz.x.v == 0n) {
+      //  console.log("newton's method stopped during the [" + (i+1) + "]th iteration because dz was zero");
+      //  break;
+      //}
 
-/*
-  "computeReferencePeriodAndMinibrot": function(n, precis, algorithm, x, y, rectHalfX, rectHalfY, fnContext) {
-    // - find the 4 points in a rectangle surrounding the given x,y location
-    // - iterate the 4 points until one escapes, or, exactly 1 or 3 edges of
-    //     that square crosses the positive x (real) axis
-    // - the number of iterations until this occurs is the period
-    //
-    // This method is explained here: http://www.mrob.com/pub/muency/period.html
-    //
-    // After finding the period, subdivide the rectangle in half and iterate
-    //   again (chosing the other half as needed), repeatedly, until one of the
-    //   corners repeats with the found period
-    //
+      // if the 1th (2nd iter) and n+1th (2nd after period) are ~equal, then we've found a periodic point
+      //if (
+      //    infNumApproxEq(nthIterationState.z1.x, nthIterationState.znplus1.x, precis) &&
+      //    infNumApproxEq(nthIterationState.z1.y, nthIterationState.znplus1.y, precis)) {
+      //  console.log("newton's method stopped during the [" + (i+1) + "]th iteration because we found a periodic point with period [" + period + "]");
+      //  break;
+      //}
 
-    const outputMath = selectMathInterfaceFromAlgorithm(algorithm);
-    const outputIsFloatExp = outputMath.name == "floatexp";
+      step = infNumMath.complexDiv(nthIterationState.z, nthIterationState.dz, precis);
 
-    const maxIter = n;
-    const two = infNum(2n, 0n);
-    const four = infNum(4n, 0n);
-    const sixteen = infNum(16n, 0n);
-    // try using slightly larger bailout (4) for ref orbit
-    //   than for perturb orbit (which uses smallest possible
-    //   bailout of 2)
-    const bailoutSquared = four;
+      // if z/dz is tiny, stop
+      // how to determine this?  try seeing if |c| > 1000000*|z/dz| (didn't work)
+      // another way would be to compare c to its previous value:
+      //   if the exponents of the infnum is the same, the difference is
+      //   tiny if the mantissa only differs by 1 or 2 least-significant
+      //   digits (maybe <= Math.ceil(precision*0.05) digits)
+      //cAbsSq = infNumMath.complexAbsSquared(c);
+      //stepAbsSq = infNumMath.complexAbsSquared(step);
+      //if (i > 10 && infNumGt(cAbsSq, infNumMul(stepAbsSq, magnitudeDifferenceSq))) {
+      //  console.log("newton's method stopped during the [" + (i+1) + "]th iteration because z/dz got tiny");
+      //  break;
+      //}
 
-    // fnContext allows the loop to be done piecemeal
-    if (fnContext === null) {
-      fnContext = {
+      // c = c - z / dz
+      cPrev = c;
+      c = infNumMath.complexSub(c, step);
 
-        // the coords used for iteration, clockwise from top right
-        //   corner of the rectangle
-        x: [infNumAdd(x, rectHalfX), infNumAdd(x, rectHalfX), infNumSub(x, rectHalfX), infNumSub(x, rectHalfX)],
-        y: [infNumAdd(y, rectHalfY), infNumSub(y, rectHalfY), infNumSub(y, rectHalfY), infNumAdd(y, rectHalfY)],
-        ix: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)],
-        iy: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)],
-        savedx: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)], // the previous iterated corner x coords
-        savedy: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)], // the previous iterated corner y coords
-        subdividedx: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)],
-        subdividedy: [infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n), infNum(0n, 0n)],
-        rectHalvings: 0,
-        iter: 0,
-        period: -1,
-        subdivideHorizontally: false,
-        subdivisionIndex: 0,
-        periodicPointX: null,
-        periodicPointY: null,
-        status: "",
-        done: false
-      };
-    }
-    var ixSq = infNum(0n, 0n);
-    var iySq = infNum(0n, 0n);
-    var ixTemp = infNum(0n, 0n);
-    var statusIterCounter = 0;
-    try {
-      // while period hasn't been found yet, iterate the corners of the rect
-      //   to find the period
-      if (fnContext.period == -1) {
-
-        const result =
-          iterateCornersAndTestOriginSurround(bailoutSquared, precis, [0,1,2,3], maxIter, -1, fnContext);
-
-        // if result is true and the period is found, we need to
-        //   save the iterated corners before proceeding to the
-        //   subdividing steps
-        if (result && fnContext.period > 0) {
-          for (let i = 0; i < 4; i++) {
-            fnContext.savedx[i] = copyInfNum(fnContext.ix[i]);
-            fnContext.savedy[i] = copyInfNum(fnContext.iy[i]);
-          }
-        }
-        // hmm actually maybe just always return the fnContext,
-        //   and it should be set properly to resume this function
-        //   if needed
-        return fnContext;
-
-        //while (fnContext.iter < maxIter) {
-        //  for (let i = 0; i < 4; i++) {
-        //    ixSq = infNumMul(fnContext.ix[i], fnContext.ix[i]);
-        //    iySq = infNumMul(fnContext.iy[i], fnContext.iy[i]);
-        //    if (infNumGt(infNumAdd(ixSq, iySq), bailoutSquared)) {
-        //      // if any point escapes, we can't find the period
-        //      fnContext.done = true;
-        //      fnContext.period = -1;
-        //      return fnContext;
-        //    }
-        //    ixTemp = infNumAdd(fnContext.x[i], infNumSub(ixSq, iySq));
-        //    fnContext.iy[i] = infNumAdd(fnContext.y[i], infNumMul(two, infNumMul(fnContext.ix[i], fnContext.iy[i])));
-        //    fnContext.ix[i] = copyInfNum(ixTemp);
-        //    fnContext.ix[i] = infNumTruncateToLen(fnContext.ix[i], precis);
-        //    fnContext.iy[i] = infNumTruncateToLen(fnContext.iy[i], precis);
-        //  }
-        //  fnContext.iter++;
-        //  // check that exactly 1 or 3 edges of the box crosses the positive x (real) axis
-        //  // (i believe that if the box becomes "twisted" then we could have 3 edges
-        //  // cross that half of the axis, BUT i don't think the box would "twist" before
-        //  // the points surround the origin)
-        //  let edgesMeetingCriterion = 0;
-        //  for (let a = 0; a < 4; a++) {
-        //    let b = a == 3 ? 0 : a + 1;
-        //    // infNumGt() is slow, but we don't need to use it because
-        //    //   we can just check the sign on the "v"alue of the InfNum
-        //    if (fnContext.ix[a].v > 0n && fnContext.ix[b].v > 0n &&
-        //        (
-        //          fnContext.iy[a].v > 0n && fnContext.iy[b].v < 0n ||
-        //          fnContext.iy[a].v < 0n && fnContext.iy[b].v > 0n
-        //        )) {
-        //      edgesMeetingCriterion++;
-        //    }
-        //  }
-        //  // if we find the period, set the period and then resume this function
-        //  //   again using that
-        //  if (edgesMeetingCriterion == 1 || edgesMeetingCriterion == 3) {
-        //    fnContext.period = fnContext.iter;
-        //    return fnContext;
-        //  }
-        //  statusIterCounter++;
-        //  if (statusIterCounter >= 1000) {
-        //    statusIterCounter = 0;
-        //    fnContext.status = "computed " + (Math.round(fnContext.iter * 10000.0 / maxIter)/100.0) + "% of period orbit";
-        //    console.log(fnContext.status);
-        //    return fnContext;
-        //  }
-        //}
-
-      // while the period is known, but the minibrot has not been found,
-      //   subdivide the rect to find the minibrot
-      // WAIT!  the two new middle points need to be iterated once, but then
-      //   can be used to check origin surround for both subdivided halves
-
-      ////////////////////////////
-      // (see above note about not iterating the new "halfway" points twice)
-      // then
-      //
-      // IF going to keep trying this, re-implement with an object/function
-      //   to make the code easier to read+maintain
-      ////////////////////////////
-
-      } else if (periodicPointX === null) {
-        let cornerIndicesToIterate;
-        if (fnContext.subdivideHorizontally) {
-          // for horizontal subdivision, index 0, we'll re-use indices 0 and 1
-          if (fnContext.subdivisionIndex == 0) {
-            cornerIndicesToIterate = [2, 3];
-            // re-use the two already-iterated corners here
-            fnContext.ix[0] = fnContext.savedx[0];
-            fnContext.iy[0] = fnContext.savedy[0];
-            fnContext.ix[1] = fnContext.savedx[1];
-            fnContext.iy[1] = fnContext.savedy[1];
-            fnContext.subdividedx[0] = fnContext.x[0];
-            fnContext.subdividedy[0] = fnContext.y[0];
-            fnContext.subdividedx[1] = fnContext.x[1];
-            fnContext.subdividedy[1] = fnContext.y[1];
-            // these next two corners are new coords and cannot be re-used
-            // can subdivide horizontally with only one division operation
-            fnContext.ix[2] = infNumDiv(infNumAdd(fnContext.x[1], fnContext.x[2]), infNumMath.two, precis);
-            fnContext.iy[2] = fnContext.y[1]; // y stays the same when subdividing horizontally
-            fnContext.ix[3] = fnContext.ix[2]; // both 2 and 3 have the same x when subdividing horizontally 
-            fnContext.iy[3] = fnContext.y[0]; // y stays the same when subdividing horizontally
-            fnContext.subdividedx[2] = copyInfNum(fnContext.ix[2]);
-            fnContext.subdividedy[2] = copyInfNum(fnContext.iy[2]);
-            fnContext.subdividedx[3] = copyInfNum(fnContext.ix[3]);
-            fnContext.subdividedy[3] = copyInfNum(fnContext.iy[3]);
-          // for horizontal subdivision, index 1, we'll re-use indices 2 and 3
-          } else {
-            cornerIndicesToIterate = [0, 1];
-            // re-use the two already-iterated corners here
-            fnContext.ix[2] = fnContext.savedx[2];
-            fnContext.iy[2] = fnContext.savedy[2];
-            fnContext.ix[3] = fnContext.savedx[3];
-            fnContext.iy[3] = fnContext.savedy[3];
-            fnContext.subdividedx[2] = fnContext.x[2];
-            fnContext.subdividedy[2] = fnContext.y[2];
-            fnContext.subdividedx[3] = fnContext.x[3];
-            fnContext.subdividedy[3] = fnContext.y[3];
-            // these next two corners are new coords and cannot be re-used
-            // can subdivide horizontally with only one division operation
-            fnContext.ix[0] = infNumDiv(infNumAdd(fnContext.x[0], fnContext.x[3]), infNumMath.two, precis);
-            fnContext.iy[0] = fnContext.y[3]; // y stays the same when subdividing horizontally
-            fnContext.ix[1] = fnContext.ix[0]; // both 0 and 1 have the same x when subdividing horizontally 
-            fnContext.iy[1] = fnContext.y[2]; // y stays the same when subdividing horizontally
-            fnContext.subdividedx[0] = copyInfNum(fnContext.ix[0]);
-            fnContext.subdividedy[0] = copyInfNum(fnContext.iy[0]);
-            fnContext.subdividedx[1] = copyInfNum(fnContext.ix[1]);
-            fnContext.subdividedy[1] = copyInfNum(fnContext.iy[1]);
-          }
-        } else {
-          // for vertical subdivision, index 0, we'll re-use indices 0 and 3
-          if (fnContext.subdivisionIndex == 0) {
-            cornerIndicesToIterate = [1, 2];
-            // re-use the two already-iterated corners here
-            fnContext.ix[0] = fnContext.savedx[0];
-            fnContext.iy[0] = fnContext.savedy[0];
-            fnContext.ix[3] = fnContext.savedx[3];
-            fnContext.iy[3] = fnContext.savedy[3];
-            fnContext.subdividedx[0] = fnContext.x[0];
-            fnContext.subdividedy[0] = fnContext.y[0];
-            fnContext.subdividedx[3] = fnContext.x[3];
-            fnContext.subdividedy[3] = fnContext.y[3];
-            // these next two corners are new coords and cannot be re-used
-            // can subdivide horizontally with only one division operation
-            fnContext.ix[1] = fnContext.x[0]; // x stays the same when subdividing horizontally
-            fnContext.iy[1] = infNumDiv(infNumAdd(fnContext.y[0], fnContext.y[1]), infNumMath.two, precis);
-            fnContext.ix[2] = fnContext.x[3]; // x stays the same when subdividing horizontally
-            fnContext.iy[2] = fnContext.iy[1]; // both 2 and 1 have the same y when subdividing vertically 
-            fnContext.subdividedx[1] = copyInfNum(fnContext.ix[1]);
-            fnContext.subdividedy[1] = copyInfNum(fnContext.iy[1]);
-            fnContext.subdividedx[2] = copyInfNum(fnContext.ix[2]);
-            fnContext.subdividedy[2] = copyInfNum(fnContext.iy[2]);
-          // for vertical subdivision, index 1, we'll re-use indices 1 and 2
-          } else {
-            cornerIndicesToIterate = [0, 3];
-            // re-use the two already-iterated corners here
-            fnContext.ix[1] = fnContext.savedx[1];
-            fnContext.iy[1] = fnContext.savedy[1];
-            fnContext.ix[2] = fnContext.savedx[2];
-            fnContext.iy[2] = fnContext.savedy[2];
-            fnContext.subdividedx[1] = fnContext.x[1];
-            fnContext.subdividedy[1] = fnContext.y[1];
-            fnContext.subdividedx[2] = fnContext.x[2];
-            fnContext.subdividedy[2] = fnContext.y[2];
-            // these next two corners are new coords and cannot be re-used
-            // can subdivide horizontally with only one division operation
-            fnContext.ix[0] = fnContext.x[1]; // x stays the same when subdividing horizontally
-            fnContext.iy[0] = infNumDiv(infNumAdd(fnContext.y[0], fnContext.y[1]), infNumMath.two, precis);
-            fnContext.ix[3] = fnContext.x[2]; // x stays the same when subdividing horizontally
-            fnContext.iy[3] = fnContext.iy[0]; // both 3 and 0 have the same y when subdividing vertically 
-            fnContext.subdividedx[0] = copyInfNum(fnContext.ix[0]);
-            fnContext.subdividedy[0] = copyInfNum(fnContext.iy[0]);
-            fnContext.subdividedx[3] = copyInfNum(fnContext.ix[3]);
-            fnContext.subdividedy[3] = copyInfNum(fnContext.iy[3]);
-          }
-        }
-
-        // iterate the two interpolated new corners only (the other two corners
-        //   were iterated previously)
-        const result =
-          iterateCornersAndTestOriginSurround(bailoutSquared, precis, cornerIndicesToIterate, maxIter, fnContext.period, fnContext);
-
-        // if the reference point was found, we are done
-        if (fnContext.periodicPointX !== null) {
-          fnContext.done = true;
-          return fnContext;
-        }
-
-        // if the subdivision passed the origin surround test at the
-        //   given period, subdivide again
-        if (result) {
-          // save the 4 iterated corners and the 4 subdivided corners
-          for (let i = 0; i < 4; i++) {
-            fnContext.x[i] = copyInfNum(fnContext.subdividedx[i]);
-            fnContext.y[i] = copyInfNum(fnContext.subdividedy[i]);
-            fnContext.savedx[i] = copyInfNum(fnContext.ix[i]);
-            fnContext.savedy[i] = copyInfNum(fnContext.iy[i]);
-          }
-          fnContext.rectHalvings++;
-
-        // if we've only tried one half of the subdivided rect, try the other half
-        } else if ( ... ) {
-
-        // if we've tried both subdivided halves, something went wrong...
-        } else {
-
-        }
-
-        // no this isn't the righ way to do this part
-        if (fnContext.subdivisionIndex >= 1) {
-          fnContext.subdivideHorizontally = !fnContext.subdivideHorizontally;
-        } else {
-          fnContext.subdivisionIndex++;
-        }
+      //if (infNumEq(c.x, cPrev.x, precis) && infNumEq(c.y, cPrev.y, precis)) {
+      if (infNumApproxEq(c.x, cPrev.x, precis) && infNumApproxEq(c.y, cPrev.y, precis)) {
+        console.log("newton's method stopped during the [" + (i+1) + "]th iteration because z/dz got tiny enough to be negligible");
+        break;
       }
 
-    } catch (e) {
-      console.log("ERROR CAUGHT when computing reference period at point (x, y, iter, maxIter): [" + infNumToString(x) + ", " + infNumToString(y) + ", " + iter + ", " + maxIter + "]:");
-      console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+      if ( (i+1) % 10 === 1) {
+        console.log("after the [" + (i+1) + "]th iteration of newton's method, c is:", {x:infNumExpString(c.x), y:infNumExpString(c.y)});
+      }
     }
-    // if we reach this point, the period could be found
-    fnContext.done = true;
-    fnContext.period = -1;
-    return fnContext;
+    return c;
   },
-*/
-
   "computeSaCoefficients": function(precision, algorithm, referenceX, referenceY, referenceOrbit, windowEdges, fnContext) {
     // always use FloatExp for SA coefficients
     const math = floatExpMath;
@@ -1662,8 +1778,12 @@ const plots = [{
     let iter = 0;
 
     // since the last reference orbit may have escaped, use the one before
-    //   the last as the last? (i don't think it really matters)
-    const maxReferenceIter = referenceOrbit.length - 2;
+    //   the last as the last?
+    // maybe if we have a periodic ref orbit we can use the full orbit
+    //   (until length-1) and if we have an escaped ref orbit we must
+    //   use the iteration before it escapes (length-2)
+    //const maxReferenceIter = referenceOrbit.length - 2;
+    const maxReferenceIter = referenceOrbit.length - 1;
     let referenceIter = 0;
 
     let deltaZ = {x: math.zero, y: math.zero};
@@ -1712,7 +1832,7 @@ const plots = [{
       let blaItersToSkip;
       let blaTestResult;
       let foundValidBLA;
-      let refOrbitCouldStillHaveValidBLAs = true;
+      //let refOrbitCouldStillHaveValidBLAs = true;
       while (iter < maxIter) {
 
         foundValidBLA = false;
@@ -1721,8 +1841,7 @@ const plots = [{
         //   - to easily test, do binary & with all zeroes ending with 101
         // - if we drop only the first level of BLA, all BLAs will be for a ref iter of one more than a multiple of 2
         //   - to easily test, do binary & with all zeroes ending with 11
-        //let testresult = referenceIter & 3;
-        if (useBla && (referenceIter & 3) == 1 && refOrbitCouldStillHaveValidBLAs) {
+        if (useBla && (referenceIter & 3) === 1 /*&& refOrbitCouldStillHaveValidBLAs*/) {
 
           // see if any BLAs, for this ref orbit iteration, can be used
           //   (we're looking to see if the ref orbit iter and BLA
@@ -1731,23 +1850,16 @@ const plots = [{
           //blasAtRefIter = blaTables.get(referenceIter);
           blasAtRefIter = blaTables.byNthIter[(referenceIter - 1) / blaTables.iterToNthDivisor];
 
-          //if (blasAtRefIter === undefined) {
-          //  console.log("strange!  undefined BLAs for ref iter ", referenceIter);
-          //} else {
-
-            // test the BLAs at this ref orbit iter, in order from most
-            //   skipped iterations to fewest skipped
-            //for (let blaIndex = 0; blaIndex < blasAtRefIter.length; blaIndex++) {
-            //  foundBLA = blasAtRefIter[blaIndex];
-            //  blaItersToSkip = foundBLA.itersToSkip;
-            //  blaRadiusTests++;
-            //  if (math.lt(/*zAbs*/ deltaZAbs, foundBLA.r2) && blaItersToSkip + iter < maxIter && blaItersToSkip + referenceIter < maxReferenceIter) {
-            //    foundValidBLA = true;
-            //    break;
-            //  }
-            //}
+          // right near the end of the ref orbit, depending on how many of the lowest
+          //   BLA levels are deleted, we could have ref iterations without any
+          //   associated BLAs... is there a better way to avoid doing this
+          //   check for an undefined set of BLAs for a ref iter?
+          if (blasAtRefIter === undefined) {
+            //console.log("strange!  undefined BLAs for ref iter ", referenceIter);
+          } else {
 
             blaTestResult = searchForBestBLA(blasAtRefIter, deltaZAbs, math);
+
             //blaRadiusTests += blaTestResult.validityTestsPerformed;
             foundBLA = blaTestResult.bestValidBLA;
             foundValidBLA = foundBLA !== false;
@@ -1764,9 +1876,18 @@ const plots = [{
               blaItersSkipped += blaItersToSkip;
               blaSkips++;
             } else {
-              refOrbitCouldStillHaveValidBLAs = false;
+              // when the ref orbit is periodic, we can likely skip more
+              //   iterations when the ref orbit iter restarts (returns to zero)
+              //   in which case we don't want to set this to false
+              // ideally, the ref orbit can be left short (instead of artificially
+              //   repeating it several times to fill the full n iterations)
+              //   and when we re-base back to the beginning of the ref orbit
+              //   this bool will be reset to true BUT that re-basing isn't working
+              //   so for now we're still artificially repeating the ref orbit
+              //   until it has n iterations
+              //refOrbitCouldStillHaveValidBLAs = false;
             }
-          //}
+          }
         }
 
         // do a 1-iteration regular perturbation step if BLA isn't
@@ -1784,7 +1905,19 @@ const plots = [{
           referenceIter++;
         }
 
-        z = math.complexAdd(referenceOrbit[referenceIter], deltaZ);
+        // since we use the ref orbit iteration here, after incrementing
+        //   above, we must ensure it wraps around to the beginning again
+        //   before we use the ref orbit here (for non-periodic ref orbit
+        //   this happens when the ref orbit escapes)
+        if (referenceIter > maxReferenceIter) {
+          referenceIter = 0;
+          z = math.complexAdd(referenceOrbit[referenceIter], deltaZ);
+          deltaZ = z; // do this here?
+        } else {
+          z = math.complexAdd(referenceOrbit[referenceIter], deltaZ);
+        }
+
+        //z = math.complexAdd(referenceOrbit[referenceIter], deltaZ);
         if (useStripes) {
           avgCount++;
           lastAdded =
@@ -1804,22 +1937,40 @@ const plots = [{
         zAbs = math.complexAbsSquared(z);
         lastZ2 = zAbs;
         if (math.gt(zAbs, bailoutSquared)) {
-          if (foundValidBLA) {
-            console.log("skipped ahead with a BLA and ended up beyond the bailout... should we backtrack?");
-          }
+          //if (foundValidBLA) {
+          //  console.log("skipped ahead with a BLA and ended up beyond the bailout... should we backtrack?");
+          //}
           iter--;
           break;
         }
         deltaZAbs = math.complexAbsSquared(deltaZ);
-        if (math.lt(zAbs, deltaZAbs) || referenceIter == maxReferenceIter) {
-          //console.log("re-basing to beginning of ref orbit");
+        //if (math.lt(zAbs, deltaZAbs) || referenceIter == maxReferenceIter) {
+        //  //console.log("re-basing to beginning of ref orbit");
+        //  // when the ref orbit is a periodic point, and the ref orbit array
+        //  //   contains just one set of iterations for the period, this
+        //  //   doesn't work (image is completely wrong, one solid color)
+        //  deltaZ = z;
+        //  // when the deltaZ value is left alone, the image is still wrong
+        //  //   but much closer to correct: the correct-looking image but
+        //  //   somewhere between 2x-4x the expected scale
+        //  //if (referenceIter !== maxReferenceIter) {
+        //  //  deltaZ = z;
+        //  //}
+        //  referenceIter = 0;
+        //  refOrbitCouldStillHaveValidBLAs = true;
+        //}
+        if (math.lt(zAbs, deltaZAbs)) {
           deltaZ = z;
           referenceIter = 0;
-          refOrbitCouldStillHaveValidBLAs = true;
+          //refOrbitCouldStillHaveValidBLAs = true;
+        //} else if (referenceIter >= maxReferenceIter) {
+        //  //deltaZ = z;
+        //  referenceIter = 0;
+        //  //refOrbitCouldStillHaveValidBLAs = true;
         }
       }
 
-      //if (useBla && Math.random() >= 0.9997) {
+      //if (useBla && Math.random() >= 0.9985) {
       //  console.log("for this pixel, did", blaSkips, "BLA skips averaging", (Math.round(blaRadiusTests * 100.0 / blaSkips) / 100.0), "radius tests per skip");
       //}
 
@@ -1861,7 +2012,7 @@ const plots = [{
 
     } catch (e) {
       console.log("ERROR CAUGHT when calculating [" + algorithm + "] pixel color",
-        {x:infNumToString(x), y:infNumToString(y), iter:iter, maxIter:maxIter, refIter:referenceIter, maxRefIter:maxReferenceIter});
+        {dx:math.toExpString(dx), dy:math.toExpString(dy), iter:iter, maxIter:maxIter, refIter:referenceIter, maxRefIter:maxReferenceIter});
       console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
       return {colorpct: windowCalcIgnorePointColor, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips}; // special color value that will not be displayed
     }

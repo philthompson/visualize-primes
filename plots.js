@@ -14,26 +14,37 @@ if (typeof importScripts === 'function') {
   importScripts("floatexp.js?v=" + (appVersion || scriptAppVersion));
 }
 
+// if we imagine the sorted array from "left" (index 0) to
+//   "right" (index length-1) then perhaps alternating between
+//   trying the current leftmost potentially-valid index and
+//   then the current rightmost potentially-valid index
+// - if the leftmost test:
+//   - fails, increment the leftmost index
+//   - passes, we are done
+// - if the rightmost test:
+//   - fails, go halfway from there to the end
+//   - passes, set rightmost to halfway from the leftmost
 // based on the function at https://stackoverflow.com/a/29018745/259456
 // sortedArray - "best" BLA is at index 0, "worst" is at the end
 //
-function searchForBestBLAbinary(sortedArray, deltaZAbs, math) {
+function searchForBestBLAnew(sortedArray, deltaZAbs, math) {
   let lo = 0;
   let hi = sortedArray.length - 1;
   let x = null;
   // we want the lowest-indexed (closest to start of array)
   //   BLA found to be valid
-  let lowestValid = null;
+  let loValid = null;
+  //let hiValid = null;
   let validityTestsPerformed = 0;
   // special case for arrays larger than 1 BLA: test the smallest
   //   first, because many times the smallest (least iterations
   //   skipped) is not valid, in which case we don't need to test
   //   the rest of the BLAs in the array
   if (hi > 0) {
-    validityTestsPerformed++;
+    ++validityTestsPerformed;
     if (math.lt(deltaZAbs, sortedArray[hi].r2)) {
-      lowestValid = hi;
-      hi--;
+      loValid = hi;
+      --hi;
     } else {
       return {
         validityTestsPerformed: validityTestsPerformed,
@@ -41,9 +52,70 @@ function searchForBestBLAbinary(sortedArray, deltaZAbs, math) {
       }
     }
   }
+  let loTest = false;
+  while (lo <= hi) {
+    if (loTest) {
+      loTest = false;
+      ++validityTestsPerformed;
+      if (math.lt(deltaZAbs, sortedArray[lo].r2)) {
+        loValid = lo;
+        break;
+      } else {
+        ++lo;
+      }
+    } else {
+      loTest = true;
+      x = (lo + hi) >>1;
+      ++validityTestsPerformed;
+      // if the tested BLA is valid, try halfway
+      //   among the higher-iteration BLAs (which are
+      //   toward the lower-indexed end of the array)
+      if (math.lt(deltaZAbs, sortedArray[x].r2)) {
+        loValid = x;
+        hi = x - 1;
+      // if the tested BLA is not valid, try halfway
+      //   among the lower-iteration BLAs (which are
+      //   toward the higher-indexed end of the array)
+      } else {
+        lo = x + 1;
+      }
+    }
+  }
+  return {
+    validityTestsPerformed: validityTestsPerformed,
+    bestValidBLA: loValid === null ? false : sortedArray[loValid]
+  };
+}
+// based on the function at https://stackoverflow.com/a/29018745/259456
+// sortedArray - "best" BLA is at index 0, "worst" is at the end
+//
+function searchForBestBLAbinarywithendtest(sortedArray, deltaZAbs, math) {
+  let lo = 0;
+  let hi = sortedArray.length - 1;
+  let x = null;
+  // we want the lowest-indexed (closest to start of array)
+  //   BLA found to be valid
+  let lowestValid = null;
+  //let validityTestsPerformed = 0;
+  // special case for arrays larger than 1 BLA: test the smallest
+  //   first, because many times the smallest (least iterations
+  //   skipped) is not valid, in which case we don't need to test
+  //   the rest of the BLAs in the array
+  if (hi > 0) {
+    //++validityTestsPerformed;
+    if (math.lt(deltaZAbs, sortedArray[hi].r2)) {
+      lowestValid = hi;
+      --hi;
+    } else {
+      return {
+        //validityTestsPerformed: validityTestsPerformed,
+        bestValidBLA: false
+      }
+    }
+  }
   while (lo <= hi) {
     x = (lo + hi) >>1;
-    validityTestsPerformed++;
+    //++validityTestsPerformed;
     // if the tested BLA is valid, try halfway
     //   among the higher-iteration BLAs (which are
     //   toward the lower-indexed end of the array)
@@ -58,13 +130,13 @@ function searchForBestBLAbinary(sortedArray, deltaZAbs, math) {
     }
   }
   return {
-    validityTestsPerformed: validityTestsPerformed,
+    //validityTestsPerformed: validityTestsPerformed,
     bestValidBLA: lowestValid === null ? false : sortedArray[lowestValid]
   };
 }
 // actually does linear search after first checking the worst
 //   (last) element in the array
-function searchForBestBLA(sortedArray, deltaZAbs, math) {
+function searchForBestBLAlinearwithendtest(sortedArray, /*r2last,*/ deltaZAbs, math) {
   let lo = 0;
   let hi = sortedArray.length - 1;
   // we want the lowest-indexed (closest to start of array)
@@ -76,10 +148,11 @@ function searchForBestBLA(sortedArray, deltaZAbs, math) {
   //   skipped) is not valid, in which case we don't need to test
   //   the rest of the BLAs in the array
   if (hi > 0) {
-    validityTestsPerformed++;
+    ++validityTestsPerformed;
     if (math.lt(deltaZAbs, sortedArray[hi].r2)) {
+    //if (math.lt(deltaZAbs, r2last)) {
       lowestValid = hi;
-      hi--;
+      --hi;
     } else {
       return {
         validityTestsPerformed: validityTestsPerformed,
@@ -87,8 +160,8 @@ function searchForBestBLA(sortedArray, deltaZAbs, math) {
       };
     }
   }
-  for (let x = lo; x <= hi; x++) {
-    validityTestsPerformed++;
+  for (let x = lo; x <= hi; ++x) {
+    ++validityTestsPerformed;
     if (math.lt(deltaZAbs, sortedArray[x].r2)) {
       lowestValid = x;
       break;
@@ -99,93 +172,6 @@ function searchForBestBLA(sortedArray, deltaZAbs, math) {
     bestValidBLA: lowestValid === null ? false : sortedArray[lowestValid]
   };
 }
-
-/*
-function iterateCornersAndTestOriginSurround(bailoutSquared, precis, cornerIndicesToIterate, maxIter, goalPeriod, fnContext) {
-  // if the goalPeriod is > 0, run that many iterations and
-  //   then test for origin surround
-  // otherwise, iterate up to maxIter and test for origin
-  //   surround after each iteration
-  const stoppingIter = goalPeriod > 0 ? goalPeriod : maxIter;
-  while (fnContext.iter < stoppingIter) {
-    for (const i of cornerIndicesToIterate) {
-      ixSq = infNumMul(fnContext.ix[i], fnContext.ix[i]);
-      iySq = infNumMul(fnContext.iy[i], fnContext.iy[i]);
-      if (infNumGt(infNumAdd(ixSq, iySq), bailoutSquared)) {
-        // if any point escapes, we can't find the with this rectangle
-        return false;
-      }
-      ixTemp = infNumAdd(fnContext.x[i], infNumSub(ixSq, iySq));
-      fnContext.iy[i] = infNumAdd(fnContext.y[i], infNumMul(two, infNumMul(fnContext.ix[i], fnContext.iy[i])));
-      fnContext.ix[i] = copyInfNum(ixTemp);
-      fnContext.ix[i] = infNumTruncateToLen(fnContext.ix[i], precis);
-      fnContext.iy[i] = infNumTruncateToLen(fnContext.iy[i], precis);
-    }
-    fnContext.iter++;
-    if (goalPeriod <= 0 || fnContext.iter == goalPeriod) {
-      // check that exactly 1 or 3 edges of the box crosses the positive x (real) axis
-      // (i believe that if the box becomes "twisted" then we could have 3 edges
-      // cross that half of the axis, BUT i don't think the box would "twist" before
-      // the points surround the origin)
-      let edgesMeetingCriterion = 0;
-      for (let a = 0; a < 4; a++) {
-        let b = a == 3 ? 0 : a + 1;
-        // infNumGt() is slow, but we don't need to use it because
-        //   we can just check the sign on the "v"alue of the InfNum
-        if (fnContext.ix[a].v > 0n && fnContext.ix[b].v > 0n &&
-            (
-              fnContext.iy[a].v > 0n && fnContext.iy[b].v < 0n ||
-              fnContext.iy[a].v < 0n && fnContext.iy[b].v > 0n
-            )) {
-          edgesMeetingCriterion++;
-        }
-      }
-      // if we find the period, set the period and then resume this function
-      //   again using that
-      if (edgesMeetingCriterion == 1 || edgesMeetingCriterion == 3) {
-        if (goalPeriod > 0) {
-          return true;
-        } else {
-          fnContext.period = fnContext.iter;
-          return true;
-        }
-      // if after the period iterations have been run, the origin
-      //   surround test fails, then this rectangle does not
-      //   contain a point with the goal period
-      } else if (goalPeriod > 0) {
-        // WAIT!  if one or more of the corners has the same value
-        //   at iteration P, then the corner is potentially inside
-        //   the minibrot
-        // ... perhaps continue until all 4 are inside the minibrot?
-        // NO! for now, just stop when one of the 4 corners appears
-        //   to have a periodic orbit of P iterations
-        for (let i = 0; i < 4; i++) {
-          if (
-              infNumEqualsOrClose(fnContext.subdividedx[i], fnContext.ix[i]) &&
-              infNumEqualsOrClose(fnContext.subdividedy[i], fnContext.iy[i])) {
-            fnContext.periodicPointX = copyInfNum(fnContext.subdividedx[i]);
-            fnContext.periodicPointY = copyInfNum(fnContext.subdividedy[i]);
-            return true;
-          }
-        }
-
-        return false;
-      }
-    statusIterCounter++;
-    // if we have to pause here to report status, it's not a failure
-    //   so return true
-    if (statusIterCounter >= 1000) {
-      statusIterCounter = 0;
-      fnContext.status = "computed " + (Math.round(fnContext.iter * 10000.0 / maxIter)/100.0) + "% of period orbit";
-      console.log(fnContext.status);
-      return true;
-    }
-  }
-  // if we get here, it must be that there was no goalPeriod, and
-  //   we never passed the origin surround test
-  return false;
-}
-*/
 
 const windowCalcBackgroundColor = -1;
 const windowCalcIgnorePointColor = -2;

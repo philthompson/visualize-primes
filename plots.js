@@ -525,7 +525,7 @@ const plots = [{
       }
     }
   },
-  "findMinibrotWithBallArithmetic1stOrderAndNewton": function(n, precis, algorithm, x, y, viewWidth, viewHeight, getNthIterationAndDerivative, newtonsMethod) {
+  "findMinibrotWithBallArithmetic1stOrderAndNewton": function(n, precis, algorithm, x, y, viewWidth, viewHeight, getNthIterationAndDerivative, newtonsMethod, fnContext) {
     // in ball centered on (x+yi) find period (up to n) of nucleus
     // doCont = false normally
     //
@@ -539,70 +539,112 @@ const plots = [{
     //   slower than float and floatexp... but infnum if the only way
     //   to do full-precision computations
     const math = infNumMath;
-    const c0 = {
-      x: math.createFromInfNum(x),
-      y: math.createFromInfNum(y)
-    };
-    const r0 = math.min(math.createFromInfNum(viewWidth), math.createFromInfNum(viewHeight));
-    const r0sq = math.mul(r0, r0);
-    let z = math.complexRealMul(c0, math.zero);
-    let r = r0;
-    //let p = []; // this doesn't appear to be used
+
+    let z;
+    let r;
     const maxR = math.createFromNumber(1e5);
-    let az = math.complexAbs(z);
 
-    const nthIterToLog = 100;
-    let nthIterToLogCount = 0;
-    for (let k = 1; k < n; k++) {
-      nthIterToLogCount++;
-      if (nthIterToLogCount >= nthIterToLog) {
-        nthIterToLogCount = 0;
-        console.log("1st-order ball arithmetic at iteration:", k);
+    // fnContext allows the loop to be done piecemeal
+    if (fnContext === null) {
+      const r0init = math.min(math.createFromInfNum(viewWidth), math.createFromInfNum(viewHeight));
+      const c0init = {
+        x: math.createFromInfNum(x),
+        y: math.createFromInfNum(y)
+      };
+      fnContext = {
+        c0: c0init,
+        r0: r0init,
+        r0sq: math.mul(r0init, r0init),
+        //z: not a constant -- set below,
+        //r: not a constant -- set below,
+        az: math.zero,
+
+        k: 1, // starting at 1, not 0
+        newtonFnStatus: null,
+        nucleus: null,
+        status: "",
+        done: false
+      };
+      z = math.complexRealMul(c0init, math.zero);
+      r = r0init;
+    } else {
+      z = fnContext.z;
+      r = fnContext.r;
+    }
+
+    let az = fnContext.az;
+    const c0 = fnContext.c0;
+    const r0 = fnContext.r0;
+    const r0sq = fnContext.r0sq;
+
+    while (fnContext.k < n) {
+      if (fnContext.newtonFnStatus === null) {
+
+        // r = (az+r).^mpow - az.^mpow + r0;
+        r = math.add(az, r);
+        r = math.mul(r, r);
+        r = math.sub(r, math.mul(az, az));
+        r = math.add(r, r0);
+        // z = z.^mpow + c0;
+        z = math.complexAdd(math.complexMul(z, z), c0);
+        az = math.complexAbs(z);
+
+        // what all needs to be truncated?
+        z.x = math.truncateToSigDig(z.x, precis);
+        z.y = math.truncateToSigDig(z.y, precis);
+        r = infNumTruncateToLen(r, precis);
+        az = infNumTruncateToLen(az, precis);
       }
-      // r = (az+r).^mpow - az.^mpow + r0;
-      r = math.add(az, r);
-      r = math.mul(r, r);
-      r = math.sub(r, math.mul(az, az));
-      r = math.add(r, r0);
-      // z = z.^mpow + c0;
-      z = math.complexAdd(math.complexMul(z, z), c0);
-      az = math.complexAbs(z);
 
-      // what all needs to be truncated?
-      z.x = math.truncateToSigDig(z.x, precis);
-      z.y = math.truncateToSigDig(z.y, precis);
-      r = infNumTruncateToLen(r, precis);
-      az = infNumTruncateToLen(az, precis);
-
-      //if (math.gt(r, az)) {
-      //  //p = [p k];
-      //  console.log("period found with 1st-order ball arithmetic:", k);
-      //  if (!doCont) {
-      //    break;
-      //  }
-      //}
       if (math.gt(r, az)) {
-        //p = [p k];
-        console.log("period found with 1st-order ball arithmetic:", k);
+        if (fnContext.newtonFnStatus === null) {
+          fnContext.z = z;
+          fnContext.r = r;
+          fnContext.az = az;
+          console.log("period found with 1st-order ball arithmetic:", fnContext.k);
+        }
         // use newton's method to find minibrot nucleus
-        const foundMinibrotNucleus = newtonsMethod(k, x, y, precis, getNthIterationAndDerivative);
+        if (fnContext.newtonFnStatus === null || !fnContext.newtonFnStatus.done) {
+          fnContext.newtonFnStatus = newtonsMethod(fnContext.k, x, y, precis, getNthIterationAndDerivative, fnContext.newtonFnStatus);
+          if (!fnContext.newtonFnStatus.done) {
+            fnContext.status = fnContext.newtonFnStatus.status;
+            return fnContext;
+          }
+        }
+        fnContext.nucleus = fnContext.newtonFnStatus.c;
+        fnContext.newtonFnStatus = null;
         // if the nucleus is within the original radius, we're done!
-        if (math.lt(math.complexAbsSquared(math.complexSub(foundMinibrotNucleus, c0)), r0sq)) {
+        if (math.lt(math.complexAbsSquared(math.complexSub(fnContext.nucleus, c0)), r0sq)) {
           console.log("found on-screen ref x/y/period!");
-          foundMinibrotNucleus.period = k;
-          return foundMinibrotNucleus;
+          fnContext.nucleus.period = fnContext.k;
+          fnContext.done = true;
+          return fnContext;
         // otherwise, proceed to try to find a deeper higher-period
         } else {
-          console.log("newton nucleus with period [" + k + "] is off screen!");
+          console.log("newton nucleus with period [" + fnContext.k + "] is off screen!");
+          fnContext.nucleus = null;
         }
       }
       if (math.gt(az, maxR) || math.gt(r, maxR)) {
-        console.log("1st-order ball arithmetic escaped at iteration:", k);
-        //break;
-        return null;
+        console.log("1st-order ball arithmetic escaped at iteration:", fnContext.k);
+        fnContext.nucleus = null;
+        fnContext.done = true;
+        return fnContext;
+      }
+
+      fnContext.k++;
+      if (fnContext.k % 5000 === 0) {
+        fnContext.z = z;
+        fnContext.r = r;
+        fnContext.az = az;
+        fnContext.status = "1st-order ball arithmetic at iter. [" + fnContext.k.toLocaleString() + "]";
+        console.log("1st-order ball arithmetic at iteration:", fnContext.k);
+        return fnContext;
       }
     }
-    return null;
+    fnContext.nucleus = null;
+    fnContext.done = true;
+    return fnContext;
   },
   // based on garrit's matlab code: https://fractalforums.org/index.php?topic=3805.msg24312#msg24312
   "findPeriodBallArithmetic2ndOrder": function(n, precis, algorithm, x, y, width, height, doCont) {
@@ -792,10 +834,6 @@ const plots = [{
   // for newton's method for finding minibrots/periodic ref orbit locations: https://www.fractalforums.com/index.php?topic=18289.msg90972#msg90972
   "getNthIterationAndDerivative": function(n, x, y, precis, fnContext) {
 
-    //const two = infNum(2n, 0n);
-    //const four = infNum(4n, 0n);
-    //const sixteen = infNum(16n, 0n);
-
     // we are just using a large bailout here, as large
     //   or larger than any algorithm would use
     const bailoutSquared = infNum(64n*64n*2n, 0n);
@@ -866,7 +904,7 @@ const plots = [{
 
         fnContext.iter++;
         statusIterCounter++;
-        if (statusIterCounter >= 5000) {
+        if (statusIterCounter >= 10000) {
           statusIterCounter = 0;
           fnContext.status = "at " + (Math.round(fnContext.iter * 10000.0 / n)/100.0) + "% of orbit";
           console.log(fnContext.status);
@@ -876,6 +914,7 @@ const plots = [{
 
       //fnContext.z = structuredClone(fnContext.zsave);
 
+      fnContext.status = "at " + (Math.round(fnContext.iter * 10000.0 / n)/100.0) + "% of orbit";
       fnContext.done = true;
       return fnContext;
     } catch (e) {
@@ -886,25 +925,28 @@ const plots = [{
     }
   },
   // newton's method for finding minibrots/periodic ref orbit locations: https://www.fractalforums.com/index.php?topic=18289.msg90972#msg90972
-  "newtonsMethod": function(period, x, y, precis, getNthIterationAndDerivative) {
+  "newtonsMethod": function(period, x, y, precis, getNthIterationAndDerivative, fnCtx) {
     const maxSteps = 32;
-    // experimentation is needed to see when z/dz is considered
-    //   small enough to be ignored (thus, when we can stop
-    //   iterating newton's method)
-    const magnitudeDifference = infNum(1000000n, 0n);
-    const magnitudeDifferenceSq = infNumMul(magnitudeDifference, magnitudeDifference);
-    let nthIterationState = null;
-    let c = {x: copyInfNum(x), y: copyInfNum(y)};
+
+    // fnCtx allows the loop to be done piecemeal
+    if (fnCtx === null) {
+      fnCtx = {
+        nthIterState: null,
+        c: {x: copyInfNum(x), y: copyInfNum(y)},
+        i: 0,
+        status: "",
+        done: false
+      };
+    }
     let step;
-    let cAbsSq;
-    let stepAbsSq;
     let cPrev;
-    for (let i = 0; i < maxSteps; i++) {
+    while (fnCtx.i < maxSteps) {
       // calculate the Nth iteration of regular+deriviative
-      nthIterationState = null;
-      while (nthIterationState === null || !nthIterationState.done) {
-        nthIterationState = getNthIterationAndDerivative(period, c.x, c.y, precis, nthIterationState);
-        sendStatusMessage("for " + (i+1) + "th newton iteration, " + nthIterationState.status);
+      if (fnCtx.nthIterState === null || !fnCtx.nthIterState.done) {
+        fnCtx.nthIterState = getNthIterationAndDerivative(period, fnCtx.c.x, fnCtx.c.y, precis, fnCtx.nthIterState);
+
+        fnCtx.status = "for " + numberWithOrdinalSuffix(fnCtx.i+1) + " newton iteration, " + fnCtx.nthIterState.status;
+        return fnCtx;
       }
       // if dz is zero, stop
       //if (nthIterationState.dz.x.v == 0n) {
@@ -914,29 +956,33 @@ const plots = [{
 
       // if the 1th (2nd iter) and n+1th (2nd after period) are ~equal, then we've found a periodic point
       //if (
-      //    infNumApproxEq(nthIterationState.z1.x, nthIterationState.znplus1.x, precis) &&
-      //    infNumApproxEq(nthIterationState.z1.y, nthIterationState.znplus1.y, precis)) {
+      //    infNumApproxEq(fnCtx.nthIterState.z1.x, fnCtx.nthIterState.znplus1.x, precis) &&
+      //    infNumApproxEq(fnCtx.nthIterState.z1.y, fnCtx.nthIterState.znplus1.y, precis)) {
       //  console.log("newton's method stopped during the [" + (i+1) + "]th iteration because we found a periodic point with period [" + period + "]");
       //  break;
       //}
 
-      cPrev = c;
+      cPrev = fnCtx.c;
       // c = c - z / dz
-      step = infNumMath.complexDiv(nthIterationState.z, nthIterationState.dz, precis);
-      c = infNumMath.complexSub(c, step);
+      step = infNumMath.complexDiv(fnCtx.nthIterState.z, fnCtx.nthIterState.dz, precis);
+      fnCtx.c = infNumMath.complexSub(fnCtx.c, step);
 
       // if z/dz is tiny, stop
       // how to determine this? compare c to its previous value...
-      if (infNumApproxEq(c.x, cPrev.x, precis) && infNumApproxEq(c.y, cPrev.y, precis)) {
-        console.log("newton's method stopped during the [" + (i+1) + "]th iteration because z/dz got tiny enough to be negligible");
+      if (infNumApproxEq(fnCtx.c.x, cPrev.x, precis) && infNumApproxEq(fnCtx.c.y, cPrev.y, precis)) {
+        console.log("newton's method stopped during the [" + (fnCtx.i+1) + "]th iteration because z/dz got tiny enough to be negligible");
         break;
       }
 
-      if ( (i+1) % 10 === 1) {
-        console.log("after the [" + (i+1) + "]th iteration of newton's method, c is:", {x:infNumExpString(c.x), y:infNumExpString(c.y)});
+      if ( (fnCtx.i+1) % 10 === 1) {
+        console.log("after the [" + (fnCtx.i+1) + "]th iteration of newton's method, c is:", {x:infNumExpString(fnCtx.c.x), y:infNumExpString(fnCtx.c.y)});
       }
+
+      fnCtx.nthIterState = null;
+      fnCtx.i++;
     }
-    return c;
+    fnCtx.done = true;
+    return fnCtx;
   },
   "computeSaCoefficients": function(precision, algorithm, referenceX, referenceY, referenceOrbit, windowEdges, fnContext) {
     // always use FloatExp for SA coefficients

@@ -292,17 +292,23 @@ function setupCheckReferenceOrbit() {
     let yDiff = infNumSub(windowCalc.referencePy, newReferencePy);
     let squaredDiff = infNumAdd(infNumMul(xDiff, xDiff), infNumMul(yDiff, yDiff));
 
-    // 15% of pixel width move (radius) is allowable
-    let maxAllowablePixelsMove = Math.ceil(windowCalc.canvasWidth * 0.15);
+    // if the reference point is a periodic point, as long as it's still
+    //   within the middle 90% of the image (by radius) then it can be re-used
+    // if not a periodic point, then if it's in the middle 30% of the
+    //   image we'll re-use it
+    let maxAllowablePixelsMove = windowCalc.referencePeriod > 0 ?
+      Math.ceil(Math.min(windowCalc.canvasHeight, windowCalc.canvasWidth) * 0.45)
+      :
+      Math.ceil(Math.min(windowCalc.canvasHeight, windowCalc.canvasWidth) * 0.15);
     let maxAllowableMove = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(maxAllowablePixelsMove), 0n));
     // square this as well
     maxAllowableMove = infNumMul(maxAllowableMove, maxAllowableMove);
 
     if (infNumGt(squaredDiff, maxAllowableMove)) {
       refPointHasMoved = true;
-      console.log("the previous ref orbit is NOT within [" + maxAllowablePixelsMove + "] pixels, so we need a new ref orbit");
+      console.log("the previous ref orbit is NOT within [" + maxAllowablePixelsMove + "] pixels of the center, so we need a new ref orbit");
     } else {
-      console.log("the previous ref orbit is within [" + maxAllowablePixelsMove + "] pixels, so it's still valid");
+      console.log("the previous ref orbit is within [" + maxAllowablePixelsMove + "] pixels of the center, so it's still valid");
     }
   }
 
@@ -329,74 +335,64 @@ function setupCheckReferenceOrbit() {
 function setupReferenceOrbit(state) {
   if (state === null || !state.done) {
 
+    if (state === null) {
+      state = {
+        minibrotFindingState: null,
+        computeRefOrbitState: null,
+        status: "",
+        done: false
+      };
+    }
+
     // temporary, try to find period
     const findPeriod = true;
     if (!findPeriod) {
       windowCalc.referencePeriod = -1;
-    } else if (state === null) {
-      // this was the previous attempt, using a square 10% of screen width
-      //// to create square 10% of screen width (larger dimension) we
-      ////   need to move 5% right/left/up/down from the center point
-      //let refPeriodState = null;
-      //let pixelsPercent = Math.floor(0.05 * Math.max(windowCalc.canvasHeight, windowCalc.canvasWidth));
-      //let boxDelta = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(pixelsPercent), 0n));
-      //while (refPeriodState === null || !refPeriodState.done) {
-      //  refPeriodState = plotsByName[windowCalc.plot].computeReferencePeriodSquare(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, boxDelta, refPeriodState);
-      //  sendStatusMessage(refPeriodState.status);
-      //}
-
-      // ball arithmetic method
-      const rectHalfX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth / 2)), 0n));
-      const rectHalfY = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight / 2)), 0n));
+    } else {
+      if (state.minibrotFindingState === null) {
+        // ball arithmetic method
+        state.rectHalfX = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasWidth / 2)), 0n));
+        state.rectHalfY = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(Math.floor(windowCalc.canvasHeight / 2)), 0n));
+      }
 
       const getNthIterationAndDerivative = plotsByName[windowCalc.plot].getNthIterationAndDerivative;
       const newtonsMethod = plotsByName[windowCalc.plot].newtonsMethod;
-      const foundMinibrotNucleus = plotsByName[windowCalc.plot].findMinibrotWithBallArithmetic1stOrderAndNewton(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, rectHalfX, rectHalfY, getNthIterationAndDerivative, newtonsMethod);
-      if (foundMinibrotNucleus === null) {
-          console.log("no found newton nucleus is within the window");
-          windowCalc.referencePeriod = -1;
-      } else {
-          windowCalc.referencePeriod = foundMinibrotNucleus.period;
-          windowCalc.referencePx = foundMinibrotNucleus.x;
-          windowCalc.referencePy = foundMinibrotNucleus.y;
-          console.log("found ref x/y/period!");
-          setMinibrotNucleusMessage({
-            x: foundMinibrotNucleus.x,
-            y: foundMinibrotNucleus.y,
-            period: foundMinibrotNucleus.period
-          });
+      if (state.minibrotFindingState === null || !state.minibrotFindingState.done) {
+        state.minibrotFindingState = plotsByName[windowCalc.plot].findMinibrotWithBallArithmetic1stOrderAndNewton(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, state.rectHalfX, state.rectHalfY, getNthIterationAndDerivative, newtonsMethod, state.minibrotFindingState);
+        sendStatusMessage(state.minibrotFindingState.status);
+        if (state.minibrotFindingState.done) {
+          const foundMinibrotNucleus = state.minibrotFindingState.nucleus;
+          if (foundMinibrotNucleus === null) {
+              console.log("no found newton nucleus is within the window");
+              windowCalc.referencePeriod = -1;
+          } else {
+              windowCalc.referencePeriod = foundMinibrotNucleus.period;
+              windowCalc.referencePx = foundMinibrotNucleus.x;
+              windowCalc.referencePy = foundMinibrotNucleus.y;
+              console.log("found ref x/y/period!");
+              setMinibrotNucleusMessage({
+                x: foundMinibrotNucleus.x,
+                y: foundMinibrotNucleus.y,
+                period: foundMinibrotNucleus.period
+              });
+          }
+        }
+        return state;
       }
-
-      //const period = plotsByName[windowCalc.plot].findPeriodBallArithmetic2ndOrder(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, rectHalfX, rectHalfY, false);
-      //if (period > 0) {
-      //  const getNthIterationAndDerivative = plotsByName[windowCalc.plot].getNthIterationAndDerivative;
-      //  const foundMinibrotNucleus = plotsByName[windowCalc.plot].newtonsMethod(period, windowCalc.referencePx, windowCalc.referencePy, windowCalc.precision, getNthIterationAndDerivative);
-      //  if (
-      //      infNumGt(foundMinibrotNucleus.x, windowCalc.edges.right) ||
-      //      infNumLt(foundMinibrotNucleus.x, windowCalc.edges.left) ||
-      //      infNumGt(foundMinibrotNucleus.y, windowCalc.edges.top) ||
-      //      infNumLt(foundMinibrotNucleus.y, windowCalc.edges.bottom)) {
-      //    console.log("newton nucleus is off screen!");
-      //    windowCalc.referencePeriod = -1;
-      //  } else {
-      //    windowCalc.referencePeriod = period;
-      //    windowCalc.referencePx = foundMinibrotNucleus.x;
-      //    windowCalc.referencePy = foundMinibrotNucleus.y;
-      //    console.log("found ref x/y/period!");
-      //    setMinibrotNucleusMessage({
-      //      x: foundMinibrotNucleus.x,
-      //      y: foundMinibrotNucleus.y,
-      //      period: period
-      //    });
-      //  }
-      //}
     }
 
-    state = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referencePeriod, windowCalc.smooth, state);
-    sendStatusMessage(state.status);
+    if (state.computeRefOrbitState === null || !state.computeRefOrbitState.done) {
+      state.computeRefOrbitState = plotsByName[windowCalc.plot].computeReferenceOrbit(windowCalc.n, windowCalc.precision, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referencePeriod, windowCalc.smooth, state.computeRefOrbitState);
+      sendStatusMessage(state.computeRefOrbitState.status);
+      if (state.computeRefOrbitState.done) {
+        state.done = true;
+      } else {
+        return state;
+      }
+    }
   }
   if (state.done) {
-    windowCalc.referenceOrbit = state.orbit;
+    windowCalc.referenceOrbit = state.computeRefOrbitState.orbit;
     windowCalc.referenceOrbitN = windowCalc.n;
     windowCalc.referenceOrbitPrecision = windowCalc.precision;
     windowCalc.referenceOrbitSmooth = windowCalc.smooth;
@@ -414,7 +410,13 @@ function setupCheckBlaCoefficients() {
     if (windowCalc.referenceBlaTables === null ||
         // not sure how changing N (max iterations) affects BLA coefficients,
         //   so just require a full re-compute for now if it has changed
-        windowCalc.n !== windowCalc.referenceBlaN) {
+        windowCalc.n !== windowCalc.referenceBlaN ||
+        windowCalc.referenceBlaWindowEdges === null ||
+        // if any window edge changed, we need to re-compute BLAs
+        !infNumEq(windowCalc.edges.top,    windowCalc.referenceBlaWindowEdges.top) ||
+        !infNumEq(windowCalc.edges.bottom, windowCalc.referenceBlaWindowEdges.bottom) ||
+        !infNumEq(windowCalc.edges.left,   windowCalc.referenceBlaWindowEdges.left) ||
+        !infNumEq(windowCalc.edges.right,  windowCalc.referenceBlaWindowEdges.right)) {
       return true;
     } else {
       console.log("re-using previously-calculated BLA coefficient tables");
@@ -435,6 +437,7 @@ function setupBlaCoefficients(state) {
   }
   if (state.done) {
     windowCalc.referenceBlaN = windowCalc.n;
+    windowCalc.referenceBlaWindowEdges = structuredClone(windowCalc.edges);
     windowCalc.referenceBlaTables = state.blas;
   }
   return state;

@@ -344,8 +344,8 @@ function setupReferenceOrbit(state) {
       };
     }
 
-    // temporary, try to find period
-    const findPeriod = true;
+    // temporary, try to find period only when "bla-" is used
+    const findPeriod = windowCalc.algorithm.includes("bla-");
     if (!findPeriod) {
       windowCalc.referencePeriod = -1;
     } else {

@@ -454,6 +454,10 @@ const plots = [{
           {x:outputMath.toExpString(secondIter.x), y:outputMath.toExpString(secondIter.y)});
       }
       // fill out reference orbit with repeat data
+      // - this greatly slows down BLA and shouldn't be done with BLA
+      // - with non-BLA (perturb, or perturb+SA) this doesn't need to be
+      //     done because, currently, the period isn't found and thus the
+      //     ref orbit isn't shortened to just the period for those algos
       //if (periodLessThanN && fnContext.iter >= maxIter) {
       //  for (let i = 0; i < n - period; i++) {
       //    // use mod to keep looping back over the ref orbit iterations

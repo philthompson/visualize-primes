@@ -128,7 +128,7 @@ self.onmessage = function(e) {
     self.postMessage({subworkerNoWorky: true});
     return;
   }
-  console.log("got mesage [" + e.data.t + "]");
+  console.log("got message [" + e.data.t + "]");
   if (e.data.t == "worker-calc") {
     runCalc(e.data.v);
   } else if (e.data.t == "chunk-ordering") {
@@ -407,6 +407,7 @@ function setupCheckBlaCoefficients() {
   // if we are using bivariate linear approximation, and we haven't already
   //   calculated them based on the ref orbit, calculate the coefficients
   if (windowCalc.algorithm.includes("bla-")) {
+    const algoEpsilon = getBLAEpsilonFromAlgorithm(windowCalc.algorithm);
     if (windowCalc.referenceBlaTables === null ||
         // not sure how changing N (max iterations) affects BLA coefficients,
         //   so just require a full re-compute for now if it has changed
@@ -416,7 +417,8 @@ function setupCheckBlaCoefficients() {
         !infNumEq(windowCalc.edges.top,    windowCalc.referenceBlaWindowEdges.top) ||
         !infNumEq(windowCalc.edges.bottom, windowCalc.referenceBlaWindowEdges.bottom) ||
         !infNumEq(windowCalc.edges.left,   windowCalc.referenceBlaWindowEdges.left) ||
-        !infNumEq(windowCalc.edges.right,  windowCalc.referenceBlaWindowEdges.right)) {
+        !infNumEq(windowCalc.edges.right,  windowCalc.referenceBlaWindowEdges.right) ||
+        (algoEpsilon !== null && !infNumEq(algoEpsilon, windowCalc.referenceBlaEpsilon))) {
       return true;
     } else {
       console.log("re-using previously-calculated BLA coefficient tables");
@@ -439,6 +441,7 @@ function setupBlaCoefficients(state) {
     windowCalc.referenceBlaN = windowCalc.n;
     windowCalc.referenceBlaWindowEdges = structuredClone(windowCalc.edges);
     windowCalc.referenceBlaTables = state.blas;
+    windowCalc.referenceBlaEpsilon = state.infNumEpsilon;
   }
   return state;
 }

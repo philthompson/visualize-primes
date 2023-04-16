@@ -2526,6 +2526,7 @@ var calcWorkerOnmessage = function(e) {
     windowCalc.referencePx = e.data.minibrotNucleusFound.x;
     windowCalc.referencePy = e.data.minibrotNucleusFound.y;
     windowCalc.period = e.data.minibrotNucleusFound.period;
+    return;
   }
   // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean, workersCount: string, workersNow: int}
   drawWorkerColorPoints(e);

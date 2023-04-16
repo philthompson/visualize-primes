@@ -14,6 +14,20 @@ if (typeof importScripts === 'function') {
   importScripts("floatexp.js?v=" + (appVersion || scriptAppVersion));
 }
 
+// use, for example, "bla-floatexp-blaepsilon1.0eminus54" for the default 1e-54 epsilon
+function getBLAEpsilonFromAlgorithm(algorithm) {
+  if (!algorithm.includes("blaepsilon")) {
+    return null;
+  }
+  try {
+    return createInfNumFromExpStr(algorithm.split("-").find(e => e.startsWith("blaepsilon")).substring(10).replaceAll("minus","-"));
+  } catch (e) {
+    console.log("ERROR CAUGHT when parsing custom blaepsilon from algorithm name [" + algorithm + "]:");
+    console.log(e.name + ": " + e.message + ":\n" + e.stack.split('\n').slice(0, 5).join("\n"));
+    return null;
+  }
+}
+
 // does linear search after first checking the worst/smallest
 //   (last) element in the array
 function searchForBestBLA(sortedArray, deltaZAbs, math) {
@@ -974,12 +988,12 @@ const plots = [{
       // if z/dz is tiny, stop
       // how to determine this? compare c to its previous value...
       if (infNumApproxEq(fnCtx.c.x, cPrev.x, precis) && infNumApproxEq(fnCtx.c.y, cPrev.y, precis)) {
-        console.log("newton's method stopped during the [" + (fnCtx.i+1) + "]th iteration because z/dz got tiny enough to be negligible");
+        console.log("newton's method stopped during the [" + numberWithOrdinalSuffix(fnCtx.i+1) + "] iteration because z/dz got tiny enough to be negligible");
         break;
       }
 
       if ( (fnCtx.i+1) % 10 === 1) {
-        console.log("after the [" + (fnCtx.i+1) + "]th iteration of newton's method, c is:", {x:infNumExpString(fnCtx.c.x), y:infNumExpString(fnCtx.c.y)});
+        console.log("after the [" + numberWithOrdinalSuffix(fnCtx.i+1) + "] iteration of newton's method, c is:", {x:infNumExpString(fnCtx.c.x), y:infNumExpString(fnCtx.c.y)});
       }
 
       fnCtx.nthIterState = null;
@@ -1348,14 +1362,24 @@ const plots = [{
       //maxAbsC = math.max(maxAbsC, math.complexAbs({x: edgesM.left, y: edgesM.bottom}));
       //maxAbsC = math.max(maxAbsC, math.complexAbs({x: edgesM.right, y: edgesM.bottom}));
 
+      // fractalzoomer uses this for epsilon (error factor):
+      // 1 / ((double)(1L << 23)); // 23 is called "ThreadDraw.BLA_BITS" ... so 1 / 10^23 ?
+      //const defaultFloatEpsilon = infNum(1n, -23n), // this resulted in a wrong image for my "Mitosis: Four" location
+      //const defaultFloatEpsilon = infNum(2n, -24n), // this also resulted in wrong "Mitosis: Four" image
+      //const defaultFloatEpsilon = infNum(2n, -53n), // Zhuoran's other suggested epsilon from https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
+      //const defaultFloatEpsilon = infNum(1n, -53n), // a bit smaller (better for cerebral spin location!)
+      //const defaultFloatEpsilon = infNum(1n, -54n), // smaller by factor of 10, works maybe perfectly for "cerebral spin 2" location w/"bla-float" algo
+      const defaultFloatEpsilon = infNum(1n, -54n);
+      const defaultFloatexpEpsilon = infNum(1n, -129n);
+      const defaultEpsilon = math.name === "floatexp" ? defaultFloatexpEpsilon : defaultFloatEpsilon;
+
+      const algoEpsilon = getBLAEpsilonFromAlgorithm(algorithm);
+      const infNumEpsilon = algoEpsilon === null ? defaultEpsilon : algoEpsilon;
+
       fnContext = {
-        // fractalzoomer uses this for epsilon (error factor):
-        // 1 / ((double)(1L << 23)); // 23 is called "ThreadDraw.BLA_BITS" ... so 1 / 10^23 ?
-        //epsilon: math.createFromInfNum(infNum(1n, -23n)), // this resulted in a wrong image for my "Mitosis: Four" location
-        //epsilon: math.createFromInfNum(infNum(2n, -24n)), // this also resulted in wrong "Mitosis: Four" image
-        //epsilon: math.createFromInfNum(infNum(2n, -53n)), // Zhuoran's other suggested epsilon from https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
-        //epsilon: math.createFromInfNum(infNum(1n, -53n)), // a bit smaller (better for cerebral spin location!)
-        epsilon: math.createFromInfNum(infNum(1n, -54n)), // smaller by factor of 10, works maybe perfectly for "cerebral spin 2" location w/"bla-float" algo
+
+        infNumEpsilon: infNumEpsilon,
+        epsilon: math.createFromInfNum(infNumEpsilon),
 
         // each entry here will be:
         // - blas: another Map, of either "level" or itersToSkip

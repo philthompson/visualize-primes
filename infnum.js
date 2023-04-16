@@ -458,10 +458,8 @@ function createInfNumFromFastStr(s) {
   return infNum(val, exp);
 }
 
-// TODO! unit test this with very small values
-//   (like 5e-50, with say 5 significant digits, which should work)
-
-function infNumTruncateToLen(n, len) {
+// this was the version used until v0.9.0
+function infNumTruncateToLenv090(n, len) {
   var truncatedExpString = infNumExpStringTruncToLen(n, len-1);
   return createInfNum(truncatedExpString);
 }
@@ -475,6 +473,74 @@ function infNumTruncateToLenOldMaybeBad(n, len) {
   a.v = BigInt(a.v.toString().substring(0,len));
   a.e = a.e + BigInt(orig.length - len);
   return a;
+}
+
+function infNumTruncateToLenNoString(n, len) {
+  let result = infNum(n.v, n.e);
+  let negative = result.v < 0n;
+  if (negative) {
+    result.v *= -1n;
+  }
+  let pow = 10n ** BigInt(len);
+  while (result.v > pow) {
+    result.v /= 10n;
+    result.e += 1n;
+  }
+  if (negative) {
+    result.v *= -1n;
+  }
+  return result;
+}
+
+// faster version added after v0.9.0
+function infNumTruncateToLen(n, len) {
+  let result = infNum(n.v, n.e);
+  let negative = result.v < 0n;
+  if (negative) {
+    result.v *= -1n;
+  }
+  let pow = 10n ** BigInt(len+15);
+  while (result.v > pow) {
+    result.v /= 10000000000000000n;
+    result.e += 16n;
+  }
+  pow = 10n ** BigInt(len+3);
+  while (result.v > pow) {
+    result.v /= 10000n;
+    result.e += 4n;
+  }
+  pow = 10n ** BigInt(len);
+  while (result.v > pow) {
+    result.v /= 10n;
+    result.e += 1n;
+  }
+  if (negative) {
+    result.v *= -1n;
+  }
+  return result;
+}
+
+// 123456, 2 -> 120000
+function infNumTruncateToLenFastPow2(n, len) {
+  let result = infNum(n.v, n.e);
+  let negative = result.v < 0n;
+  if (negative) {
+    result.v *= -1n;
+  }
+  let pow = 10n ** BigInt(len+1);
+  while (result.v > pow) {
+    result.v /= 100n;
+    result.e += 2n;
+  }
+  pow = 10n ** BigInt(len);
+  while (result.v > pow) {
+    result.v /= 10n;
+    result.e += 1n;
+  }
+  if (negative) {
+    result.v *= -1n;
+  }
+  return result;
 }
 
 // shortened version of infNumExpStringTruncToLen()
@@ -720,235 +786,6 @@ function bigIntSqrtHerons(a) {
 
 // remove starting here for minify
 if (doUnitTests) {
-  let unitTest = "50000";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 50000");
-
-  unitTest = "050";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 50");
-
-  unitTest = "-050";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // -50");
-
-  unitTest = "-022.00";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // -22");
-
-  unitTest = "022.002200";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 22.0022");
-
-  unitTest = "-22.002200";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // -22.0022");
-
-  unitTest = "000.002200";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 0.0022");
-
-  unitTest = "-.0022";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // -0.0022");
-
-  unitTest = "5.";
-  console.log("trimZeroes(\"" + unitTest + "\") = [" + trimZeroes(unitTest) + "] // 5");
-
-  console.log(createInfNum("0.0"));
-  console.log(createInfNum("0"));
-  console.log(createInfNum("123"));
-  console.log(createInfNum("123.456"));
-  console.log(createInfNum("  3 "));
-  console.log(createInfNum("  123456789.000000000012345"));
-  console.log(createInfNum("  -4.00321"));
-  console.log(createInfNum("  -0.009 "));
-  
-  unitTest = "123e4";
-  console.log("createInfNum(" + unitTest + ") = ... // (123n, 4n)");
-  console.log(createInfNum(unitTest));
-
-  unitTest = "1.23e4";
-  console.log("createInfNum(" + unitTest + ") = ... // (123n, 2n)");
-  console.log(createInfNum(unitTest));
-
-  unitTest = "5. E22";
-  console.log("createInfNum(" + unitTest + ") = ... // (5n, 22n)");
-  console.log(createInfNum(unitTest));
-
-  unitTest = "  1.23 e -10";
-  console.log("createInfNum(" + unitTest + ") = ... // (123n, -12n)");
-  console.log(createInfNum(unitTest));
-
-  unitTest = "  1,234 E -10";
-  console.log("createInfNum(" + unitTest + ") = ... // (1234n, -10n)");
-  console.log(createInfNum(unitTest));
-
-  console.log("100 * 1.5 = ... // 150 (1500, -1)");
-  console.log(infNumMul(createInfNum("100"), createInfNum("1.5")));
-
-  console.log("123.5 * 1.5 = ... // 185.25 (18525, -2)");
-  console.log(infNumMul(createInfNum("123.5"), createInfNum("1.5")));
-
-  console.log("123.5 * 1.5 = ... // 185.25 (18525, -2)");
-  console.log(infNumMul(createInfNum("123.5"), createInfNum("1.5")));
-
-  console.log("15000 * 0.0006 = ... // 9 (9, 0)");
-  console.log(infNumMul(createInfNum("15000"), createInfNum("0.0006")));
-
-  console.log("100 and 123.456"); // (100000, -3) and (123456, -3)
-  console.log(normInfNum(createInfNum("100"), createInfNum("123.456")));
-
-  console.log("0.0321 and 5"); // (321, -4) and (50000, -4)
-  console.log(normInfNum(createInfNum("0.0321"), createInfNum("5")));
-
-  console.log("22 and 5"); // (22, 0) and (5, 0)
-  console.log(normInfNum(createInfNum("22"), createInfNum("5")));
-
-  let testA = infNum(5n, -2n);
-  let testB = infNum(5n, -1n);
-  let testC = infNum(5n, 0n);
-  let testD = infNum(5n, 1n);
-  let testE = infNum(5n, 2n);
-  let testF = infNum(5n, 3n);
-  let normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
-  console.log("testA -> (" + normA.v + " ," + normA.e + ")");
-  console.log("testB -> (" + testB.v + " ," + testB.e + ")");
-  console.log("testC -> (" + testC.v + " ," + testC.e + ")");
-  console.log("testD -> (" + testD.v + " ," + testD.e + ")");
-  console.log("testE -> (" + testE.v + " ," + testE.e + ")");
-  console.log("testF -> (" + testF.v + " ," + testF.e + ")");
-
-  testA = infNum(5n, -2n);
-  testB = infNum(5n, -11n);
-  testC = infNum(5n, -3n);
-  testD = infNum(5n, -22n);
-  testE = infNum(5n, -2n);
-  testF = infNum(5n, -5n);
-  normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
-  console.log("testA -> (" + normA.v + " ," + normA.e + ")");
-  console.log("testB -> (" + testB.v + " ," + testB.e + ")");
-  console.log("testC -> (" + testC.v + " ," + testC.e + ")");
-  console.log("testD -> (" + testD.v + " ," + testD.e + ")");
-  console.log("testE -> (" + testE.v + " ," + testE.e + ")");
-  console.log("testF -> (" + testF.v + " ," + testF.e + ")");
-
-  testA = infNum(5n, 2n);
-  testB = infNum(5n, 11n);
-  testC = infNum(5n, 3n);
-  testD = infNum(5n, 22n);
-  testE = infNum(5n, 2n);
-  testF = infNum(5n, 5n);
-  normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
-  console.log("testA -> (" + normA.v + " ," + normA.e + ")");
-  console.log("testB -> (" + testB.v + " ," + testB.e + ")");
-  console.log("testC -> (" + testC.v + " ," + testC.e + ")");
-  console.log("testD -> (" + testD.v + " ," + testD.e + ")");
-  console.log("testE -> (" + testE.v + " ," + testE.e + ")");
-  console.log("testF -> (" + testF.v + " ," + testF.e + ")");
-
-  console.log("100 + 1.5 = ... // 101.5 (1015, -1)");
-  console.log(infNumAdd(createInfNum("100"), createInfNum("1.5")));
-
-  console.log("123 + 0.456 = ... // 123.456 (123456, -3)");
-  console.log(infNumAdd(createInfNum("123"), createInfNum("0.456")));
-
-  console.log("0.00001 + 5.05 = ... // 5.05001 (505001, -5)");
-  console.log(infNumAdd(createInfNum("0.00001"), createInfNum("5.05")));
-
-  console.log("100 - 1.5 = ... // 98.5 (985, -1)");
-  console.log(infNumSub(createInfNum("100"), createInfNum("1.5")));
-
-  console.log("123 - 0.01 = ... // 122.99 (12299, -2)");
-  console.log(infNumSub(createInfNum("123"), createInfNum("0.01")));
-
-  console.log("0.00001 - 50 = ... // -49.99999 (-4999999, -5)");
-  console.log(infNumSub(createInfNum("0.00001"), createInfNum("50")));
-
-  unitTest = infNumDiv(createInfNum("50000"), createInfNum("20"), 8);
-  console.log("50000 / 20 (8 sig.dig.) = [" + infNumToString(unitTest) + "] // 2500");
-  console.log(unitTest);
-
-  unitTest = infNumDiv(createInfNum("100"), createInfNum("7"), 8);
-  console.log("100 / 7 (8 sig.dig.) = [" + infNumToString(unitTest) + "] // 14.285714");
-  console.log(unitTest);
-
-  unitTest = infNumDiv(createInfNum("100"), createInfNum("64"), 8);
-  console.log("100 / 64 (8 sig.dig.) = [" + infNumToString(unitTest) + "] // 1.5625");
-  console.log(unitTest);
-
-  unitTest = infNumDiv(createInfNum("1302"), createInfNum("10.5"), 8);
-  console.log("1302 / 10.5 (8 sig.dig.) = [" + infNumToString(unitTest) + "] // 124");
-  console.log(unitTest);
-
-  unitTest = infNumToString(infNumDiv(createInfNum("1"), createInfNum("7"), 12));
-  console.log("1 / 7 (12 sig.dig.) = [" + unitTest + "] // 0.142857142857");
-
-  unitTest = infNumToString(infNumDiv(createInfNum("1000000"), createInfNum("7"), 12));
-  console.log("1000000 / 7 (12 sig.dig.) = [" + unitTest + "] // 142857.142857");
-
-  unitTest = infNumToString(infNumDiv(createInfNum("10"), createInfNum("3"), 5));
-  console.log("10 / 3 (5 sig.dig.) = [" + unitTest + "] // 3.3333");
-
-  unitTest = infNumToString(infNumDiv(createInfNum("100000"), createInfNum("3"), 3));
-  console.log("100000 / 3 (3 sig.dig.) = [" + unitTest + "] // 33300");
-
-  console.log("100 < 123.456 // true");
-  console.log(infNumLt(createInfNum("100"), createInfNum("123.456")));
-
-  console.log("0.0321 > 5 // false");
-  console.log(infNumGt(createInfNum("0.0321"), createInfNum("5")));
-
-  console.log("5 > 0.0321 // true");
-  console.log(infNumGt(createInfNum("5"), createInfNum("0.0321")));
-
-  console.log("22 === 5 // false");
-  console.log(infNumEq(createInfNum("22"), createInfNum("5")));
-
-  console.log("-22 > 5 // false");
-  console.log(infNumGt(createInfNum("-22"), createInfNum("5")));
-
-  console.log("-22 <= -22.0000 // true");
-  console.log(infNumLe(createInfNum("-22"), createInfNum("-22.0000")));
-
-  console.log("(22,0) // 22");
-  console.log(infNumToString(infNum(22n, 0n)));
-
-  console.log("(22,1) // 220");
-  console.log(infNumToString(infNum(22n, 1n)));
-
-  console.log("22,-1) // 2.2");
-  console.log(infNumToString(infNum(22n, -1n)));
-
-  console.log("22,-2) // 0.22");
-  console.log(infNumToString(infNum(22n, -2n)));
-
-  console.log("22,-4) // 0.0022");
-  console.log(infNumToString(infNum(22n, -4n)));
-
-  console.log("(-22,0) // -22");
-  console.log(infNumToString(infNum(-22n, 0n)));
-
-  console.log("(-22,1) // -220");
-  console.log(infNumToString(infNum(-22n, 1n)));
-
-  console.log("-22,-4) // -0.0022");
-  console.log(infNumToString(infNum(-22n, -4n)));
-
-  unitTest = "22";
-  console.log("infNumExpString(\"" + unitTest + "\") = [" + infNumExpString(createInfNum(unitTest)) + "]// 2.2e1");
-
-  unitTest = "123456789";
-  console.log("infNumExpStringTruncToLen(\"" + unitTest + "\", 5) = [" + infNumExpStringTruncToLen(createInfNum(unitTest), 5) + "]// 1.23456e8");
-
-  unitTest = "5.0e0";
-  console.log("createInfNumFromExpStr(\"" + unitTest + "\") = ... // (50n, -1n)");
-  console.log(createInfNumFromExpStr(unitTest));
-
-  unitTest = "-5.0e2";
-  console.log("createInfNumFromExpStr(\"" + unitTest + "\") = ... // (-50n, 1n)");
-  console.log(createInfNumFromExpStr(unitTest));
-
-  unitTest = "3.21e-4";
-  console.log("createInfNumFromExpStr(\"" + unitTest + "\") = ... // (321n, -6n)");
-  console.log(createInfNumFromExpStr(unitTest));
-
-  for (let unitTest of [infNum(5n, -22n),infNum(5n, 2n),infNum(12345n,4321n),infNum(-123n,99n),infNum(-123n,-99n)]) {
-    console.log(unitTest, " -> infNumFastStr() -> createInfNumFromFastStr() -> ...");
-    console.log(createInfNumFromFastStr(infNumFastStr(unitTest)));
-  }
 
   const runUnitTest = function(testFn) {
     if (!testFn()) {
@@ -957,7 +794,335 @@ if (doUnitTests) {
   }
 
   runUnitTest(function() {
-    return infNumApproxEq(infNum(12345678n, -3n), infNum(12345123n, -3n), 5) === true;
+    return trimZeroes("50000") === "50000";
+  });
+
+  runUnitTest(function() {
+    return trimZeroes("050") === "50";
+  });
+
+  runUnitTest(function() {
+    return trimZeroes("-050") === "-50";
+  });
+
+  runUnitTest(function() {
+    return trimZeroes("-022.00") === "-22";
+  });
+
+  runUnitTest(function() {
+    return trimZeroes("022.002200") === "22.0022";
+  });
+
+  runUnitTest(function() {
+    return trimZeroes("-22.002200") === "-22.0022";
+  });
+
+  runUnitTest(function() {
+    return trimZeroes("000.002200") === "0.0022";
+  });
+
+  runUnitTest(function() {
+    return trimZeroes("-.0022") === "-0.0022";
+  });
+
+  runUnitTest(function() {
+    return trimZeroes("5.") === "5";
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("0.0"), infNum(0n, 0n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("0"), infNum(0n, 0n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("123"), infNum(123n, 0n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("123.456"), infNum(123456n, -3n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("  3 "), infNum(3n, 0n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("  123456789.000000000012345"), infNum(123456789000000000012345n, -15n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("  -4.00321"), infNum(-400321n, -5n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("  -0.009 "), infNum(-9n, -3n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("123e4"), infNum(123n, 4n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("123e4"), infNum(123n, 4n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("1.23e4"), infNum(123n, 2n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("5. E22"), infNum(5n, 22n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("  1.23 e -10"), infNum(123n, -12n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("  1,234 E -10"), infNum(1234n, -10n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(infNumMul(createInfNum("100"), createInfNum("1.5")), infNum(1500n, -1n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(infNumMul(createInfNum("123.5"), createInfNum("1.5")), infNum(18525n, -2n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(infNumMul(createInfNum("15000"), createInfNum("0.0006")), infNum(9n, 0n));
+  });
+
+  let origTestA, origTestB;
+  let testA = createInfNum("100");     origTestA = copyInfNum(testA);
+  let testB = createInfNum("123.456"); origTestB = copyInfNum(testB);
+  let testNorm = normInfNum(testA, testB);
+  runUnitTest(function() { return infNumEq(testNorm[0], origTestA); });
+  runUnitTest(function() { return infNumEq(testNorm[1], origTestB); });
+  runUnitTest(function() { return testNorm[0].e === testNorm[1].e; });
+
+  testA = createInfNum("0.0321"); origTestA = copyInfNum(testA);
+  testB = createInfNum("5");      origTestB = copyInfNum(testB);
+  testNorm = normInfNum(testA, testB);
+  runUnitTest(function() { return infNumEq(testNorm[0], origTestA); });
+  runUnitTest(function() { return infNumEq(testNorm[1], origTestB); });
+  runUnitTest(function() { return testNorm[0].e === testNorm[1].e; });
+
+  testA = createInfNum("22"); origTestA = copyInfNum(testA);
+  testB = createInfNum("5");  origTestB = copyInfNum(testB);
+  testNorm = normInfNum(testA, testB);
+  runUnitTest(function() { return infNumEq(testNorm[0], origTestA); });
+  runUnitTest(function() { return infNumEq(testNorm[1], origTestB); });
+  runUnitTest(function() { return testNorm[0].e === testNorm[1].e; });
+
+  let origTestC, origTestD, origTestE, origTestF;
+      testA = infNum(5n, -2n); origTestA = copyInfNum(testA);
+      testB = infNum(5n, -1n); origTestB = copyInfNum(testB);
+  let testC = infNum(5n, 0n);  origTestC = copyInfNum(testC);
+  let testD = infNum(5n, 1n);  origTestD = copyInfNum(testD);
+  let testE = infNum(5n, 2n);  origTestE = copyInfNum(testE);
+  let testF = infNum(5n, 3n);  origTestF = copyInfNum(testF);
+  normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
+  runUnitTest(function() { return infNumEq(testA, origTestA); });
+  runUnitTest(function() { return infNumEq(testB, origTestB); });
+  runUnitTest(function() { return infNumEq(testC, origTestC); });
+  runUnitTest(function() { return infNumEq(testD, origTestD); });
+  runUnitTest(function() { return infNumEq(testE, origTestE); });
+  runUnitTest(function() { return infNumEq(testF, origTestF); });
+  runUnitTest(function() { return normA.e === testB.e; });
+  runUnitTest(function() { return normA.e === testC.e; });
+  runUnitTest(function() { return normA.e === testD.e; });
+  runUnitTest(function() { return normA.e === testE.e; });
+  runUnitTest(function() { return normA.e === testF.e; });
+
+  testA = infNum(5n, -2n);  origTestA = copyInfNum(testA);
+  testB = infNum(5n, -11n); origTestB = copyInfNum(testB);
+  testC = infNum(5n, -3n);  origTestC = copyInfNum(testC);
+  testD = infNum(5n, -22n); origTestD = copyInfNum(testD);
+  testE = infNum(5n, -2n);  origTestE = copyInfNum(testE);
+  testF = infNum(5n, -5n);  origTestF = copyInfNum(testF);
+  normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
+  runUnitTest(function() { return infNumEq(testA, origTestA); });
+  runUnitTest(function() { return infNumEq(testB, origTestB); });
+  runUnitTest(function() { return infNumEq(testC, origTestC); });
+  runUnitTest(function() { return infNumEq(testD, origTestD); });
+  runUnitTest(function() { return infNumEq(testE, origTestE); });
+  runUnitTest(function() { return infNumEq(testF, origTestF); });
+  runUnitTest(function() { return normA.e === testB.e; });
+  runUnitTest(function() { return normA.e === testC.e; });
+  runUnitTest(function() { return normA.e === testD.e; });
+  runUnitTest(function() { return normA.e === testE.e; });
+  runUnitTest(function() { return normA.e === testF.e; });
+
+  testA = infNum(5n, 2n);  origTestA = copyInfNum(testA);
+  testB = infNum(5n, 11n); origTestB = copyInfNum(testB);
+  testC = infNum(5n, 3n);  origTestC = copyInfNum(testC);
+  testD = infNum(5n, 22n); origTestD = copyInfNum(testD);
+  testE = infNum(5n, 2n);  origTestE = copyInfNum(testE);
+  testF = infNum(5n, 5n);  origTestF = copyInfNum(testF);
+  normA = normInPlaceInfNum(testA, testB, testC, testD, testE, testF);
+  runUnitTest(function() { return infNumEq(testA, origTestA); });
+  runUnitTest(function() { return infNumEq(testB, origTestB); });
+  runUnitTest(function() { return infNumEq(testC, origTestC); });
+  runUnitTest(function() { return infNumEq(testD, origTestD); });
+  runUnitTest(function() { return infNumEq(testE, origTestE); });
+  runUnitTest(function() { return infNumEq(testF, origTestF); });
+  runUnitTest(function() { return testA.e === testB.e; });
+  runUnitTest(function() { return testA.e === testC.e; });
+  runUnitTest(function() { return testA.e === testD.e; });
+  runUnitTest(function() { return testA.e === testE.e; });
+  runUnitTest(function() { return testA.e === testF.e; });
+
+  // 100 + 1.5 = 101.5
+  runUnitTest(function() {
+    return infNumEq(infNumAdd(createInfNum("100"), createInfNum("1.5")), infNum(1015n, -1n));
+  });
+
+  // 123 + 0.456 = 123.456
+  runUnitTest(function() {
+    return infNumEq(infNumAdd(createInfNum("123"), createInfNum("0.456")), infNum(123456n, -3n));
+  });
+
+  // 0.00001 + 5.05 = 5.05001
+  runUnitTest(function() {
+    return infNumEq(infNumAdd(createInfNum("0.00001"), createInfNum("5.05")), infNum(505001n, -5n));
+  });
+
+  // 100 - 1.5 = 98.5
+  runUnitTest(function() {
+    return infNumEq(infNumSub(createInfNum("100"), createInfNum("1.5")), infNum(985n, -1n));
+  });
+
+  // 123 - 0.01 = 122.99 
+  runUnitTest(function() {
+    return infNumEq(infNumSub(createInfNum("123"), createInfNum("0.01")), infNum(12299n, -2n));
+  });
+
+  // 0.00001 - 50 = -49.99999
+  runUnitTest(function() {
+    return infNumEq(infNumSub(createInfNum("0.00001"), createInfNum("50")), infNum(-4999999n, -5n));
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumDiv(createInfNum("50000"), createInfNum("20"), 8)) === "2500";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumDiv(createInfNum("100"), createInfNum("7"), 8)) === "14.285714";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumDiv(createInfNum("100"), createInfNum("64"), 8)) === "1.5625";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumDiv(createInfNum("1302"), createInfNum("10.5"), 8)) === "124";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumDiv(createInfNum("1"), createInfNum("7"), 12)) === "0.142857142857";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumDiv(createInfNum("1000000"), createInfNum("7"), 12)) === "142857.142857";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumDiv(createInfNum("10"), createInfNum("3"), 5)) === "3.3333";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumDiv(createInfNum("100000"), createInfNum("3"), 3)) === "33300";
+  });
+
+  runUnitTest(function() {
+    return infNumLt(createInfNum("100"), createInfNum("123.456"));
+  });
+
+  runUnitTest(function() {
+    return infNumGt(createInfNum("0.0321"), createInfNum("5")) === false;
+  });
+
+  runUnitTest(function() {
+    return infNumGt(createInfNum("5"), createInfNum("0.0321"));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNum("22"), createInfNum("5")) === false;
+  });
+
+  runUnitTest(function() {
+    return infNumGt(createInfNum("-22"), createInfNum("5")) === false;
+  });
+
+  runUnitTest(function() {
+    return infNumLe(createInfNum("-22"), createInfNum("-22.0000"));
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNum(22n, 0n)) === "22";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNum(22n, 1n)) === "220";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNum(22n, -1n)) === "2.2";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNum(22n, -2n)) === "0.22";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNum(22n, -4n)) === "0.0022";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNum(-22n, 0n)) === "-22";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNum(-22n, 1n)) === "-220";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNum(-22n, -4n)) === "-0.0022";
+  });
+
+  runUnitTest(function() {
+    return infNumExpString(createInfNum("22")) === "2.2e1";
+  });
+
+  runUnitTest(function() {
+    return infNumExpStringTruncToLen(createInfNum("123456789"), 5) === "1.23456e8";
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNumFromExpStr("5.0e0"), infNum(50n, -1n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNumFromExpStr("-5.0e2"), infNum(-50n, 1n));
+  });
+
+  runUnitTest(function() {
+    return infNumEq(createInfNumFromExpStr("3.21e-4"), infNum(321n, -6n));
+  });
+
+  for (let testNum of [infNum(5n, -22n),infNum(5n, 2n),infNum(12345n,4321n),infNum(-123n,99n),infNum(-123n,-99n)]) {
+    runUnitTest(function() {
+      return infNumEq(testNum, createInfNumFromFastStr(infNumFastStr(testNum)));
+    });
+  }
+
+  runUnitTest(function() {
+    return infNumApproxEq(infNum(12345678n, -3n), infNum(12345123n, -3n), 5);
   });
 
   runUnitTest(function() {
@@ -965,7 +1130,7 @@ if (doUnitTests) {
   });
 
   runUnitTest(function() {
-    return infNumApproxEq(infNum(123n, -3n), infNum(123n, -3n), 5) === true;
+    return infNumApproxEq(infNum(123n, -3n), infNum(123n, -3n), 5);
   });
 
   runUnitTest(function() {
@@ -973,19 +1138,70 @@ if (doUnitTests) {
   });
 
   runUnitTest(function() {
-    return infNumApproxEq(infNum(123456789n, -3n), infNum(1234567n, -1n), 6) === true;
+    return infNumApproxEq(infNum(123456789n, -3n), infNum(1234567n, -1n), 6);
   });
 
   runUnitTest(function() {
-    return infNumApproxEq(infNum(123456n, 2n), infNum(12345600n, 0n), 8) === true;
+    return infNumApproxEq(infNum(123456n, 2n), infNum(12345600n, 0n), 8);
   });
 
   runUnitTest(function() {
-    return infNumApproxEq(infNum(0n, 0n), infNum(123456789n, -30n), 20) === true;
+    return infNumApproxEq(infNum(0n, 0n), infNum(123456789n, -30n), 20);
   });
+
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(123456n, 0n), 3)) === "123000";
+  });
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(-123456n, 0n), 3)) === "-123000";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(123456n, -3n), 3)) === "123";
+  });
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(-123456n, -3n), 3)) === "-123";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(123456n, -3n), 4)) === "123.4";
+  });
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(-123456n, -3n), 4)) === "-123.4";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(123456n, -16n), 4)) === "0.00000000001234";
+  });
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(-123456n, -16n), 4)) === "-0.00000000001234";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(123456n, 20n), 2)) === "12000000000000000000000000";
+  });
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(-123456n, 20n), 2)) === "-12000000000000000000000000";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(123456n, 0n), 30)) === "123456";
+  });
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(-123456n, 0n), 30)) === "-123456";
+  });
+
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(123456n, -16n), 30)) === "0.0000000000123456";
+  });
+  runUnitTest(function() {
+    return infNumToString(infNumTruncateToLen(infNum(-123456n, -16n), 30)) === "-0.0000000000123456";
+  });
+
 }
 
 if (doPerfTests) {
+  const seed = 1337 ^ 0xDEADBEEF; // 32-bit seed with optional XOR value
   // thanks to https://stackoverflow.com/a/47593316/259456 for
   //   the seed-able prng
   const sfc32 = function(a, b, c, d) {
@@ -1001,11 +1217,11 @@ if (doPerfTests) {
       return (t >>> 0) / 4294967296;
     }
   }
-  const seed = 1337 ^ 0xDEADBEEF; // 32-bit seed with optional XOR value
-  // Pad seed with Phi, Pi and E.
-  // https://en.wikipedia.org/wiki/Nothing-up-my-sleeve_number
-  const sfc32Rand = sfc32(0x9E3779B9, 0x243F6A88, 0xB7E15162, seed);
-  for (const sqrtFunction of [infNumRoughSqrt, infNumSqrtHerons, infNumSqrtHeronsLessPrecis, infNumSqrtHeronsMorePrecis]) {
+  //for (const sqrtFunction of [infNumRoughSqrt, infNumSqrtHerons, infNumSqrtHeronsLessPrecis, infNumSqrtHeronsMorePrecis]) {
+  for (const sqrtFunction of []) {
+    // Pad seed with Phi, Pi and E.
+    // https://en.wikipedia.org/wiki/Nothing-up-my-sleeve_number
+    const sfc32Rand = sfc32(0x9E3779B9, 0x243F6A88, 0xB7E15162, seed);
     //heronsIterations = 0;
     let perfTestDurationMs = 0;
     const perfTestOverallStartMs = Date.now();
@@ -1059,6 +1275,52 @@ if (doPerfTests) {
     console.log("for " + sqrtFunction.name + "(), perf test time: " + perfTestDurationMs + "ms, overall: " + perfTestOverallDurationMs + "ms, for " + totalSqrtsTaken + " sqrts");
     //console.log("total of " + heronsIterations + " herons iterations, for avg. of " + (heronsIterations/totalSqrtsTaken) + " iterations per square root");
   }
-  perfTestsDone = true;
+
+  for (const truncFunc of [infNumTruncateToLenFast, infNumTruncateToLen, infNumTruncateToLenv090, /*infNumTruncateToLenFastPow2, infNumTruncateToLenNoString*/]) {
+    // Pad seed with Phi, Pi and E.
+    // https://en.wikipedia.org/wiki/Nothing-up-my-sleeve_number
+    const sfc32Rand = sfc32(0x9E3779B9, 0x243F6A88, 0xB7E15162, seed);
+    let perfTestDurationMs = 0;
+    const perfTestOverallStartMs = Date.now();
+    let totalTruncs = 0;
+    let truncToLen;
+    let mantissa;
+    let exponent;
+    let testValue;
+    let result;
+    for (let startLen = 100; startLen < 5000; startLen += 200) {
+      truncToLen = startLen >> 1; // divide by 2, keeping as int
+      // test 10 numbers of each size
+      for (let i = 0; i < 10; i++) {
+        // create mantissa 10 digits at a time
+        mantissa = BigInt(Math.floor(sfc32Rand() * 10000000000));
+        for (let j = 10; j < startLen; j += 10) {
+          mantissa *= 10000000000n;
+          mantissa += BigInt(Math.floor(sfc32Rand() * 10000000000));
+        }
+        //console.log("for a number of length", startLen, "we have", mantissa);
+        // create exponent from 1 random number
+        exponent = BigInt(Math.floor(sfc32Rand() * 10000));
+        // test both postive and negative exponent
+        for (const exponentSign of [1n, -1n]) {
+          testValue = infNum(mantissa, exponent * exponentSign);
+          // truncate each testValue 20 times
+          perfTestStartMs = Date.now();
+          for (let k = 0; k < 20; k++) {
+            result = truncFunc(testValue, truncToLen);
+            //if (k === 0) {
+            //  //console.log("for a number of length", startLen, "we have truncated", infNumToString(testValue), "to", truncToLen, "digits:", infNumToString(result));
+            //  console.log("for a number of length", startLen, "we have truncated", infNumExpString(testValue), "to", truncToLen, "digits:", infNumExpString(result));
+            //}
+          }
+          perfTestDurationMs += Date.now() - perfTestStartMs;
+          totalTruncs += 20;
+        }
+      }
+    }
+
+    const perfTestOverallDurationMs = Date.now() - perfTestOverallStartMs;
+    console.log("for " + truncFunc.name + "(), perf test time: " + perfTestDurationMs + "ms, overall: " + perfTestOverallDurationMs + "ms, for " + (totalTruncs).toLocaleString() + " truncations");
+  }
 }
 // remove ending here for minify

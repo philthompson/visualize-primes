@@ -348,6 +348,13 @@ function infNumApproxEq(a, b, precis) {
 //  return aStr === bStr;
 }
 
+function infNumApproxEqSimple(a, b, precis) {
+  const norm = normInfNum(a, b);
+  norm[0] = infNumTruncateToLen(norm[0], precis);
+  norm[1] = infNumTruncateToLen(norm[1], precis);
+  return infNumEq(norm[0], norm[1]);
+}
+
 function infNumToString(n) {
   var value = n.v.toString();
   if (n.e === 0n) {

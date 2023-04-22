@@ -102,6 +102,10 @@ const windowCalc = {
   "passBlaPixels": null,
   "passBlaIterationsSkipped": null,
   "passBlaSkips": null,
+  "totalBlaPixels": null,
+  "totalBlaIterationsSkipped": null,
+  "totalBlaSkips": null,
+  "referenceBlaEpsilon": null,
   "setupStage": null,
   "setupStageState": null,
   "setupStageIsStarted": null,
@@ -396,7 +400,7 @@ function setupReferenceOrbit(state) {
     windowCalc.referenceOrbitN = windowCalc.n;
     windowCalc.referenceOrbitPrecision = windowCalc.precision;
     windowCalc.referenceOrbitSmooth = windowCalc.smooth;
-    console.log("calculated new middle reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
+    console.log("calculated new " + (windowCalc.referencePeriod === -1 ? "middle" : "periodic") + " reference orbit, with [" + windowCalc.referenceOrbit.length + "] iterations, for point:");
     console.log("referencePx: " + infNumToString(windowCalc.referencePx));
     console.log("referencePy: " + infNumToString(windowCalc.referencePy));
   }
@@ -407,6 +411,9 @@ function setupCheckBlaCoefficients() {
   // if we are using bivariate linear approximation, and we haven't already
   //   calculated them based on the ref orbit, calculate the coefficients
   if (windowCalc.algorithm.includes("bla-")) {
+    windowCalc.totalBlaPixels = 0;
+    windowCalc.totalBlaIterationsSkipped = 0;
+    windowCalc.totalBlaSkips = 0;
     const algoEpsilon = getBLAEpsilonFromAlgorithm(windowCalc.algorithm);
     if (windowCalc.referenceBlaTables === null ||
         // not sure how changing N (max iterations) affects BLA coefficients,
@@ -428,14 +435,249 @@ function setupCheckBlaCoefficients() {
   return false;
 }
 
+function findFathestCornerFromPoint(infNumComplexPt, edges) {
+  let testPoint = {x:edges.left, y:edges.top};
+  let dist = infNumMath.complexAbs(infNumMath.complexSub(infNumComplexPt, testPoint));
+  let farthestPoint = structuredClone(testPoint);
+  let farthestDist = structuredClone(dist);
+  testPoint = {x:edges.left, y:edges.bottom};
+  dist = infNumMath.complexAbs(infNumMath.complexSub(infNumComplexPt, testPoint));
+  if (infNumGt(dist, farthestDist)) {
+    farthestPoint = structuredClone(testPoint);
+    farthestDist = structuredClone(dist);
+  }
+  testPoint = {x:edges.right, y:edges.top};
+  dist = infNumMath.complexAbs(infNumMath.complexSub(infNumComplexPt, testPoint));
+  if (infNumGt(dist, farthestDist)) {
+    farthestPoint = structuredClone(testPoint);
+    farthestDist = structuredClone(dist);
+  }
+  testPoint = {x:edges.right, y:edges.bottom};
+  dist = infNumMath.complexAbs(infNumMath.complexSub(infNumComplexPt, testPoint));
+  if (infNumGt(dist, farthestDist)) {
+    farthestPoint = structuredClone(testPoint);
+  }
+  return farthestPoint;
+}
+
+// put 8 test points along the line from the corner to 33% along the line
+// put 16 test points along the line from the 33% point to 66% point
+// put 32 test points along the line from the 66% point to the ref point
+function getTestPointsInOrderFromAToB(infNumComplexA, infNumComplexB, windowCalcMath, precis) {
+  const pointsDifference = infNumMath.complexSub(infNumComplexB, infNumComplexA);
+  const testLineLength = infNumMath.complexAbs(pointsDifference);
+  const testLinePixels = infNumDiv(testLineLength, windowCalc.eachPixUnits, precis);
+  const firstThirdPointsFloat = floatMath.createFromInfNum(infNumDiv(testLinePixels, infNum(64n, 0n), 10));
+  const firstThirdPoints = BigInt(Math.round(firstThirdPointsFloat));
+  console.log("test line covers [" + infNumToString(infNumTruncateToLen(testLinePixels, 15)) + "] pixels, so dividing the far third of that line into [" + firstThirdPoints + "] test points");
+  // each third of the line needs to be subdivided into
+  //   4x firstThirdPoints
+  const stepDiv = firstThirdPoints * 4n * 3n;
+  const firstThirdSteps = firstThirdPoints * 4n;
+  const secondThirdSteps = firstThirdSteps * 2n;
+  const step = infNumMath.complexRealDiv(pointsDifference, infNum(stepDiv, 0n), precis);
+  let points = [];
+  let testPointComplex;
+  let testPointDelta;
+  for (let i = 0n; i < stepDiv; i += 1n) {
+    if (
+        (i < firstThirdSteps && i % 4n === 0n) ||
+        (i >= firstThirdSteps && i < secondThirdSteps && i % 2n === 0n) ||
+        (i >= secondThirdSteps)) {
+      testPointComplex = infNumMath.complexAdd(infNumComplexA, infNumMath.complexRealMul(step, infNum(i, 0n)));
+      // the delta is the difference from the reference point (point B)
+      //   to the test point
+      testPointDelta = infNumMath.complexSub(testPointComplex, infNumComplexB);
+      points.push({
+        dx: windowCalcMath.createFromInfNum(testPointDelta.x),
+        dy: windowCalcMath.createFromInfNum(testPointDelta.y),
+        complex: testPointComplex
+      });
+    }
+  }
+  return points;
+}
+
+// somehow, the "epsilon" value with our BLA implementation here doesn't
+//   seem rigidly tied to the underlying math datatype.  for example,
+//   floating-point math should in theory necessetate a particular value
+//   for epsilon, as that's the entire idea behind BLA in the first place:
+//   when the squared term is smaller than the smallest value that can be
+//   represented by the math datatype, it can be ignored thus leading to
+//   a linear approximation.
+//
+// for individual images, when the value used for epsilon is made a little
+//   smaller, the image looks the same but skips fewer iterations with the
+//   BLA and thus takes longer to render.  or, if the epsilon is made a
+//   little larger, the image looks the same but renders faster.  make the
+//   epsilon too big, however, and strange inaccurate results are rendered.
+//
+// this function picks the best valid epsilon for the location being
+//   rendered.  it does this by comparing, at several points, the iteration
+//   count for an orbit calculated fully with perturbation-theory vs the
+//   iteration count calculated with BLA.  if there's inaccuracy, the epsilon
+//   is considered "bad" and BLAs with a different epsilon are calculated,
+//   and all the test points are checked again.  if an epsilon results in
+//   an accurate rendering, it's considered "better" than the previous "best"
+//   epsilon if it skips more iterations.
+//
+// a binary-ish search is used to find the best epsilon.  since computing and
+//   testing BLAs is fast, this approach is reasonably fast.
 function setupBlaCoefficients(state) {
   if (state === null || !state.done) {
     if (state === null) {
       windowCalc.referenceBlaTables = null;
       sendStatusMessage("Calculating BLA coefficient tables");
     }
-    state = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, windowCalc.referenceOrbit, windowCalc.referencePx, windowCalc.referencePy, windowCalc.edges, state);
-    sendStatusMessage(state.status);
+
+    // if the window's algorithm string specifies a BLA epsilon, use
+    //   that instead of auto-finding the epsilon
+    const algoSpecifiedEpsilon = getBLAEpsilonFromAlgorithm(windowCalc.algorithm);
+    if (algoSpecifiedEpsilon !== null) {
+      const algoSpecifiedEpsilonStr = infNumExpStringTruncToLen(algoSpecifiedEpsilon, 2);
+      while (state === null || !state.done) {
+        state = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, null, windowCalc.referenceOrbit, windowCalc.referencePx, windowCalc.referencePy, windowCalc.edges, state);
+        sendStatusMessage("for ε=" + algoSpecifiedEpsilonStr + ": " + state.status);
+      }
+      if (state.done) {
+        windowCalc.referenceBlaN = windowCalc.n;
+        windowCalc.referenceBlaWindowEdges = structuredClone(windowCalc.edges);
+        windowCalc.referenceBlaTables = state.blas;
+        windowCalc.referenceBlaEpsilon = state.infNumEpsilon;
+      }
+      return state;
+    }
+
+    // find the line from the ref point to the farthest image corner
+    const refPoint = {x:windowCalc.referencePx, y:windowCalc.referencePy};
+    const farthestCorner = findFathestCornerFromPoint(refPoint, windowCalc.edges);
+    //console.log("farthest corner is [(" + infNumToString(farthestCorner.x) + "," + infNumToString(farthestCorner.y) + ")]");
+
+    // calculate test points along that line
+    const testPoints = getTestPointsInOrderFromAToB(farthestCorner, refPoint, windowCalc.math, windowCalc.precision);
+    console.log("testing [" + testPoints.length + "] points to find the best BLA epsilon");
+    sendDebugPointsMessage({
+      points: testPoints.map(x => x.complex)
+    });
+
+    // perturb only algorithm
+    const perturbAlgo = "perturb-" + windowCalc.math.name;
+    const nullBlaTables = null; // for perturb only, pass null blaTables
+    const nullSaCoefficients = null; // for perturb and BLA, pass null saCoefficients
+
+    // perturb results need to only be calculated once for each
+    //   test point, so save them in this array
+    const testPointsPerturb = [];
+
+    // calculate starting BLAs, using starting epsilon
+    let epsilon = windowCalc.math.name === "float" ? infNum(1n, -54n) : infNum(1n, -129n);
+    let epsilonStr = infNumExpStringTruncToLen(epsilon, 2);
+    let totalTestPointBLAIterSkips = 0;
+
+    // the "best" epsilon is the largest value where all test points are accurate
+    let bestEpsilon = null;
+    let bestTotalTestPointBLAIterSkips = 0;
+    // the "smallest bad" is the smallest epsilon where one or more test points are not accurate
+    let smallestBadEpsilon = null;
+
+    // start at farthest test point from the ref point
+    let testPointsCursor = 0;
+
+    const totalTestPoints = testPoints.length;
+    let dx, dy, blaResult;
+    // TODO this loop doesn't return the "state" object yet, so this
+    //   loop (which may be slow) is not cancel-able
+    while (testPointsCursor < totalTestPoints) {
+
+      if (state === null) {
+        while (state === null || !state.done) {
+          state = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, epsilon, windowCalc.referenceOrbit, windowCalc.referencePx, windowCalc.referencePy, windowCalc.edges, state);
+          sendStatusMessage("For ε=" + epsilonStr + ": " + state.status);
+        }
+      }
+
+      // do both perturb and BLA for the point until it escapes or hits n
+      // results look like: {colorpct: iter, blaItersSkipped: blaItersSkipped, blaSkips: blaSkips};
+      if (testPointsPerturb[testPointsCursor] === undefined) {
+        testPointsPerturb[testPointsCursor] =
+                  plotsByName[windowCalc.plot].computeBoundPointColorPerturbOrBla(windowCalc.n, windowCalc.precision, testPoints[testPointsCursor].dx, testPoints[testPointsCursor].dy, perturbAlgo,          windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, nullBlaTables, nullSaCoefficients, windowCalc.smooth);
+      }
+      blaResult = plotsByName[windowCalc.plot].computeBoundPointColorPerturbOrBla(windowCalc.n, windowCalc.precision, testPoints[testPointsCursor].dx, testPoints[testPointsCursor].dy, windowCalc.algorithm, windowCalc.referencePx, windowCalc.referencePy, windowCalc.referenceOrbit, state.blas,    nullSaCoefficients, windowCalc.smooth);
+      totalTestPointBLAIterSkips += blaResult.blaItersSkipped;
+      sendStatusMessage("Tested " + Math.round(testPointsCursor * 100.0 / totalTestPoints) + "% of test pts for ε=" + epsilonStr);
+
+      // if the BLA is accurate, proceed to the test point next closest to the ref point
+      // compare as percentage of n, where 1e-2 is 1%, 1e-3 is 0.1%, etc
+      if ((Math.abs(testPointsPerturb[testPointsCursor].colorpct - blaResult.colorpct)/windowCalc.n) < 1e-5) {
+        testPointsCursor++;
+        if (testPointsCursor === totalTestPoints) {
+          // if all test points were accurate, and this is the best
+          //   epsilon, save it to make the upper bound epsilon larger
+          if (bestEpsilon === null ||
+              (infNumGt(epsilon, bestEpsilon) && totalTestPointBLAIterSkips > bestTotalTestPointBLAIterSkips)) {
+            bestEpsilon = epsilon;
+            bestTotalTestPointBLAIterSkips = totalTestPointBLAIterSkips;
+          // if all test points were accurate, but this is not the
+          //   best epsilon, save it to make the lower bound epsilon smaller
+          } else if (smallestBadEpsilon === null ||
+              (infNumLt(epsilon, smallestBadEpsilon))) {
+            smallestBadEpsilon = epsilon;
+          }
+          // pick a new epsilon below
+          state = null;
+        }
+
+      // if the BLA is not accurate, decrease epsilon and use BLA upon all the already-tried points again
+      } else {
+        if (smallestBadEpsilon === null || infNumLt(epsilon, smallestBadEpsilon)) {
+          smallestBadEpsilon = epsilon;
+        }
+        // pick a new epsilon below
+        state = null;
+      }
+
+      // if state is null here, that's our sigal from the lines above
+      //   that a new epsilon (and thus BLAs) need to be calculated
+      if (state === null) {
+        // halve our epsilon's exponent if no bad epsilon has been
+        //   found (which makes it much larger)
+        if (smallestBadEpsilon === null) {
+          epsilon = infNum(epsilon.v, epsilon.e / 2n);
+
+        // if bestEpsilon is null, double the power of the epsilon
+        //   we tried (which makes it much smaller)
+        } else if (bestEpsilon === null) {
+          epsilon = infNum(epsilon.v, epsilon.e * 2n);
+
+        // try the middle value between smallestBadEpsilon and bestEpsilon
+        } else {
+          let exponentDiff = smallestBadEpsilon.e - bestEpsilon.e;
+          // if the difference between the exponents of smallestBadEpsilon and bestEpsilon is less than 2, we are done
+          if (exponentDiff < 2n) {
+            // compute final BLAs based on the best epsilon, where
+            //   we go two powers of ten smaller, to increase
+            //   render accuracy
+            epsilon = infNum(bestEpsilon.v, bestEpsilon.e - 2n);
+            console.log("final bestEpsilon found to be [" + infNumExpStringTruncToLen(bestEpsilon, 2) + "]");
+            console.log("using adjusted epsilon [" + infNumExpStringTruncToLen(epsilon, 2) + "] to render the image");
+            while (state === null || !state.done) {
+              state = plotsByName[windowCalc.plot].computeBlaTables(windowCalc.algorithm, epsilon, windowCalc.referenceOrbit, windowCalc.referencePx, windowCalc.referencePy, windowCalc.edges, state);
+              sendStatusMessage("For ε=" + epsilonStr + ": " + state.status);
+            }
+            break;
+          } else {
+            epsilon = infNum(smallestBadEpsilon.v, smallestBadEpsilon.e - (exponentDiff >> 1n));
+          }
+        }
+        epsilonStr = infNumExpStringTruncToLen(epsilon, 2);
+        totalTestPointBLAIterSkips = 0;
+        testPointsCursor = 0;
+        console.log("trying new epsilon [" + epsilonStr + "]");
+        sendStatusMessage("Trying new ε of " + epsilonStr);
+      }
+      // if at any point, BLA skips zero iters for all test points, stop decreasing BLA?
+      //   (and note in console that SA should be used for this location)
+    }
   }
   if (state.done) {
     windowCalc.referenceBlaN = windowCalc.n;
@@ -968,6 +1210,9 @@ if (windowCalc.caching) {
     windowCalc.passBlaPixels += msg.data.blaPixelsCount;
     windowCalc.passBlaIterationsSkipped += msg.data.blaIterationsSkipped;
     windowCalc.passBlaSkips += msg.data.blaSkips;
+    windowCalc.totalBlaPixels += msg.data.blaPixelsCount;
+    windowCalc.totalBlaIterationsSkipped += msg.data.blaIterationsSkipped;
+    windowCalc.totalBlaSkips += msg.data.blaSkips;
   }
 
   // pass results up to main thread, then give next chunk to the worker
@@ -984,6 +1229,12 @@ if (windowCalc.caching) {
   };
   if (windowCalc.saCoefficients !== null) {
     status.saItersSkipped = windowCalc.saCoefficients.itersToSkip;
+  }
+  if (windowCalc.totalBlaPixels !== null && windowCalc.referenceBlaEpsilon !== null) {
+    status.totalBlaPixels = windowCalc.totalBlaPixels;
+    status.totalBlaIterationsSkipped = windowCalc.totalBlaIterationsSkipped;
+    status.totalBlaSkips = windowCalc.totalBlaSkips;
+    status.blaEpsilon = infNumExpStringTruncToLen(windowCalc.referenceBlaEpsilon, 2);
   }
   msg.data.calcStatus = status;
   self.postMessage(msg.data);
@@ -1186,6 +1437,13 @@ function setMinibrotNucleusMessage(data) {
   self.postMessage({
     plotId: windowCalc.plotId,
     minibrotNucleusFound: data
+  });
+}
+
+function sendDebugPointsMessage(data) {
+  self.postMessage({
+    plotId: windowCalc.plotId,
+    debugPoints: data
   });
 }
 

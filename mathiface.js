@@ -218,6 +218,12 @@ const infNumMath = {
       y: infNumMul(a.y, real)
     };
   },
+  complexRealDiv: function(a, real, precis) {
+    return {
+      x: infNumDiv(a.x, real, precis),
+      y: infNumDiv(a.y, real, precis)
+    }
+  },
   complexAdd: function(a, b) {
     return {
       x: infNumAdd(a.x, b.x),

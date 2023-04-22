@@ -19,6 +19,9 @@ function getBLAEpsilonFromAlgorithm(algorithm) {
   if (!algorithm.includes("blaepsilon")) {
     return null;
   }
+  if (algorithm.includes("blaepsilonauto")) {
+    return null;
+  }
   try {
     return createInfNumFromExpStr(algorithm.split("-").find(e => e.startsWith("blaepsilon")).substring(10).replaceAll("minus","-"));
   } catch (e) {
@@ -608,8 +611,8 @@ const plots = [{
         az = math.complexAbs(z);
 
         // what all needs to be truncated?
-        z.x = math.truncateToSigDig(z.x, precis);
-        z.y = math.truncateToSigDig(z.y, precis);
+        z.x = infNumTruncateToLen(z.x, precis);
+        z.y = infNumTruncateToLen(z.y, precis);
         r = infNumTruncateToLen(r, precis);
         az = infNumTruncateToLen(az, precis);
       }
@@ -944,7 +947,10 @@ const plots = [{
   },
   // newton's method for finding minibrots/periodic ref orbit locations: https://www.fractalforums.com/index.php?topic=18289.msg90972#msg90972
   "newtonsMethod": function(period, x, y, precis, getNthIterationAndDerivative, fnCtx) {
-    const maxSteps = 32;
+    const maxSteps = 24;
+    // for low-ish values of precis (<400ish) we want to ensure
+    //   we are checking at least 3 fewer digits, so use Math.min()
+    const closeEnoughPrecis = Math.min(precis - 3, Math.floor(precis * 0.995));
 
     // fnCtx allows the loop to be done piecemeal
     if (fnCtx === null) {
@@ -987,8 +993,12 @@ const plots = [{
 
       // if z/dz is tiny, stop
       // how to determine this? compare c to its previous value...
-      if (infNumApproxEq(fnCtx.c.x, cPrev.x, precis) && infNumApproxEq(fnCtx.c.y, cPrev.y, precis)) {
-        console.log("newton's method stopped during the [" + numberWithOrdinalSuffix(fnCtx.i+1) + "] iteration because z/dz got tiny enough to be negligible");
+      if (infNumApproxEq(fnCtx.c.x, cPrev.x, closeEnoughPrecis) && infNumApproxEq(fnCtx.c.y, cPrev.y, closeEnoughPrecis)) {
+        console.log("newton's method stopped during the [" + numberWithOrdinalSuffix(fnCtx.i+1) + "] iteration because z/dz got tiny enough to be negligible (compared with infNumApproxEq() to have the same " + closeEnoughPrecis + " most-significant digits)");
+        break;
+      }
+      if (infNumApproxEqSimple(fnCtx.c.x, cPrev.x, closeEnoughPrecis) && infNumApproxEqSimple(fnCtx.c.y, cPrev.y, closeEnoughPrecis)) {
+        console.log("newton's method stopped during the [" + numberWithOrdinalSuffix(fnCtx.i+1) + "] iteration because z/dz got tiny enough to be negligible (compared with infNumApproxEqSimple() to have the same " + closeEnoughPrecis + " most-significant digits)");
         break;
       }
 
@@ -1287,7 +1297,7 @@ const plots = [{
     }
     return fnContext;
   },
-  "computeBlaTables": function(algorithm, referenceOrbit, referencePx, referencePy, windowEdges, fnContext) {
+  "computeBlaTables": function(algorithm, epsilon, referenceOrbit, referencePx, referencePy, windowEdges, fnContext) {
     //
     // this will attempt to use the standard "merging" idea:
     //
@@ -1362,19 +1372,10 @@ const plots = [{
       //maxAbsC = math.max(maxAbsC, math.complexAbs({x: edgesM.left, y: edgesM.bottom}));
       //maxAbsC = math.max(maxAbsC, math.complexAbs({x: edgesM.right, y: edgesM.bottom}));
 
-      // fractalzoomer uses this for epsilon (error factor):
-      // 1 / ((double)(1L << 23)); // 23 is called "ThreadDraw.BLA_BITS" ... so 1 / 10^23 ?
-      //const defaultFloatEpsilon = infNum(1n, -23n), // this resulted in a wrong image for my "Mitosis: Four" location
-      //const defaultFloatEpsilon = infNum(2n, -24n), // this also resulted in wrong "Mitosis: Four" image
-      //const defaultFloatEpsilon = infNum(2n, -53n), // Zhuoran's other suggested epsilon from https://fractalforums.org/index.php?topic=4360.msg31806#msg31806
-      //const defaultFloatEpsilon = infNum(1n, -53n), // a bit smaller (better for cerebral spin location!)
-      //const defaultFloatEpsilon = infNum(1n, -54n), // smaller by factor of 10, works maybe perfectly for "cerebral spin 2" location w/"bla-float" algo
-      const defaultFloatEpsilon = infNum(1n, -54n);
-      const defaultFloatexpEpsilon = infNum(1n, -129n);
-      const defaultEpsilon = math.name === "floatexp" ? defaultFloatexpEpsilon : defaultFloatEpsilon;
-
       const algoEpsilon = getBLAEpsilonFromAlgorithm(algorithm);
-      const infNumEpsilon = algoEpsilon === null ? defaultEpsilon : algoEpsilon;
+      // if the string algorithm doesn't contain an explicit epsilon
+      //   value, or says blaepsilonauto, use the provided one
+      const infNumEpsilon = algoEpsilon === null ? epsilon : algoEpsilon;
 
       fnContext = {
 
@@ -1411,7 +1412,7 @@ const plots = [{
     //   from the 0th ref iter beyond the maxIter
     for (; level < totalLevels; level++) {
 
-      console.log("computing BLAs at level [" + level + "] of [" + totalLevels + "] for [" + maxIter + "] ref iters");
+      //console.log("computing BLAs at level [" + level + "] of [" + totalLevels + "] for [" + maxIter + "] ref iters");
 
       let levelItersToSkip = 2 ** level; // skip 1 iter at level 0, 2 at level 1, ...
       let prevLevelItersToSkip = 2 ** (level - 1);
@@ -1551,7 +1552,7 @@ const plots = [{
           fnContext.calcBLAsDone = fnContext.calcBLAsDone + calcsDoneThisStatusUpdate;
           fnContext.calcRefIterBLA = refIter + levelItersToSkip; // we want to resume at the next refIter
           fnContext.status = "computed " + (Math.round(fnContext.calcBLAsDone * 10000.0 / fnContext.calcTotalBlas)/100.0) + "% of BLAs";
-          console.log(fnContext.status);
+          //console.log(fnContext.status);
           return fnContext;
         }
       }
@@ -1991,8 +1992,9 @@ const plots = [{
         ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.25);
       } else if (infNumLt(precisScale, createInfNum("1e200"))) {
         ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.1);
+      // for "Mandelbrot Deep Julia Morphing 31" by Microfractal, scale is ~2e1746, and ~1800 significant digits were needed for newton's method
       } else {
-        ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.01);
+        ret.precision = Math.floor(infNumMagnitude(precisScale) * 1.05);
       }
       // for non-worker mode, use only perturb or basic (no SA, no BLA)
       if (!usingWorkers) {

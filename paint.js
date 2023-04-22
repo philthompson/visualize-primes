@@ -2205,6 +2205,7 @@ function resetWindowCalcContext() {
   windowCalc.rightEdgeM = windowCalc.math.createFromInfNum(rightEdge);
   windowCalc.bottomEdgeM = windowCalc.math.createFromInfNum(bottomEdge);
   windowCalc.minibrotNucleusFound = false;
+  windowCalc.debugPoints = [];
 
   resetGoToBoundsValues();
   resetGoToCenterValues();
@@ -2515,6 +2516,7 @@ var calcWorkerOnmessage = function(e) {
     if (showMousePosition) {
       redrawMousePosNotice();
       drawMinibrotNucleusPoint();
+      drawDebugPoints();
     }
     if (imageParametersCaption) {
       drawImageParameters();
@@ -2528,15 +2530,26 @@ var calcWorkerOnmessage = function(e) {
     windowCalc.period = e.data.minibrotNucleusFound.period;
     return;
   }
+  if ("debugPoints" in e.data) {
+    windowCalc.debugPoints = e.data.debugPoints.points;
+    return;
+  }
   // e.calcStatus - {chunks: int, chunksComplete: int, pixelWidth: int, running: boolean, workersCount: string, workersNow: int}
   drawWorkerColorPoints(e);
   if (showMousePosition) {
     redrawMousePosNotice();
     drawMinibrotNucleusPoint();
+    drawDebugPoints();
   }
   windowCalc.workersCountRange = e.data.calcStatus.workersCount;
   if ("saItersSkipped" in e.data.calcStatus) {
     windowCalc.saItersSkipped = e.data.calcStatus.saItersSkipped;
+  }
+  if ("totalBlaPixels" in e.data.calcStatus) {
+    windowCalc.totalBlaPixels = e.data.calcStatus.totalBlaPixels;
+    windowCalc.totalBlaIterationsSkipped = e.data.calcStatus.totalBlaIterationsSkipped;
+    windowCalc.totalBlaSkips = e.data.calcStatus.totalBlaSkips;
+    windowCalc.blaEpsilon = e.data.calcStatus.blaEpsilon;
   }
   const percentComplete = Math.round(e.data.calcStatus.chunksComplete * 100.0 / e.data.calcStatus.chunks);
   if (percentComplete < 100) {
@@ -3715,6 +3728,10 @@ function drawImageParametersOnContext(context2d) {
     if (windowCalc.saItersSkipped !== null) {
       entries.push(["sa skip", windowCalc.saItersSkipped.toString()]);
     }
+    if ("blaEpsilon" in windowCalc && windowCalc.blaEpsilon !== null) {
+      entries.push(["blaskip", Math.round(windowCalc.totalBlaIterationsSkipped/windowCalc.totalBlaPixels).toString()]);
+      entries.push(["  bla ε", windowCalc.blaEpsilon]);
+    }
   } else {
     if (imaginaryCoordinates) {
       entries.unshift([" y (im)", infNumExpString(historyParams.centerY)]);
@@ -3783,8 +3800,32 @@ function drawMinibrotNucleusPoint() {
     return;
   }
 
+  drawDebugPoint(pixelX, pixelY,  "rgb(255,255,255)");
+}
+
+function drawDebugPoints() {
+  if (!windowCalc.hasOwnProperty('debugPoints')) {
+    return;
+  }
+  for (let i = 0; i < windowCalc.debugPoints.length; i++) {
+    // pixel from left = (point x - left edge) / units per pixel
+    const pixelXinfnum = infNumDiv(infNumSub(windowCalc.debugPoints[i].x, windowCalc.leftEdge), windowCalc.eachPixUnits, windowCalc.precision);
+    const pixelX = Math.floor(floatMath.createFromInfNum(pixelXinfnum));
+
+    const pixelYinfnum = infNumDiv(infNumSub(windowCalc.topEdge, windowCalc.debugPoints[i].y), windowCalc.eachPixUnits, windowCalc.precision);
+    const pixelY = Math.floor(floatMath.createFromInfNum(pixelYinfnum));
+
+    if (pixelX < 0 || pixelX >= fitSizeCanvas.width || pixelY < 0 || pixelY >= fitSizeCanvas.height) {
+      continue;
+    }
+
+    drawDebugPoint(pixelX, pixelY,  "rgb(205,205,255)");
+  }
+}
+
+function drawDebugPoint(pixelX, pixelY, colorRgbStr) {
   fitSizeContext.lineWidth = 5.0;
-  fitSizeContext.strokeStyle = "rgb(255,255,255)";
+  fitSizeContext.strokeStyle = colorRgbStr;
   fitSizeContext.beginPath();
   fitSizeContext.moveTo(pixelX - 5, pixelY - 5);
   fitSizeContext.lineTo(pixelX + 5, pixelY + 5);
@@ -3802,7 +3843,7 @@ function drawMinibrotNucleusPoint() {
   fitSizeContext.stroke();
 
   fitSizeContext.lineWidth = 1.0;
-  fitSizeContext.strokeStyle = "rgb(255,255,255)";
+  fitSizeContext.strokeStyle = colorRgbStr;
   fitSizeContext.beginPath();
   fitSizeContext.moveTo(pixelX - 3, pixelY - 3);
   fitSizeContext.lineTo(pixelX + 3, pixelY + 3);
@@ -4439,6 +4480,7 @@ var mouseMoveHandler = function(e) {
       let pos = convertPixelPosToPlanePos(e.pageX, e.pageY);
       drawMousePosNotice(pos.x, pos.y);
       drawMinibrotNucleusPoint();
+      drawDebugPoints();
     }
     return;
   }

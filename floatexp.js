@@ -1,12 +1,3 @@
-/**
- * some parts of this file (as commented below) are based on floatexp.h
- *   by Claude Heiland-Allen, from:
- *   https://code.mathr.co.uk/mandelbrot-perturbator/blob/5349b42b919caa56e6acbcb8c3ee7fba8c5bb8d2:/c/lib/floatexp.h
- *   which may made available under the GPL3+ license (http://www.gnu.org/licenses/gpl.html)
- *
- * at the time of writing the floatexp.h file, in particular though other
- *   files in the same directory do, does NOT contain a GPL3+ notice
- */
 
 // remove starting here for minify
 var doUnitTests = false;
@@ -189,80 +180,84 @@ function floatExpSub(a, b) {
 }
 
 function floatExpEq(a, b) {
-  if (a.v === 0 && b.v === 0) {
+  // if the numbers are BOTH nearly zero, due of
+  //   floating-point imprecision we consider them equal
+  //   regardless of exponent
+  if (Math.abs(a.v) < 1e-15 && Math.abs(b.v) < 1e-15) {
     return true;
   }
   if (a.e !== b.e) {
     return false;
   } else {
-    return a.v === b.v;
+    // if the numbers are nearly equal, we consider them
+    //   equal because of floating-point imprecision
+    return Math.abs(a.v - b.v) < 1e-15;
   }
 }
 
-// ported from floatexp.h
+// assuming a and b have both been aligned...
+// ...but how much slower would it be to align
+//   the given values only if needed?
 function floatExpGt(a, b) {
-  if (a.v == 0) {
-    return b.v < 0;
-  } else if (b.v == 0) {
-    return a.v > 0;
-  } else if (a.v > 0) {
-    if (b.v < 0) {
-      return true;
-    } else if (a.e > b.e) {
-      return true;
-    } else if (a.e < b.e) {
+  // if the numbers are nearly equal, we consider them
+  //   equal because of floating-point imprecision
+  if (Math.abs(a.v - b.v) < 1e-15) {
+    return a.e > b.e;
+  }
+  if (a.v < 0) {
+    if (b.v >= 0) {
       return false;
-    } else {
-      return a.v > b.v;
+    }
+  } else if (a.v > 0) {
+    if (b.v <= 0) {
+      return true;
     }
   } else {
-    if (b.v > 0) {
-      return false;
-    } else if (a.e > b.e) {
-      return false;
-    } else if (a.e < b.e) {
-      return true;
-    } else {
-      return a.v > b.v;
-    }
+    return b.v < 0;
   }
+  if (a.e > b.e) {
+    return true;
+  }
+  if (a.e < b.e) {
+    return false;
+  }
+  return a.v > b.v;
 }
 
-// ported from floatexp.h
+// assuming a and b have both been aligned...
 function floatExpGe(a, b) {
   return floatExpEq(a, b) || floatExpGt(a, b);
 }
 
-// ported from floatexp.h
+// assuming a and b have both been aligned...
+// ...but how much slower would it be to align
+//   the given values only if needed?
 function floatExpLt(a, b) {
-  if (a.v == 0) {
-    return b.v > 0;
-  } else if (b.v == 0) {
-    return a.v < 0;
-  } else if (a.v > 0) {
-    if (b.v < 0) {
-      return false;
-    } else if (a.e > b.e) {
-      return false;
-    } else if (a.e < b.e) {
+  // if the numbers are nearly equal, we consider them
+  //   equal because of floating-point imprecision
+  if (Math.abs(a.v - b.v) < 1e-15) {
+    return a.e < b.e;
+  }
+  if (a.v < 0) {
+    if (b.v >= 0) {
       return true;
-    } else {
-      return a.v < b.v;
+    }
+  } else if (a.v > 0) {
+    if (b.v <= 0) {
+      return false;
     }
   } else {
-    if (b.v > 0) {
-      return true;
-    } else if (a.e > b.e) {
-      return true;
-    } else if (a.e < b.e) {
-      return false;
-    } else {
-      return a.v < b.v;
-    }
+    return b.v > 0;
   }
+  if (a.e > b.e) {
+    return false;
+  }
+  if (a.e < b.e) {
+    return true;
+  }
+  return a.v < b.v;
 }
 
-// ported from floatexp.h
 function floatExpLe(a, b) {
   return floatExpEq(a, b) || floatExpLt(a, b);
 }
@@ -354,97 +349,200 @@ function floatExpLn(a) {
 // remove starting here for minify
 if (doUnitTests) {
 
-  let a = createFloatExpFromInfNum({v:123n, e:-2n});
-  let b = createFloatExpFromInfNum({v:10n, e:0n});
-  let c = floatExpMul(a, b);
-  console.log(a, "*", b, "=", c, " // 1.23 * 10 = 12.3");
+  const runUnitTest = function(testFn) {
+    if (!testFn()) {
+      console.log("unit test FAILED:\n" + testFn.toString());
+    }
+  }
 
-  a = createFloatExpFromInfNum({v:123n, e:0n});
-  b = createFloatExpFromInfNum({v:1n, e:-2n});
-  c = floatExpMul(a, b);
-  console.log(a, "*", b, "=", c, " // 123 * 0.01 = 1.23");
+  runUnitTest(function() {
+    // 1.23 * 10 = 12.3
+    const a = createFloatExpFromInfNum({v:123n, e:-2n});
+    const b = createFloatExpFromInfNum({v:10n, e:0n});
+    const c = floatExpMul(a, b);
+    return floatExpEq(c, createFloatExpFromString("12.3"));
+  });
 
-  a = createFloatExpFromString("1.23");
-  b = createFloatExpFromString("10");
-  c = floatExpMul(a, b);
-  console.log(a, "*", b, "=", c, " // 1.23 * 10 = 12.3");
+  runUnitTest(function() {
+    // 123 * 0.01 = 1.23
+    const a = createFloatExpFromInfNum({v:123n, e:0n});
+    const b = createFloatExpFromInfNum({v:1n, e:-2n});
+    const c = floatExpMul(a, b);
+    return floatExpEq(c, createFloatExpFromString("1.23"));
+  });
 
-  a = createFloatExpFromString("123");
-  b = createFloatExpFromString("0.01");
-  c = floatExpMul(a, b);
-  console.log(a, "*", b, "=", c, " // 123 * 0.01 = 1.23");
+  runUnitTest(function() {
+    // 1.23 * 10 = 12.3
+    const a = createFloatExpFromString("1.23");
+    const b = createFloatExpFromString("10");
+    const c = floatExpMul(a, b);
+    return floatExpEq(c, createFloatExpFromString("12.3"));
+  });
 
-  a = createFloatExpFromString("100");
-  b = createFloatExpFromString("0.25");
-  c = floatExpDiv(a, b);
-  console.log(a, "/", b, "=", c, " // 100 / 0.25 = 400");
+  runUnitTest(function() {
+    // 123 * 0.01 = 1.23
+    const a = createFloatExpFromString("123");
+    const b = createFloatExpFromString("0.01");
+    const c = floatExpMul(a, b);
+    return floatExpEq(c, createFloatExpFromString("1.23"));
+  });
 
-  a = createFloatExpFromString("0.123");
-  b = createFloatExpFromString("10");
-  c = floatExpDiv(a, b);
-  console.log(a, "/", b, "=", c, " // 0.123 / 10 = 0.0123");
+  runUnitTest(function() {
+    // 100 / 0.25 = 400
+    const a = createFloatExpFromString("100");
+    const b = createFloatExpFromString("0.25");
+    const c = floatExpDiv(a, b);
+    return floatExpEq(c, createFloatExpFromString("400"));
+  });
 
-  a = createFloatExpFromString("123");
-  b = createFloatExpFromString("432");
-  c = floatExpAdd(a, b);
-  console.log(a, "+", b, "=", c, " // 123 + 432 = 555");
+  runUnitTest(function() {
+    // 0.123 / 10 = 0.0123
+    const a = createFloatExpFromString("0.123");
+    const b = createFloatExpFromString("10");
+    const c = floatExpDiv(a, b);
+    return floatExpEq(c, createFloatExpFromString("0.0123"));
+  });
 
-  a = createFloatExpFromString("123");
-  b = createFloatExpFromString("0.456");
-  c = floatExpAdd(a, b);
-  console.log(a, "+", b, "=", c, " // 123 + 0.456 = 123.456");
+  // with floating-point numbers' imperfect precision,
+  //   we run into 5.55000...001e2 != 5.55e2
+  runUnitTest(function() {
+    // 123 + 432 = 555
+    const a = createFloatExpFromString("123");
+    const b = createFloatExpFromString("432");
+    const c = floatExpAdd(a, b);
+    return floatExpEq(c, createFloatExpFromString("555"));
+  });
 
-  a = createFloatExpFromString("123");
-  b = createFloatExpFromString("23");
-  c = floatExpSub(a, b);
-  console.log(a, "-", b, "=", c, " // 123 - 23 = 100");
+  // with floating-point numbers' imperfect precision,
+  //   we run into 1.234559999...e2 != 1.23456e2
+  runUnitTest(function() {
+    // 123 + 0.456 = 123.456
+    const a = createFloatExpFromString("123");
+    const b = createFloatExpFromString("0.456");
+    const c = floatExpAdd(a, b);
+    return floatExpEq(c, createFloatExpFromString("123.456"));
+  });
 
-  a = createFloatExpFromString("1");
-  b = createFloatExpFromString("0.25");
-  c = floatExpSub(a, b);
-  console.log(a, "-", b, "=", c, " // 11 - 0.25 = 0.75");
+  runUnitTest(function() {
+    // 123 - 23 = 100
+    const a = createFloatExpFromString("123");
+    const b = createFloatExpFromString("23");
+    const c = floatExpSub(a, b);
+    return floatExpEq(c, createFloatExpFromString("100"));
+  });
 
-  a = createFloatExpFromString("1");
-  b = createFloatExpFromString("-0.5");
-  c = floatExpSub(a, b);
-  console.log(a, "-", b, "=", c, " // 1 - -0.5 = 1.5");
+  runUnitTest(function() {
+    // 1 - 0.25 = 0.75
+    const a = createFloatExpFromString("1");
+    const b = createFloatExpFromString("0.25");
+    const c = floatExpSub(a, b);
+    return floatExpEq(c, createFloatExpFromString("0.75"));
+  });
 
-  a = createFloatExpFromString("2.00");
-  b = createFloatExpFromString("100");
-  c = floatExpGt(a, b);
-  console.log(a, ">", b, "=", c, " // 2 > 100 = false");
+  runUnitTest(function() {
+    // 1 - -0.5 = 1.5
+    const a = createFloatExpFromString("1");
+    const b = createFloatExpFromString("-0.5");
+    const c = floatExpSub(a, b);
+    return floatExpEq(c, createFloatExpFromString("1.5"));
+  });
 
-  a = createFloatExpFromString("0");
-  b = createFloatExpFromString("-0.00123");
-  c = floatExpGt(a, b);
-  console.log(a, ">", b, "=", c, " // 0 > -0.00123 = true");
+  runUnitTest(function() {
+    // 2 > 100 = false
+    const a = createFloatExpFromString("2.00");
+    const b = createFloatExpFromString("100");
+    return floatExpGt(a, b) === false;
+  });
 
-  a = createFloatExpFromString("2.00");
-  b = createFloatExpFromString("100");
-  c = floatExpGe(a, b);
-  console.log(a, ">=", b, "=", c, " // 2 >= 100 = false");
+  runUnitTest(function() {
+    // with floating-point numbers' imperfect precision,
+    //   we run into 5.55000...001e2 > 5.55e2
+    const a = createFloatExpFromString("123");
+    const b = createFloatExpFromString("432");
+    const c = floatExpAdd(a, b);
+    const d = createFloatExpFromString("555")
+    return floatExpGt(c, d) === false;
+  });
 
-  a = createFloatExpFromString("2.00");
-  b = createFloatExpFromString("100");
-  c = floatExpLt(a, b);
-  console.log(a, "<", b, "=", c, " // 2 < 100 = true");
+  runUnitTest(function() {
+    // 0 > -0.00123 = true
+    const a = createFloatExpFromString("0");
+    const b = createFloatExpFromString("-0.00123");
+    return floatExpGt(a, b);
+  });
 
-  a = floatExpAlign({e:-709, v:1.071});
-  b = {e:0, v:0};
-  c = floatExpLt(a, b);
-  console.log(a, "<", b, "=", c, " // 1.071*10^-709 < 0 = false");
+  runUnitTest(function() {
+    // 0 > -0.00123 = true
+    const a = createFloatExpFromString("0");
+    const b = createFloatExpFromString("0.00123");
+    return floatExpGt(a, b) === false;
+  });
 
-  a = createFloatExpFromString("2.00");
-  b = createFloatExpFromString("100");
-  c = floatExpLe(a, b);
-  console.log(a, "<=", b, "=", c, " // 2 <= 100 = true");
+  runUnitTest(function() {
+    // 0 > -0.00123 = true
+    const a = createFloatExpFromString("0.001");
+    const b = createFloatExpFromString("0");
+    return floatExpGt(a, b);
+  });
 
-  a = createFloatExpFromInfNum({v:2n, e:7n});
-  c = floatExpSqrt(a);
-  console.log("sqrt(", a, ") =", c, " // sqrt({v:2, e:7}) = {v:Math.sqrt(2)*Math.sqrt(10), e:3}");
+  runUnitTest(function() {
+    // 0 > -0.00123 = true
+    const a = createFloatExpFromString("-0.001");
+    const b = createFloatExpFromString("0");
+    return floatExpGt(a, b) === false;
+  });
 
-  a = createFloatExpFromInfNum({v:2n, e:10n});
-  c = floatExpSqrt(a);
-  console.log("sqrt(", a, ") =", c, " // sqrt({v:2, e:10}) = {v:Math.sqrt(2), e:5}");
+  runUnitTest(function() {
+    // 2 >= 100 = false
+    const a = createFloatExpFromString("2.00");
+    const b = createFloatExpFromString("100");
+    return floatExpGe(a, b) === false;
+  });
+
+  runUnitTest(function() {
+    // 2 < 100 = true
+    const a = createFloatExpFromString("2.00");
+    const b = createFloatExpFromString("100");
+    return floatExpLt(a, b) ;
+  });
+
+  runUnitTest(function() {
+    // 1.071*10^-709 < 0 = false
+    const a = floatExpAlign({e:-709, v:1.071});
+    const b = {e:0, v:0};
+    return floatExpLt(a, b) === false;
+  });
+
+  runUnitTest(function() {
+    // with floating-point numbers' imperfect precision,
+    //   we run into 5.55e2 < 5.55000...001e2
+    const a = createFloatExpFromString("123");
+    const b = createFloatExpFromString("432");
+    const c = floatExpAdd(a, b);
+    const d = createFloatExpFromString("555")
+    return floatExpLt(d, c) === false;
+  });
+
+  runUnitTest(function() {
+    // 2 <= 100 = true
+    const a = createFloatExpFromString("2.00");
+    const b = createFloatExpFromString("100");
+    return floatExpLe(a, b);
+  });
+
+  runUnitTest(function() {
+    // sqrt({v:2, e:7}) = {v:Math.sqrt(2)*Math.sqrt(10), e:3}
+    const a = createFloatExpFromInfNum({v:2n, e:7n});
+    const b = {v:Math.sqrt(2)*Math.sqrt(10), e:3};
+    return floatExpEq(floatExpSqrt(a), b);
+  });
+
+  runUnitTest(function() {
+    // sqrt({v:2, e:10}) = {v:Math.sqrt(2), e:5}
+    const a = createFloatExpFromInfNum({v:2n, e:10n});
+    const b = {v:Math.sqrt(2), e:5};
+    return floatExpEq(floatExpSqrt(a), b);
+  });
+
 }
 // remove ending here for minify

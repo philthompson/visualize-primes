@@ -138,7 +138,7 @@ function normInfNum(argA, argB) {
     l = a;
   }
 
-  var expDiff = l.e - s.e;
+  const expDiff = l.e - s.e;
   // multiply larger value, and reduce its exponent accordingly,
   //   to get matching exponents
   const newL = infNum(l.v * (10n ** expDiff), l.e - expDiff);

@@ -296,12 +296,12 @@ function setupCheckReferenceOrbit() {
     let yDiff = infNumSub(windowCalc.referencePy, newReferencePy);
     let squaredDiff = infNumAdd(infNumMul(xDiff, xDiff), infNumMul(yDiff, yDiff));
 
-    // if the reference point is a periodic point, as long as it's still
-    //   within the middle 90% of the image (by radius) then it can be re-used
-    // if not a periodic point, then if it's in the middle 30% of the
-    //   image we'll re-use it
-    let maxAllowablePixelsMove = windowCalc.referencePeriod > 0 ?
-      Math.ceil(Math.min(windowCalc.canvasHeight, windowCalc.canvasWidth) * 0.45)
+    // if using BLA, and the ref point is a periodic, as long as it's still
+    //   within the middle 98% of the image (by radius) then it can be re-used
+    // otherwise, we'll re-use it if it's in the middle 30% of the
+    //   image
+    let maxAllowablePixelsMove = (windowCalc.referencePeriod > 0 && windowCalc.algorithm.includes("bla-")) ?
+      Math.ceil(Math.min(windowCalc.canvasHeight, windowCalc.canvasWidth) * 0.49)
       :
       Math.ceil(Math.min(windowCalc.canvasHeight, windowCalc.canvasWidth) * 0.15);
     let maxAllowableMove = infNumMul(windowCalc.eachPixUnits, infNum(BigInt(maxAllowablePixelsMove), 0n));
@@ -313,6 +313,13 @@ function setupCheckReferenceOrbit() {
       console.log("the previous ref orbit is NOT within [" + maxAllowablePixelsMove + "] pixels of the center, so we need a new ref orbit");
     } else {
       console.log("the previous ref orbit is within [" + maxAllowablePixelsMove + "] pixels of the center, so it's still valid");
+      if (windowCalc.referencePeriod > 0 && windowCalc.algorithm.includes("bla-")) {
+        setMinibrotNucleusMessage({
+          x: windowCalc.referencePx,
+          y: windowCalc.referencePy,
+          period: windowCalc.referencePeriod
+        });
+      }
     }
   }
 
@@ -556,9 +563,10 @@ function setupBlaCoefficients(state) {
     // calculate test points along that line
     const testPoints = getTestPointsInOrderFromAToB(farthestCorner, refPoint, windowCalc.math, windowCalc.precision);
     console.log("testing [" + testPoints.length + "] points to find the best BLA epsilon");
-    sendDebugPointsMessage({
-      points: testPoints.map(x => x.complex)
-    });
+    // set the test points as the debug points to be drawn, toggled with R key
+    //sendDebugPointsMessage({
+    //  points: testPoints.map(x => x.complex)
+    //});
 
     // perturb only algorithm
     const perturbAlgo = "perturb-" + windowCalc.math.name;

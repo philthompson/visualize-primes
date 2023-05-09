@@ -786,7 +786,7 @@ function bigIntSqrtHerons(a) {
     nextGuess = (currentGuess + (a/currentGuess)) >> 1n;
     guessDiff = currentGuess - nextGuess;
     //++heronsIterations;
-  } while (guessDiff > 1n || guessDiff < -1n)
+  } while (guessDiff > 1n || guessDiff < -1n);
 
   return nextGuess;
 }

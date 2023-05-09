@@ -491,6 +491,7 @@ const plots = [{
       return fnContext;
     }
   },
+  // remove starting here for minify
   // based on garrit's matlab code: https://fractalforums.org/index.php?topic=3805.msg24312#msg24312
   // this function isn't used in v0.10.0, instead, a version of this function
   //   that itself calls the newton's method function is used
@@ -548,6 +549,7 @@ const plots = [{
       }
     }
   },
+  // remove ending here for minify
   // based on garrit's matlab code: https://fractalforums.org/index.php?topic=3805.msg24312#msg24312
   // this is the function used in v0.10.0 because it can resume looking for deeper, higher-period
   //   minibrots if a found nucleus is off-screen.  it can resume because it itself calls the
@@ -674,6 +676,7 @@ const plots = [{
     fnContext.done = true;
     return fnContext;
   },
+  // remove starting here for minify
   // based on garrit's matlab code: https://fractalforums.org/index.php?topic=3805.msg24312#msg24312
   // this function was never used: the 1st order version is much much faster
   "findPeriodBallArithmetic2ndOrder": function(n, precis, algorithm, x, y, width, height, doCont) {
@@ -762,6 +765,8 @@ const plots = [{
     }
     return -1;
   },
+  // remove ending here for minify
+  // remove starting here for minify
   // this function was never used: the 1st order version is much much faster
   "findMinibrotWithBallArithmetic2ndOrderAndNewton": function(n, precis, algorithm, x, y, viewWidth, viewHeight, getNthIterationAndDerivative, newtonsMethod) {
     // in ball centered on (x+yi) find period (up to n) of nucleus
@@ -858,6 +863,7 @@ const plots = [{
     //return -1;
     return null;
   },
+  // remove ending here for minify
   // this is largely the same as "computeReferenceOrbit" above, but also
   //   performs iterations of the derivative mandelbrot function
   // x and y must be infNum objects
@@ -1440,7 +1446,7 @@ const plots = [{
             r: null, // computed here, below
             r2: null, // computed here, below
             itersToSkip: levelItersToSkip
-          }
+          };
 
           // claude's orig line, then does Zhouran's correction apply here?
           //   r = max(0,  epsilon (|Z| - |B| |c|)  / (|A| + 1))
@@ -1502,7 +1508,7 @@ const plots = [{
             r: null, // computed here, below
             r2: null, // computed here, below
             itersToSkip: levelItersToSkip
-          }
+          };
 
           // this is an attempt to implement claude's merging: https://fractalforums.org/index.php?topic=4360.msg32142#msg32142
           // with this enabled, plus checking Δz and not Z, i was getting
@@ -1829,13 +1835,11 @@ const plots = [{
           lastAdded =
             math.add(
               math.mul(
-                oneHalf
-                ,
+                oneHalf,
                 math.sin(
                   math.mul(stripeDensity, math.atan(z.y, z.x))
                 )
-              )
-              ,
+              ),
               oneHalf
             );
           avg = math.add(avg, lastAdded);

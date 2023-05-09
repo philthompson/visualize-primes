@@ -222,7 +222,7 @@ const infNumMath = {
     return {
       x: infNumDiv(a.x, real, precis),
       y: infNumDiv(a.y, real, precis)
-    }
+    };
   },
   complexAdd: function(a, b) {
     return {

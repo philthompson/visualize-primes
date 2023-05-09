@@ -2101,7 +2101,7 @@ function resetWindowCalcContext() {
   }
 
   // set the plot-specific global precision to use first
-  if (historyParams.algorithm != "auto" && historyParams.algorithm != "auto-stripes") {
+  if (historyParams.algorithm != "auto" && historyParams.algorithm != "auto-stripes" && historyParams.algorithm != "bla-auto") {
     let algoPrecis;
     try {
       algoPrecis = parseInt(historyParams.algorithm.split("-").find(e => e.startsWith("sigdig")).substring(6));

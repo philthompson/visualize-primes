@@ -492,6 +492,8 @@ const plots = [{
     }
   },
   // based on garrit's matlab code: https://fractalforums.org/index.php?topic=3805.msg24312#msg24312
+  // this function isn't used in v0.10.0, instead, a version of this function
+  //   that itself calls the newton's method function is used
   "findPeriodBallArithmetic1stOrder": function(n, precis, algorithm, x, y, width, height, doCont) {
     // in ball centered on (x+yi) find period (up to n) of nucleus
     // doCont = false normally
@@ -546,6 +548,11 @@ const plots = [{
       }
     }
   },
+  // based on garrit's matlab code: https://fractalforums.org/index.php?topic=3805.msg24312#msg24312
+  // this is the function used in v0.10.0 because it can resume looking for deeper, higher-period
+  //   minibrots if a found nucleus is off-screen.  it can resume because it itself calls the
+  //   "getNthIterationAndDerivative()" and "newtonsMethod()" functions, which are passed as
+  //   parameters
   "findMinibrotWithBallArithmetic1stOrderAndNewton": function(n, precis, algorithm, x, y, viewWidth, viewHeight, getNthIterationAndDerivative, newtonsMethod, fnContext) {
     // in ball centered on (x+yi) find period (up to n) of nucleus
     // doCont = false normally
@@ -668,6 +675,7 @@ const plots = [{
     return fnContext;
   },
   // based on garrit's matlab code: https://fractalforums.org/index.php?topic=3805.msg24312#msg24312
+  // this function was never used: the 1st order version is much much faster
   "findPeriodBallArithmetic2ndOrder": function(n, precis, algorithm, x, y, width, height, doCont) {
     // in ball centered on (x+yi) find period (up to n) of nucleus
     // doCont = false normally
@@ -754,6 +762,7 @@ const plots = [{
     }
     return -1;
   },
+  // this function was never used: the 1st order version is much much faster
   "findMinibrotWithBallArithmetic2ndOrderAndNewton": function(n, precis, algorithm, x, y, viewWidth, viewHeight, getNthIterationAndDerivative, newtonsMethod) {
     // in ball centered on (x+yi) find period (up to n) of nucleus
     // doCont = false normally
@@ -969,7 +978,7 @@ const plots = [{
       if (fnCtx.nthIterState === null || !fnCtx.nthIterState.done) {
         fnCtx.nthIterState = getNthIterationAndDerivative(period, fnCtx.c.x, fnCtx.c.y, precis, fnCtx.nthIterState);
 
-        fnCtx.status = "for " + numberWithOrdinalSuffix(fnCtx.i+1) + " newton iteration, " + fnCtx.nthIterState.status;
+        fnCtx.status = "for " + numberWithOrdinalSuffix(fnCtx.i+1) + " Newton's iteration, " + fnCtx.nthIterState.status;
         return fnCtx;
       }
       // if dz is zero, stop
@@ -1322,15 +1331,6 @@ const plots = [{
     //   ref orbit iteration, which scales linearly with the number of
     //   ref orbit iterations, which is O(n) time/space complexity.
     //
-    //
-
-    //
-    // !! T O D O !!
-    //
-    // - re-compute validity radius when the window changes, even if the
-    //     reference orbit can remain the same -- might need to create
-    //     a separate function to do that
-    //
 
     const math = selectMathInterfaceFromAlgorithm(algorithm);
 
@@ -1489,12 +1489,12 @@ const plots = [{
           let x = fnContext.blasByRefIter.get(refIter).find(e => e.itersToSkip == prevLevelItersToSkip);
           let y = fnContext.blasByRefIter.get(refIter + prevLevelItersToSkip).find(e => e.itersToSkip == prevLevelItersToSkip);
 
-          if (x === undefined) {
-            console.log("bah");
-          }
-          if (y === undefined) {
-            console.log("gah");
-          }
+          //if (x === undefined) {
+          //  console.log("bah");
+          //}
+          //if (y === undefined) {
+          //  console.log("gah");
+          //}
 
           let bla = {
             a: math.complexMul(x.a, y.a),
@@ -1515,12 +1515,12 @@ const plots = [{
           //r = math.min(x.r, r);
 
           // this is the merging from fractalzoomer
-          // with this enabled, plus checking Δz and not Z, i was getting
-          //   BLAs found to be valid but the overall image doesn't look
-          //   right... might be a problem with the perturb/BLA sequence
-          //   in the iteration loop
           //double r = Math.min(Math.sqrt(x.r2), Math.max(        0, (                 Math.sqrt(y.r2) - xB * blaSize) / xA));
-          let r =      math.min(          x.r,   math.max(math.zero, math.div(math.sub(y.r,     math.mul(math.complexAbs(x.b), fnContext.maxAbsC)), math.complexAbs(x.a))));
+          // it looks like the two below options give similar results
+          // this is from fractalzoomer? where the merged validity radius is computed using the to-be-merged A and B coefficients
+          //let r =      math.min(          x.r,   math.max(math.zero, math.div(math.sub(y.r,     math.mul(math.complexAbs(x.b), fnContext.maxAbsC)), math.complexAbs(x.a))));
+          // this is from claude's post, where the merged validity radius is computed using the already-merged A and B coefficients
+          let r =      math.min(          x.r,   math.max(math.zero, math.div(math.sub(y.r,     math.mul(math.complexAbs(bla.b), fnContext.maxAbsC)), math.complexAbs(bla.a))));
 
           // this is from forum user "GBy": https://fractalforums.org/index.php?topic=4360.msg33007#msg33007
           //let absAx = math.complexAbs(x.a);
@@ -1937,7 +1937,7 @@ const plots = [{
         precision: 12,
         algorithm: "basic-float"
       };
-      if (algorithm == "auto-stripes") {
+      if (algorithm === "auto-stripes") {
         // for stripes coloring, we don't yet have a floatexp implementation
         //   of sin() and atan() functions, so we cannot use floatexp
         // also, we don't have series approximation working for stripes
@@ -1945,6 +1945,23 @@ const plots = [{
           ret.algorithm = "perturb-stripes-stripedensity6-float";
         } else {
           ret.algorithm = "basic-stripes-stripedensity6-float";
+        }
+      } else if (algorithm === "bla-auto") {
+        // BLA is not (yet?) compatible with stripes coloring, so
+        //   just select the appropriate math/numbers implementation
+        //   depending on scale
+        if (infNumGe(precisScale, createInfNum("1e304"))) {
+          ret.algorithm = "bla-floatexp";
+        // with minimal testing, it seems BLA only starts skipping
+        //   iterations and becoming faster than plain perturbation
+        //   around a scale of 1e25 (for some locations, where others
+        //   do not skip iterations with BLA until deeper)
+        } else if (infNumGe(precisScale, createInfNum("1e25"))) {
+          ret.algorithm = "bla-float";
+        } else if (infNumGe(precisScale, createInfNum("3e13"))) {
+          ret.algorithm = "perturb-float";
+        } else {
+          ret.algorithm = "basic-float";
         }
       } else {
         if (infNumGe(precisScale, createInfNum("1e800"))) {
@@ -2033,6 +2050,7 @@ const plots = [{
         {algorithm: "basic-stripes-stripedensity2-float",name: "esc. time w/wide stripes coloring, floating pt."},
         {algorithm: "basic-stripes-stripedensity8-float",name: "esc. time w/narrow stripes coloring, floating pt."},
         {algorithm: "perturb-stripes-stripedensity6-float",name: "perturb. w/stripes coloring, floating pt."},
+        {algorithm: "bla-auto",                          name: "automatic with BLA"},
         {algorithm: "perturb-sapx6.4-floatexp-sigdig64", name: "custom"}
       ];
     },

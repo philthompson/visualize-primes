@@ -616,7 +616,7 @@ function setupBlaCoefficients(state) {
 
       // if the BLA is accurate, proceed to the test point next closest to the ref point
       // compare as percentage of n, where 1e-2 is 1%, 1e-3 is 0.1%, etc
-      if ((Math.abs(testPointsPerturb[testPointsCursor].colorpct - blaResult.colorpct)/windowCalc.n) < 1e-5) {
+      if ((Math.abs(testPointsPerturb[testPointsCursor].colorpct - blaResult.colorpct)/testPointsPerturb[testPointsCursor].colorpct) < 1e-5) {
         testPointsCursor++;
         if (testPointsCursor === totalTestPoints) {
           // if all test points were accurate, and this is the best
